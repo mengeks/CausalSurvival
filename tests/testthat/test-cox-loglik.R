@@ -1,0 +1,128 @@
+library(here)
+library(survival)
+source(here("R/cox-loglik.R"))
+
+generate_cox_data <- function(n, p, true_beta, baseline_hazard = 0.1, event_prob = 0.7, offset = NULL) {
+  # Simulate covariates
+  covar <- matrix(rnorm(n * p), nrow = n, ncol = p)
+  
+  # Generate column names for covariates
+  colnames(covar) <- paste0("covar.", 1:p)
+  
+  # Simulate survival times and censoring
+  linear_predictor <- covar %*% true_beta
+  if (is.null(offset)) {
+    offset <- rep(0, n)  # Default offset is 0 if none provided
+  }
+  time <- rexp(n, rate = baseline_hazard * exp(linear_predictor + offset))
+  status <- rbinom(n, 1, event_prob)  # event_prob events (deaths), remainder censored
+  
+  # No strata for simplicity
+  strata <- rep(1, n)
+  
+  # Return data as a list
+  return(list(time = time, status = status, covar = covar, strata = strata, offset = offset))
+}
+
+# Step 3: Perform Comparison with coxph
+compare_with_coxph <- function(time, status, covar, offset = NULL) {
+  # Convert to data frame for coxph
+  data <- 
+    data.frame(time = time, status = status, covar)
+  
+  # Fit the Cox model using coxph, dynamically generating the formula based on the number of covariates
+  formula_string <- paste("Surv(time, status) ~", 
+                          paste(colnames(covar), collapse = " + "))
+  formula <- as.formula(formula_string)
+  
+  # If offset is provided, include it in the coxph call
+  if (!is.null(offset)) {
+    data$offset <- offset  # Add the offset to the data frame
+    coxph_fit <- coxph(formula, data = data, offset = offset)
+  } else {
+    coxph_fit <- coxph(formula, data = data)
+  }
+  
+  # Extract the estimated coefficients
+  coxph_coefs <- coef(coxph_fit)
+  
+  # Return the coxph model object and coefficients
+  return(list(model = coxph_fit, coefs = coxph_coefs))
+}
+
+
+# Step 4: Test Function to Run Everything and Output the Results
+test_cox_loglik <- function(n, p, true_beta, init_beta, offset = NULL) {
+  # Generate the data with or without offset
+  data <- generate_cox_data(n = n, p = p, true_beta = true_beta, offset = offset)
+  
+  # Fit the model using custom Cox log-likelihood
+  result <- fit_custom_cox_model(init_beta = init_beta, 
+                                 time = data$time, 
+                                 status = data$status, 
+                                 covar = data$covar, 
+                                 strata = data$strata, 
+                                 offset = data$offset)
+  
+  # Print the true beta values
+  print("True beta values:")
+  print(true_beta)
+  
+  # Print the optimized beta estimates
+  print("Optimized beta estimates from custom model:")
+  print(result$par)
+  
+  # Compare with true beta
+  beta_diff <- result$par - true_beta
+  print("Difference between estimated beta and true beta:")
+  print(beta_diff)
+  
+  # Compare with coxph
+  coxph_result <- compare_with_coxph(time = data$time, status = data$status, covar = data$covar)
+  
+  # Print the coxph coefficients
+  print("Beta estimates from coxph model:")
+  print(coxph_result$coefs)
+  
+  # Compare custom model beta with coxph beta
+  coxph_diff <- result$par - coxph_result$coefs
+  print("Difference between custom model beta and coxph beta:")
+  print(coxph_diff)
+  
+  # Print the log-likelihood at the optimum
+  print("Log-likelihood at the optimum (custom model):")
+  print(-result$value)
+}
+
+
+# Step 5: Run the Test
+set.seed(123)
+# Test 1: p = 1
+n1 <- 1000  # Number of observations
+p1 <- 1     # Number of covariates
+true_beta1 <- 0.5  # True beta coefficient
+init_beta1 <- 0    # Initial guess for beta
+
+cat("\nRunning test for p = 1\n")
+test_cox_loglik(
+  n = n1, p = p1, 
+  true_beta = true_beta1, 
+  init_beta = init_beta1)
+
+# Test 2: p = 3
+n2 <- 1000  # Number of observations
+p2 <- 3     # Number of covariates
+true_beta2 <- c(0.5, -0.3, 0.2)  # True beta coefficients
+init_beta2 <- rep(0, p2)         # Initial guess for beta
+
+cat("\nRunning test for p = 3\n")
+test_cox_loglik(n = n2, p = p2, true_beta = true_beta2, init_beta = init_beta2)
+
+
+source(here("R/cox-loglik.R"))
+# Test 3: p = 3 with offset
+offset_vector <- 
+  rnorm(n2, mean = 2, sd = 1)  # Generate a non-zero offset
+
+cat("\nRunning test for p = 3 with offset\n")
+test_cox_loglik(n = n2, p = p2, true_beta = true_beta2, init_beta = init_beta2, offset = offset_vector)

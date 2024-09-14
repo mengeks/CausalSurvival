@@ -1,0 +1,14 @@
+{
+  "experiment": {
+    "R": 200,
+    "n": 200,
+    "is_time_varying": false,
+    "methods": {
+      "DINA": {
+        "enabled": true,
+        "nuisance_method": "cox",
+        "final_model_method": "custom_cox"
+      }
+    }
+  }
+}
