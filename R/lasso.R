@@ -109,7 +109,7 @@ cross_fit <- function(X_ns, W, U, Delta, k_folds) {
 }
 
 # Main R-Lasso function with cross-fitting
-rlasso <- function(train_data, pred_data = NULL, k_folds = 5) {
+rlasso_cross_fit <- function(train_data, pred_data = NULL, k_folds = 5) {
   
   # Step 1: Extract Covariates, Treatment, Survival Time, and Censoring Indicator
   X <- as.matrix(train_data[,paste0("X.", 1:5)])  # Covariates as matrix
@@ -154,6 +154,78 @@ rlasso <- function(train_data, pred_data = NULL, k_folds = 5) {
     X_pred <- as.matrix(pred_data[, paste0("X.", 1:5)])
     X_ns_pred <- get_ns_features(X = X_pred)  # Transform the new data features
     eta_0_hat <- predict(tau_fit, newx = X_ns_pred, s = "lambda.min")
+    eta_0_hat_vec <- eta_0_hat[, 1]
+  } else {
+    eta_0_hat_vec <- NULL
+  }
+  
+  return(list(tau_hat = tau_hat, eta_0_hat = eta_0_hat_vec))
+}
+
+
+rlasso <- function(train_data, pred_data = NULL) {
+  
+  # Step 1: Extract Covariates, Treatment, Survival Time, and Censoring Indicator
+  X <- as.matrix(train_data[,paste0("X.", 1:5)])  # Covariates as matrix
+  W <- as.numeric(train_data$W)                  # Treatment as numeric vector (0 or 1)
+  U <- as.numeric(train_data$U)                  # Survival time as numeric
+  Delta <- as.numeric(train_data$Delta)          # Event indicator as numeric (1 or 0)
+  
+  ### Step 2: Apply the feature transformation using get_ns_features (same as in S-Lasso)
+  X_ns <- get_ns_features(X = X)  # Transformed features
+  
+  nobs <- nrow(X_ns)
+  pobs <- ncol(X_ns)
+  
+  # Cross-validation fold assignments
+  k_folds <- floor(max(3, min(10, nobs / 4)))
+  foldid <- sample(rep(seq(k_folds), length = nobs))
+  
+  ### Step 3: Fit m(X) (Outcome model)
+  # Fit Cox proportional hazards model to estimate m(X) = E[Y|X]
+  m_fit <- glmnet::cv.glmnet(X_ns, Surv(U, Delta), family = "cox", foldid = foldid, standardize = FALSE)
+  
+  # Obtain the predicted outcome (baseline survival) m(X)
+  m_hat <- predict(m_fit, newx = X_ns, s = "lambda.min")
+  
+  ### Step 4: Fit p(X) (Propensity score model)
+  # Fit logistic regression for binary treatment W to estimate p(X) = E[W|X]
+  p_fit <- glmnet::cv.glmnet(X_ns, W, family = "binomial", foldid = foldid, standardize = FALSE)
+  
+  # Obtain the predicted propensity scores p(X)
+  p_hat <- predict(p_fit, newx = X_ns, s = "lambda.min", type = "response")
+  
+  ### Step 5: Compute residualized treatment (W - p(X))
+  # Calculate residualized treatment: W - p(X)
+  w_residual <- W - p_hat
+  
+  ### Step 6: Build the final design matrix
+  # Design matrix includes intercept, residualized treatment, and transformed features
+  x_tilde <- cbind(1, w_residual, X_ns)  # Adding transformed features from X_ns
+  
+  # Penalty factor: No penalty on the intercept, regular penalty on the residualized treatment and covariates
+  penalty_factor <- c(0, 1, rep(1, pobs))  # No penalty on intercept, penalize treatment and covariates
+  
+  ### Step 7: Fit the final model for tau using W - p(X) and offset m(X)
+  # Fit the final Cox proportional hazards model for tau, with offset m(X)
+  tau_fit <- glmnet::cv.glmnet(x_tilde,
+                               Surv(U, Delta),
+                               offset = m_hat,          # m(X) is set as the offset
+                               family = "cox",
+                               foldid = foldid,
+                               standardize = FALSE,
+                               penalty.factor = penalty_factor)
+  
+  # Extract the coefficient for W - p(X), which represents the estimated treatment effect tau
+  tau_beta <- as.vector(coef(tau_fit, s = "lambda.min"))
+  tau_hat <- tau_beta[2]  # The coefficient for the residualized treatment w_residual
+  
+  ### Step 8: Prediction (if pred_data is provided)
+  if (!is.null(pred_data)) {
+    # Predict nuisance term eta using the fitted m(X)
+    X_pred <- as.matrix(pred_data[, paste0("X.", 1:5)])
+    X_ns_pred <- get_ns_features(X = X_pred)  # Transform the new data features
+    eta_0_hat <- predict(m_fit, newx = X_ns_pred, s = "lambda.min")
     eta_0_hat_vec <- eta_0_hat[, 1]
   } else {
     eta_0_hat_vec <- NULL
