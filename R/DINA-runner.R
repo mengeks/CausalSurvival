@@ -108,7 +108,8 @@ run_experiment <- function(json_file) {
   # Start experiment loop
   for (i in 1:R) {
     # Load the i-th simulated dataset
-    loaded_data <- read_single_simulation_data(n = n, R = R, is_time_varying = is_time_varying, i = i)
+    loaded_data <- 
+      read_single_simulation_data(n = n, R = R, is_time_varying = is_time_varying, i = i)
     single_data <- loaded_data$data
     tau_true <- loaded_data$params$tau
     light_censoring <- loaded_data$params$light_censoring  # Extract light_censoring from params
