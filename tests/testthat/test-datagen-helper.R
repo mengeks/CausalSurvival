@@ -17,7 +17,9 @@ params <- list(
   tau = 1,
   p = 5,
   beta = rep(1, 5),  # 5 predictors, all with coefficient 1
-  delta = 0.5
+  delta = 0.5,
+  eta_type = "linear-interaction", 
+  baseline_type = "cosine"  
 )
 
 # Define n and repetition parameters for test

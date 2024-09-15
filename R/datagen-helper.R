@@ -152,7 +152,8 @@ generate_simulated_data <- function(n,
 
 
 ## Read the data
-read_single_simulation_data <- function(n, R, is_time_varying, i, folder_name = "data/simulated") {
+read_single_simulation_data <-
+  function(n, R, is_time_varying, i, folder_name = "data/simulated") {
   
   # Determine the correct subfolder based on is_time_varying
   subfolder <- if (is_time_varying) {
@@ -196,6 +197,7 @@ generate_and_save_data <- function(i, n, is_time_varying, path_for_sim_data, par
   set.seed(seed_value)
   
   # Generate one dataset
+  # Inside generate_and_save_data
   simulated_data_i_n <- generate_simulated_data(
     n = n,
     is_time_varying = is_time_varying, 
@@ -204,7 +206,9 @@ generate_and_save_data <- function(i, n, is_time_varying, path_for_sim_data, par
     tau = params$tau,
     p = params$p,
     beta = params$beta,
-    delta = params$delta
+    delta = params$delta,
+    eta_type = params$eta_type,  # Pass eta_type from params
+    baseline_type = params$baseline_type  # Pass baseline_type from params
   )
   
   # Combine the dataset with the simulation parameters (metadata)
@@ -229,15 +233,20 @@ run_simulation <- function(n_list, R, is_time_varying_range, params, cores = det
     for (is_time_varying in is_time_varying_range) {
       # Existing logic for dataset generation
       folder_name <- if (is_time_varying) "data/simulated/time-varying" else "data/simulated/non-time-varying"
-      path_for_sim_data <- here::here(folder_name, paste0("sim_data_n_", n, "_R_", R))
+      path_for_sim_data <- here::here(
+        folder_name, paste0(params$eta_type, "_", params$baseline_type), paste0("sim_data_n_", n, "_R_", R)
+      )
+      # path_for_sim_data <- here::here(folder_name, paste0("sim_data_n_", n, "_R_", R))
       dir.create(path_for_sim_data, showWarnings = FALSE, recursive = TRUE)
-      
+      # print(path_for_sim_data)
       for (group_start in seq(1, R, by = 20)) {
         group_end <- min(group_start + 19, R)
         time_taken <- system.time({
           mclapply(group_start:group_end, generate_and_save_data, 
-                   n = n, is_time_varying = is_time_varying, 
-                   path_for_sim_data = path_for_sim_data, params = params, 
+                   n = n, 
+                   is_time_varying = is_time_varying, 
+                   path_for_sim_data = path_for_sim_data, 
+                   params = params,  # Pass params with eta_type and baseline_type included
                    mc.cores = cores)
         })
         print(paste("Time taken for iterations", group_start, "to", group_end, ":", time_taken[3], "seconds"))
