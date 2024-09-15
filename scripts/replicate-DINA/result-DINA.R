@@ -9,6 +9,11 @@ process_results_to_csv(
 )
 
 process_results_to_csv(
-  "scripts/replicate-DINA/config-custom-cox-K8.json"
+  "scripts/replicate-DINA/config-DINA-log.json"
 )
+
+process_results_to_csv(
+  "scripts/replicate-DINA/config-DINA-log-n-500.json"
+)
+
 

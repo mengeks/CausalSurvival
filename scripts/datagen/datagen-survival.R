@@ -13,6 +13,7 @@ params <- list(
   delta = 0.5,
   # eta_type = "linear-interaction", 
   eta_type = "log",
+  # baseline_type = "cosine"
   baseline_type = "cosine"
 )
 

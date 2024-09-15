@@ -97,10 +97,20 @@ run_experiment <- function(json_file) {
   methods <- config$experiment$methods
   K <- ifelse(is.null(config$experiment$K), 2, config$experiment$K)  # Default K is 2 if not specified
   
+  eta_type <- config$experiment$eta_type  # Extract eta_type from config
+  baseline_type <- config$experiment$baseline_type  # Extract baseline_type from config
+  
+  
   # Initialize vectors to store tau estimates for each method
   tau_estimates_cox <- list()
   tau_estimates_slasso <- numeric(R)
   tau_estimates_DINA <- list()  # Now this is a list to handle different configurations
+  
+  # Define the output directory based on the input parameters, including eta_type and baseline_type
+  json_file_name <- file_path_sans_ext(basename(json_file))  # Get the name of the JSON file without the extension
+  eta_type_folder_name <- paste0(eta_type, "_", baseline_type)  # Folder name based on eta_type and baseline_type
+  output_dir <- paste0("data/outputs/replicate-DINA/n_", n, "_R_", R, "/", eta_type_folder_name, "/", json_file_name)
+  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
   
   # Record time for each method
   time_taken <- list(cox = list(), slasso = numeric(R), DINA = list())
@@ -108,8 +118,14 @@ run_experiment <- function(json_file) {
   # Start experiment loop
   for (i in 1:R) {
     # Load the i-th simulated dataset
-    loaded_data <- 
-      read_single_simulation_data(n = n, R = R, is_time_varying = is_time_varying, i = i)
+    loaded_data <- read_single_simulation_data(
+      n = n, 
+      R = R, 
+      is_time_varying = is_time_varying, 
+      i = i, 
+      eta_type = eta_type,  # Pass eta_type from config
+      baseline_type = baseline_type  # Pass baseline_type from config
+    )
     single_data <- loaded_data$data
     tau_true <- loaded_data$params$tau
     light_censoring <- loaded_data$params$light_censoring  # Extract light_censoring from params
@@ -135,10 +151,7 @@ run_experiment <- function(json_file) {
     time_taken <- DINA_results$time_taken
   }
   
-  # Define the output directory based on the input parameters
-  json_file_name <- file_path_sans_ext(basename(json_file))  # Get the name of the JSON file without the extension
-  output_dir <- paste0("data/outputs/replicate-DINA/n_", n, "_R_", R, "/", json_file_name)
-  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  
   
   # Combine results into a list
   results <- list(

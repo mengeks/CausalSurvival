@@ -3,6 +3,8 @@
     "R": 200,
     "n": 200,
     "is_time_varying": false,
+    "eta_type": "linear-interaction",
+    "baseline_type": "cosine",
     "K": 8,
     "methods": {
       "DINA": {
