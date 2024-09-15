@@ -4,22 +4,6 @@ load_experiment_config <- function(json_file) {
   return(config)
 }
 
-# # Function to generate the output directory path, incorporating eta_type and baseline_type
-# generate_output_dir <- function(config, json_file) {
-#   n <- config$experiment$n
-#   R <- config$experiment$R
-#   eta_type <- config$experiment$eta_type  # Extract eta_type from config
-#   baseline_type <- config$experiment$baseline_type  # Extract baseline_type from config
-#   
-#   json_file_name <- tools::file_path_sans_ext(basename(json_file))  # Get the name without extension
-#   eta_type_folder_name <- paste0(eta_type, "_", baseline_type)  # Create folder name based on eta_type and baseline_type
-#   
-#   # Generate the full output directory path
-#   output_dir <- paste0("data/outputs/replicate-DINA/n_", n, "_R_", R, "/", eta_type_folder_name, "/", json_file_name)
-#   
-#   return(output_dir)
-# }
-
 # Function to generate the directory path, allowing for different base directories
 generate_directory_path <- function(base_dir, config, json_file) {
   n <- config$experiment$n
@@ -91,7 +75,6 @@ calculate_metrics <- function(results, tau_true) {
 }
 
 # Function to prepare metrics for saving to CSV
-# Function to prepare metrics for saving to CSV
 prepare_metrics_dataframe <- function(cox_metrics_list, slasso_metrics, DINA_metrics) {
   
   # Prepare Cox metrics
@@ -140,13 +123,6 @@ prepare_time_metrics_dataframe <- function(results) {
   )
   return(time_metrics_df)
 }
-
-# # Function to ensure output directory for saving CSV files
-# ensure_output_csv_dir <- function(json_file_name) {
-#   output_csv_dir <- here::here("tables/replicate-DINA", json_file_name)
-#   dir.create(output_csv_dir, recursive = TRUE, showWarnings = FALSE)
-#   return(output_csv_dir)
-# }
 
 # Function to save metrics to CSV
 save_metrics_to_csv <- function(metrics_df, time_metrics_df, output_csv_dir) {
