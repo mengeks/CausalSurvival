@@ -50,3 +50,5 @@ rsconnect/
 
 # Data
 data/
+
+.DS_Store
