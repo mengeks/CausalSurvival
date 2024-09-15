@@ -65,8 +65,10 @@ calculate_metrics <- function(results, tau_true) {
   
   # Calculate metrics for DINA
   if (length(results$tau_estimates_DINA) > 0) {
-    DINA_estimates <- results$tau_estimates_DINA$cox_custom_cox  # Access the sublist
-    DINA_metrics <- calculate_bias_se_mse(DINA_estimates, tau_true)
+    # DINA_estimates <- results$tau_estimates_DINA$cox_custom_cox  # Access the sublist
+    # DINA_metrics <- calculate_bias_se_mse(DINA_estimates, tau_true)
+    DINA_metrics <- lapply(results$tau_estimates_DINA, calculate_bias_se_mse, tau_true = tau_true)
+    # print(DINA_metrics)
   } else {
     DINA_metrics <- list(bias = NA, se = NA, mse = NA)  # Set to NA if no DINA results
   }
@@ -93,18 +95,39 @@ prepare_metrics_dataframe <- function(cox_metrics_list, slasso_metrics, DINA_met
   slasso_se <- unname(slasso_metrics["se"])
   slasso_mse <- unname(slasso_metrics["mse"])
   
-  DINA_bias <- unname(DINA_metrics["bias"])
-  DINA_se <- unname(DINA_metrics["se"])
-  DINA_mse <- unname(DINA_metrics["mse"])
+  # Prepare DINA metrics (handle the case where DINA_metrics has multiple configurations)
+  if (length(DINA_metrics) > 0) {
+    DINA_bias <- sapply(DINA_metrics, function(x) x["bias"])
+    DINA_se <- sapply(DINA_metrics, function(x) x["se"])
+    DINA_mse <- sapply(DINA_metrics, function(x) x["mse"])
+  } else {
+    DINA_bias <- c()
+    DINA_se <- c()
+    DINA_mse <- c()
+  }
   
   # Prepare the dataframe for saving
   metrics_df <- data.frame(
-    Method = c(rep("Cox", length(cox_metrics_list)), "S-Lasso", "DINA"),
-    Specification = c(names(cox_metrics_list), NA, NA),
+    Method = c(rep("Cox", length(cox_metrics_list)), "S-Lasso", rep("DINA", length(DINA_metrics))),
+    Specification = c(names(cox_metrics_list), NA, names(DINA_metrics)),
     Bias = c(cox_bias, slasso_bias, DINA_bias),
     SE = c(cox_se, slasso_se, DINA_se),
     MSE = c(cox_mse, slasso_mse, DINA_mse)
   )
+  
+  
+  # DINA_bias <- unname(DINA_metrics["bias"])
+  # DINA_se <- unname(DINA_metrics["se"])
+  # DINA_mse <- unname(DINA_metrics["mse"])
+  # 
+  # # Prepare the dataframe for saving
+  # metrics_df <- data.frame(
+  #   Method = c(rep("Cox", length(cox_metrics_list)), "S-Lasso", "DINA"),
+  #   Specification = c(names(cox_metrics_list), NA, NA),
+  #   Bias = c(cox_bias, slasso_bias, DINA_bias),
+  #   SE = c(cox_se, slasso_se, DINA_se),
+  #   MSE = c(cox_mse, slasso_mse, DINA_mse)
+  # )
   
   return(metrics_df)
 }
@@ -150,11 +173,16 @@ process_results_to_csv <- function(json_file) {
   tau_true <- results$tau_true
   
   # Calculate metrics for Cox, S-Lasso, and DINA methods
-  metrics <- calculate_metrics(results, tau_true)
-  print(metrics)
+  metrics <- 
+    calculate_metrics(results, tau_true)
+  # print(metrics)
+  # print(metrics$DINA_metrics)
   
   # Prepare data for saving to CSV
-  metrics_df <- prepare_metrics_dataframe(metrics$cox_metrics_list, metrics$slasso_metrics, metrics$DINA_metrics)
+  metrics_df <- 
+    prepare_metrics_dataframe(metrics$cox_metrics_list, 
+                              metrics$slasso_metrics, 
+                              metrics$DINA_metrics)
   time_metrics_df <- prepare_time_metrics_dataframe(results)
   
   

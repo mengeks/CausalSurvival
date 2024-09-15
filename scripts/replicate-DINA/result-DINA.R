@@ -14,10 +14,6 @@ process_results_to_csv(
   "scripts/replicate-DINA/log-linear/config-n-500.json"
 )
 
-process_results_to_csv(
-  "scripts/replicate-DINA/log-linear/config-n-1000.json"
-)
-
 # ##### 
 # ## cosine baselines
 # #####
