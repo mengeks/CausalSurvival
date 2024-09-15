@@ -103,7 +103,7 @@ generate_simulated_data <-
   simulated_data <- cbind(simulated_data, C)
   
   return(simulated_data)
-  }
+}
 
 
 ## Read the data
