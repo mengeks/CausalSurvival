@@ -42,13 +42,142 @@ str(loaded_data)
 simulated_data <- loaded_data$data
 sim_params <- loaded_data$params
 
+
+# Test generate_simulated_data function
+# generate_simulated_data should be tested separately with different parameter settings 
+# to ensure it works for both time-varying and non-time-varying scenarios.
+
+library(testthat)
+test_that("generate_simulated_data produces correct structure for non-time-varying data", {
+  n <- 200
+  p <- 5
+  
+  # Call the generate_simulated_data function
+  data <- generate_simulated_data(n = n, 
+                                  is_time_varying = FALSE, 
+                                  light_censoring = FALSE, 
+                                  lambda_C = 0.1, 
+                                  tau = 1, 
+                                  p = p, 
+                                  beta = rep(1, p), 
+                                  delta = 0.5)
+  
+  # Check if the data is a data.frame
+  expect_true(is.data.frame(data), "The output should be a data.frame")
+  
+  # Check if the number of rows is correct
+  expect_equal(
+    nrow(data), n)
+  
+  # Check if columns like W exist for non-time-varying data
+  expect_true("W" %in% colnames(data), "The column 'W' should exist in non-time-varying data")
+  expect_false("A" %in% colnames(data), "The column 'A' should not exist in non-time-varying data")
+  
+  # Check for the presence of essential columns
+  expect_true(all(c("T", "U", "Delta", "C") %in% colnames(data)), 
+              "The essential columns 'T', 'U', 'Delta', and 'C' should be present")
+})
+
+test_that("generate_simulated_data produces correct structure for time-varying data", {
+  n <- 200
+  p <- 5
+  
+  # Call the generate_simulated_data function for time-varying case
+  data <- generate_simulated_data(n = n, 
+                                  is_time_varying = TRUE, 
+                                  light_censoring = TRUE, 
+                                  lambda_C = 0.1, 
+                                  tau = 1, 
+                                  p = p, 
+                                  beta = rep(1, p), 
+                                  delta = 0.5)
+  
+  # Check if the data is a data.frame
+  expect_true(is.data.frame(data), "The output should be a data.frame")
+  
+  # Check if the number of rows is correct
+  expect_equal(nrow(data), n)
+  
+  # Check if columns like A exist for time-varying data
+  expect_true("A" %in% colnames(data), "The column 'A' should exist in time-varying data")
+  expect_false("W" %in% colnames(data), "The column 'W' should not exist in time-varying data")
+  
+  # Check for the presence of essential columns
+  expect_true(all(c("T", "U", "Delta", "C") %in% colnames(data)), 
+              "The essential columns 'T', 'U', 'Delta', and 'C' should be present")
+})
+
+
+test_that("calculate_hazard calculates non-time-varying hazard correctly", {
+  # Set up test inputs
+  t <- 5  # Time point
+  x <- data.frame(
+    "X.1" = c(0.5, -0.3), 
+    "X.2" = c(1.0, -1.5), 
+    "X.3" = c(-0.5, 0.3), 
+    "X.4" = c(0.2, -0.2), 
+    "X.5" = c(-0.1, 0.5),
+    "W" = c(1, 0)  # Non-time-varying W
+  )
+  
+  betas <- c(beta1 = 0.5, beta2 = 1, beta3 = -0.5, beta4 = 0.3, beta5 = 0.2, delta = 0.1, tau = 1)
+  
+  # Call the function
+  hazard <- calculate_hazard(t, x, betas, is_time_varying = FALSE)
+  
+  # Expected values (manually computed)
+  eta_0_1 <- (0.5 * 0.5 + 1.0 * 1 + (-0.5) * (-0.5) + 0.2 * 0.3 + (-0.1) * 0.2 + 0.1 * 0.5 * 1.0)
+  eta_0_2 <- (-0.3 * 0.5 + (-1.5) * 1 + 0.3 * (-0.5) + (-0.2) * 0.3 + 0.5 * 0.2 + 0.1 * (-0.3) * (-1.5))
+  
+  expected_hazard_1 <- exp(eta_0_1 + 1 * 1) * (cos(5 * 3) + 1) / 2
+  expected_hazard_2 <- exp(eta_0_2 + 0 * 1) * (cos(5 * 3) + 1) / 2
+  
+  # Test that the calculated hazard matches expected values
+  expect_equal(hazard[1], expected_hazard_1, tolerance = 1e-6)
+  expect_equal(hazard[2], expected_hazard_2, tolerance = 1e-6)
+})
+
+library(testthat)
+
+test_that("calculate_hazard computes correctly for constant hazard baseline", {
+  # Set up test inputs
+  t <- 5  # Time point (should not affect constant baseline)
+  x <- data.frame(
+    "X.1" = 0.5, 
+    "X.2" = 1.0, 
+    "X.3" = -0.5, 
+    "X.4" = 0.2, 
+    "X.5" = -0.1, 
+    "W" = 1  # Non-time-varying W
+  )
+  
+  # Set beta coefficients
+  betas <- c(beta1 = 0.5, beta2 = 1, beta3 = -0.5, beta4 = 0.3, beta5 = 0.2, delta = 0.1, tau = 1)
+  
+  # Compute hazard with constant baseline
+  hazard_constant <- 
+    calculate_hazard(
+      t, x, betas, is_time_varying = FALSE, baseline_type = "constant")
+  
+  # Manually calculate expected hazard:
+  # eta_0 = 0.5*0.5 + 1.0*1 + (-0.5)*(-0.5) + 0.2*0.3 + (-0.1)*0.2 + 0.1*0.5*1.0
+  # hazard = exp(eta_0 + W * tau) * constant_baseline = exp(eta_0 + 1 * 1) * 1
+  eta_0 <- 
+    0.5 * 0.5 + 1.0 * 1 + 
+    (-0.5) * (-0.5) + 0.2 * 0.3 + 
+    (-0.1) * 0.2 + 0.1 * 0.5 * 1.0
+  expected_hazard <- exp(eta_0 + 1 * 1) * 1
+  expect_equal(
+    as.numeric(hazard_constant), expected_hazard, tolerance = 1e-6)
+  
+})
+
+
+
 # --------------------------
 # TODO: Additional Tests
 # --------------------------
 
-# TODO: Test generate_simulated_data function
-# generate_simulated_data should be tested separately with different parameter settings 
-# to ensure it works for both time-varying and non-time-varying scenarios.
 
 # TODO: Test read_single_simulation_data function
 # This should load datasets correctly from the saved paths and test edge cases 
