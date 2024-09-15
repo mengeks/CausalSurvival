@@ -14,7 +14,7 @@ params <- list(
   # eta_type = "linear-interaction", 
   eta_type = "log",
   # baseline_type = "cosine"
-  baseline_type = "cosine"
+  baseline_type = "linear"
 )
 
 n_list <- c(200, 500, 1000)

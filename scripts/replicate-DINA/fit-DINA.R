@@ -7,11 +7,34 @@ source("R/DINA-runner.R")
 # run_experiment(
 #   "scripts/replicate-DINA/config-DINA-test.json"
 # )
+##### 
+## linear baselines
+#####
+run_experiment(
+  "scripts/replicate-DINA/log-linear/config-n-200.json"
+)
+run_experiment(
+  "scripts/replicate-DINA/log-linear/config-n-500.json"
+)
+run_experiment(
+  "scripts/replicate-DINA/log-linear/config-n-1000.json"
+)
 
-# ## run the whole experiment
+
+
+##### 
+## cosine baselines
+#####
+# ## run the whole experiment for log, n-200
 # run_experiment(
-#   "scripts/replicate-DINA/config-DINA-n-200-R-200.json"
+#   "scripts/replicate-DINA/config-DINA-log.json"
 # )
+# 
+# ## run the whole experiment for log, n-500
+# run_experiment(
+#   "scripts/replicate-DINA/config-DINA-log-n-500.json"
+# )
+
 
 # ## run the experiment of DINA, K = 2
 # run_experiment(
@@ -27,15 +50,10 @@ source("R/DINA-runner.R")
 
 
 
-## run the whole experiment for log, n-200
-run_experiment(
-  "scripts/replicate-DINA/config-DINA-log.json"
-)
 
 
-## run the whole experiment for log, n-500
-run_experiment(
-  "scripts/replicate-DINA/config-DINA-log-n-500.json"
-)
-
+# ## run the whole experiment
+# run_experiment(
+#   "scripts/replicate-DINA/config-DINA-n-200-R-200.json"
+# )
 
