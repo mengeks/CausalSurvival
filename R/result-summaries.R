@@ -6,3 +6,5 @@ calculate_bias_se_mse <-
     mse <- bias^2 + se^2
     return(c(bias = bias, se = se, mse = mse))
   }
+
+

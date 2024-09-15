@@ -3,6 +3,7 @@
     "R": 200,
     "n": 200,
     "is_time_varying": false,
+    "K": 2,
     "methods": {
       "DINA": {
         "enabled": true,

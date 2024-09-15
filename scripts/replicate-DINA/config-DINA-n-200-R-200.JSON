@@ -3,6 +3,7 @@
     "R": 200,
     "n": 200,
     "is_time_varying": false,
+    "K": 8,
     "methods": {
       "cox": {
         "enabled": true,
@@ -17,8 +18,9 @@
       },
       "DINA": {
         "enabled": true,
-        "nuisance_method": "cox",
-        "final_model_method": "coxph"
+        "nuisance_method": ["cox"], 
+        "final_model_method": ["coxph",
+        "custom_cox"]
       }
     }
   }
