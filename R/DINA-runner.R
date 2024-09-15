@@ -154,8 +154,6 @@ run_experiment <- function(json_file) {
         }
         
         # Store the estimate and time in the appropriate spot for the current iteration
-        # tau_estimates_cox[[spec]][i] <- cox_results$tau_estimate
-        # time_taken$cox[[spec]][i] <- cox_results$time_taken
         tau_estimates_cox[[spec]][i] <- cox_results[[spec]]$tau_estimate
         time_taken$cox[[spec]][i] <- cox_results[[spec]]$time_taken
       }
@@ -173,15 +171,14 @@ run_experiment <- function(json_file) {
     # Run DINA estimation with light_censoring and K-fold cross-fitting
     if (!is.null(methods$DINA) && methods$DINA$enabled) {
       DINA_results <- run_DINA_estimation(single_data, methods$DINA, light_censoring, K)
-      
-      # Store the estimates and time for each configuration
-      for (config_name in names(DINA_results$tau_estimates)) {
+      for (config_name in names(DINA_results)) {
+        
+        # Initialize if the list for this configuration doesn't already exist
         if (is.null(tau_estimates_DINA[[config_name]])) {
           tau_estimates_DINA[[config_name]] <- numeric(R)
           time_taken$DINA[[config_name]] <- numeric(R)
         }
-        
-        # Store the estimate and time for the current configuration and iteration
+        # Store the tau estimate and time taken for this configuration and iteration
         tau_estimates_DINA[[config_name]][i] <- DINA_results[[config_name]]$tau_estimate
         time_taken$DINA[[config_name]][i] <- DINA_results[[config_name]]$time_taken
       }
@@ -200,7 +197,7 @@ run_experiment <- function(json_file) {
   # Save the results to an RDS file
   result_file <- file.path(output_dir, "results.rds")
   saveRDS(results, result_file)
-  
+  # print(results)
   # Output message
   cat("Results saved to", result_file, "\n")
 }

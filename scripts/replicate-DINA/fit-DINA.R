@@ -7,7 +7,7 @@ source("R/DINA-runner.R")
 run_experiment(
   "scripts/replicate-DINA/config-DINA-test.json"
 )
-w##### 
+##### 
 ## linear baselines
 #####
 run_experiment(
