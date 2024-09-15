@@ -4,6 +4,11 @@ library(dplyr)
 source("R/result-summaries.R")
 source("R/DINA-result-process.R")
 
+## Run a test
+process_results_to_csv(
+  "scripts/replicate-DINA/config-DINA-test.json"
+)
+
 ##### 
 ## linear baselines
 #####
@@ -13,6 +18,11 @@ process_results_to_csv(
 process_results_to_csv(
   "scripts/replicate-DINA/log-linear/config-n-500.json"
 )
+
+
+
+
+
 
 # ##### 
 # ## cosine baselines
