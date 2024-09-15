@@ -1,9 +1,9 @@
 {
   "experiment": {
     "R": 200,
-    "n": 200,
+    "n": 500,
     "is_time_varying": false,
-    "eta_type": "linear-interaction",
+    "eta_type": "log",
     "baseline_type": "cosine",
     "K": 8,
     "methods": {

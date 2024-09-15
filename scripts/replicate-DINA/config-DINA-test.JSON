@@ -1,11 +1,11 @@
 {
   "experiment": {
-    "R": 200,
-    "n": 200,
+    "R": 2,
+    "n": 10,
     "is_time_varying": false,
     "eta_type": "linear-interaction",
     "baseline_type": "cosine",
-    "K": 8,
+    "K": 2,
     "methods": {
       "cox": {
         "enabled": true,
