@@ -136,6 +136,8 @@ run_experiment <- function(json_file) {
       cox_results <- run_cox_estimation(single_data, methods$cox, R, i, tau_estimates_cox, time_taken)
       tau_estimates_cox <- cox_results$tau_estimates_cox
       time_taken <- cox_results$time_taken
+      # print("tau_estimates_cox")
+      # print(tau_estimates_cox)
     }
     
     # Run S-Lasso estimation with light_censoring
@@ -144,10 +146,14 @@ run_experiment <- function(json_file) {
         run_slasso_estimation(single_data, methods$slasso, R, i, tau_estimates_slasso, time_taken, light_censoring)
       tau_estimates_slasso <- slasso_results$tau_estimates_slasso
       time_taken <- slasso_results$time_taken
+      # print("tau_estimates_slasso")
+      # print(tau_estimates_slasso)
     }
     # Run DINA estimation with light_censoring and K-fold cross-fitting
     DINA_results <- run_DINA_estimation(single_data, methods$DINA, R, i, tau_estimates_DINA, time_taken, light_censoring, K)
     tau_estimates_DINA <- DINA_results$tau_estimates_DINA
+    # print("tau_estimates_DINA")
+    # print(tau_estimates_DINA)
     time_taken <- DINA_results$time_taken
   }
   
