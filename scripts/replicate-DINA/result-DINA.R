@@ -19,7 +19,9 @@ process_results_to_csv(
   "scripts/replicate-DINA/log-linear/config-n-500.json"
 )
 
-
+process_results_to_csv(
+  "scripts/replicate-DINA/log-linear/config-n-1000.json"
+)
 
 
 
@@ -41,3 +43,8 @@ process_results_to_csv(
 # )
 # 
 # 
+
+process_results_to_csv(
+  "scripts/replicate-DINA/linear-interaction_cosine/config-DINA-n-500.json"
+)
+

@@ -172,6 +172,8 @@ run_experiment <- function(json_file) {
     if (!is.null(methods$DINA) && methods$DINA$enabled) {
       DINA_results <- run_DINA_estimation(single_data, methods$DINA, light_censoring, K)
       for (config_name in names(DINA_results)) {
+        print("config_name")
+        print(config_name)
         
         # Initialize if the list for this configuration doesn't already exist
         if (is.null(tau_estimates_DINA[[config_name]])) {
@@ -181,8 +183,13 @@ run_experiment <- function(json_file) {
         # Store the tau estimate and time taken for this configuration and iteration
         tau_estimates_DINA[[config_name]][i] <- DINA_results[[config_name]]$tau_estimate
         time_taken$DINA[[config_name]][i] <- DINA_results[[config_name]]$time_taken
+        print("tau_estimates_DINA[[config_name]][i]")
+        print(tau_estimates_DINA[[config_name]][i])
       }
     }
+    print("tau_estimates_slasso[[i]]")
+    print(tau_estimates_slasso[[i]])
+    
   }
   
   # Combine results into a list
@@ -197,7 +204,5 @@ run_experiment <- function(json_file) {
   # Save the results to an RDS file
   result_file <- file.path(output_dir, "results.rds")
   saveRDS(results, result_file)
-  # print(results)
-  # Output message
   cat("Results saved to", result_file, "\n")
 }
