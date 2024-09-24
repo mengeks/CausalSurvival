@@ -21,10 +21,15 @@ n_list <- c(200, 500, 1000)
 R <- 200
 # is_time_varying_range <- c(TRUE, FALSE)
 is_time_varying_range <- c(FALSE)
-source("R/datagen-helper.R")
+
 run_simulation(
   n_list = n_list, 
   R = R, 
   is_time_varying_range = is_time_varying_range, 
-  params = params
+  params = params, verbose = 0
 )
+
+# Use verbose to print
+# verbose = 1: progress bar / which iteration / which functions
+#     also output times it uses 
+# verbose = 2: verbose = 1 + exact things that are passed through  

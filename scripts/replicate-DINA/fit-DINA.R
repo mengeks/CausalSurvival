@@ -1,4 +1,4 @@
-library(jsonlite) # For reading JSON files
+library(jsonlite)
 source("R/data-reader.R")
 source("R/non-time-varying-estimate.R")
 source("R/DINA-runner.R")

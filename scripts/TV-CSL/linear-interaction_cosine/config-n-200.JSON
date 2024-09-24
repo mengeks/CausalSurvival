@@ -1,0 +1,25 @@
+{
+    "R": 200,
+    "n": 200,
+    "is_time_varying": true,
+    "eta_type": "linear-interaction",
+    "baseline_type": "cosine",
+    "K": 8,
+    "methods": {
+      "cox": {
+        "enabled": true,
+        "run_time_varying": [true, false],
+        "model_specifications": [
+          "correctly-specified",
+          "mildly-mis-specified",
+          "quite-mis-specified"
+        ]
+      },
+      "TV-CSL": {
+        "enabled": false,
+        "nuisance_method": ["cox"], 
+        "final_model_method": ["coxph",
+        "custom_cox"]
+      }
+    }
+}
