@@ -1,7 +1,6 @@
 # Load required libraries
 library(survival)
 library(tidyverse)
-# source("R/datagen-helper.R")  # Assuming this function helps load the data
 source("R/cox-loglik.R")      # Assuming this has `fit_custom_cox_model`
 source("R/lasso.R")
 

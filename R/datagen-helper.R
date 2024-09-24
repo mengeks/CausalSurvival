@@ -191,21 +191,35 @@ generate_and_save_data <- function(i, n, is_time_varying, path_for_sim_data, par
 }
 
 
-run_simulation <- function(n_list, R, is_time_varying_range, params, cores = detectCores()) {
+run_simulation <- function(n_list, R, 
+                           is_time_varying_range, 
+                           params, 
+                           cores = detectCores(),
+                           verbose = 0) {
   for (n in n_list) {
     for (is_time_varying in is_time_varying_range) {
-      # Existing logic for dataset generation
+      
+      if (verbose==2){
+        print(paste("n:", n,"is_time_varying:", is_time_varying, sep="\t"))
+      }
+      
       folder_name <- if (is_time_varying) "data/simulated/time-varying" else "data/simulated/non-time-varying"
       path_for_sim_data <- here::here(
         folder_name, paste0(params$eta_type, "_", params$baseline_type), paste0("sim_data_n_", n, "_R_", R)
       )
-      # path_for_sim_data <- here::here(folder_name, paste0("sim_data_n_", n, "_R_", R))
-      dir.create(path_for_sim_data, showWarnings = FALSE, recursive = TRUE)
-      # print(path_for_sim_data)
+      
+      dir.create(path_for_sim_data, 
+                 showWarnings = FALSE, 
+                 recursive = TRUE)
+      if (verbose == 1){
+        print( "Save path:" )
+        print(path_for_sim_data)
+      }
       for (group_start in seq(1, R, by = 20)) {
         group_end <- min(group_start + 19, R)
         time_taken <- system.time({
-          mclapply(group_start:group_end, generate_and_save_data, 
+          mclapply(group_start:group_end, 
+                   generate_and_save_data, 
                    n = n, 
                    is_time_varying = is_time_varying, 
                    path_for_sim_data = path_for_sim_data, 

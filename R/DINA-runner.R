@@ -28,7 +28,8 @@ run_cox_estimation <- function(single_data, methods_cox) {
 
 
 # Function to handle S-Lasso estimation with light_censoring
-run_slasso_estimation <- function(single_data, methods_slasso, light_censoring) {
+run_slasso_estimation <- 
+  function(single_data, methods_slasso, light_censoring) {
   results <- list()
   if (methods_slasso$enabled) {
     start_time <- Sys.time()
@@ -51,7 +52,10 @@ run_slasso_estimation <- function(single_data, methods_slasso, light_censoring) 
 
 
 # Function to handle DINA estimation with multiple configurations and light_censoring using K-fold cross-fitting
-run_DINA_estimation <- function(single_data, methods_DINA, light_censoring, K = 2) {
+run_DINA_estimation <- 
+  function(single_data, 
+           methods_DINA, 
+           light_censoring, K = 2) {
   results <- list()
   if (methods_DINA$enabled) {
     # Create K-folds
@@ -97,8 +101,7 @@ run_DINA_estimation <- function(single_data, methods_DINA, light_censoring, K = 
 }
 
 
-# Main function to run the experiment
-run_experiment <- function(json_file) {
+run_experiment <- function(json_file, verbose = 0) {
   # Read experiment configuration from JSON
   config <- fromJSON(json_file)
   

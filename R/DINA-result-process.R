@@ -175,7 +175,6 @@ process_results_to_csv <- function(json_file) {
   # Calculate metrics for Cox, S-Lasso, and DINA methods
   metrics <- 
     calculate_metrics(results, tau_true)
-  print(metrics)
   # print(metrics$DINA_metrics)
   
   # Prepare data for saving to CSV
