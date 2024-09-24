@@ -1,6 +1,4 @@
-# Load required libraries
-library(jsonlite)
-library(tools)
+
 #' Run Cox Model Estimation for Different Specifications
 #'
 #' This function runs Cox model estimation for the provided dataset 
@@ -45,18 +43,22 @@ run_cox_estimation <- function(single_data, methods_cox) {
   return(results)
 }
 
-#' Main Function to Run Experiment
+#' Run a Single Iteration of the Experiment and Save Results to CSV
 #'
-#' This function runs the entire experiment loop based on the given configuration from a JSON file.
-#' It handles loading the data, running the Cox model estimation, and saving the results.
+#' This function runs the experiment for a single iteration and saves the results to a CSV file.
 #'
+#' @param i The iteration number to run.
 #' @param json_file Path to the JSON configuration file.
-#' @export
-run_experiment <- function(json_file) {
+run_experiment_iteration <- function(i, json_file) {
+  library(jsonlite)
+  library(tools)
+  source("R/data-reader.R")
+  source("R/time-varying-estimate.R")
+  
   config <- fromJSON(json_file)
   
-  R <- config$R
   n <- config$n
+  R <- config$R
   is_time_varying <- config$is_time_varying
   methods <- config$methods
   K <- ifelse(is.null(config$K), 2, config$K)
@@ -64,80 +66,52 @@ run_experiment <- function(json_file) {
   eta_type <- config$eta_type
   baseline_type <- config$baseline_type
   
-  tau_estimates_cox <- list()
-  tau_estimates_DINA <- list()
-  
   json_file_name <- file_path_sans_ext(basename(json_file))
   eta_type_folder_name <- paste0(eta_type, "_", baseline_type)
-  # output_dir <- 
-  #   paste0("data/outputs/replicate-DINA/n_", n, "_R_", R, "/", eta_type_folder_name, "/", json_file_name)
-  output_dir <-  
-    paste0("data/outputs/TV-CSL/", eta_type_folder_name, "/n_", n)
-  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-  result_file <- 
-    file.path(output_dir, paste0("R_", R, "_results.rds") )
-  print("result_file")
-  print(result_file)
+  seed_value <- 123 + 11 * i
+  set.seed(seed_value)
   
-  time_taken <- list(cox = list(), DINA = list())
+  output_dir <- 
+    paste0("results/TV-CSL/", eta_type_folder_name, "-n_", n)
   
-  for (i in 1:R) {
-    loaded_data <- read_single_simulation_data(
-      n = n, 
-      R = R, 
-      is_time_varying = is_time_varying, 
-      i = i, 
-      eta_type = eta_type,  
-      baseline_type = baseline_type
-    )
-    
-    single_data <- loaded_data$data
-    tau_true <- loaded_data$params$tau
-    light_censoring <- loaded_data$params$light_censoring
-    
-    if (!is.null(methods$cox) && methods$cox$enabled) {
-      cox_results <- 
-        run_cox_estimation(single_data, methods$cox)
-      
-      # for (spec in methods$cox$model_specifications) {
-      for (config_name in names(cox_results)) {
-        if (is.null(tau_estimates_cox[[config_name]])) {
-          tau_estimates_cox[[config_name]] <- numeric(R)
-          time_taken$cox[[config_name]] <- numeric(R)
-        }
-        
-        tau_estimates_cox[[config_name]][i] <- cox_results[[config_name]]$tau_estimate
-        time_taken$cox[[config_name]][i] <- cox_results[[config_name]]$time_taken
-      }
-    }
-    
-    # Uncomment when running S-Lasso or DINA
-    # if (!is.null(methods$slasso) && methods$slasso$enabled) {
-    #   slasso_results <- run_slasso_estimation(single_data, methods$slasso, light_censoring)
-    #   tau_estimates_slasso[i] <- slasso_results$tau_estimate
-    #   time_taken$slasso[i] <- slasso_results$time_taken
-    # }
-    
-    # if (!is.null(methods$DINA) && methods$DINA$enabled) {
-    #   DINA_results <- run_DINA_estimation(single_data, methods$DINA, light_censoring, K)
-    #   for (config_name in names(DINA_results)) {
-    #     if (is.null(tau_estimates_DINA[[config_name]])) {
-    #       tau_estimates_DINA[[config_name]] <- numeric(R)
-    #       time_taken$DINA[[config_name]] <- numeric(R)
-    #     }
-    #     tau_estimates_DINA[[config_name]][i] <- DINA_results[[config_name]]$tau_estimate
-    #     time_taken$DINA[[config_name]][i] <- DINA_results[[config_name]]$time_taken
-    #   }
-    # }
-  } 
-  
-  results <- list(
-    tau_estimates_cox = tau_estimates_cox,
-    tau_estimates_DINA = tau_estimates_DINA,
-    time_taken = time_taken,
-    tau_true = tau_true
+  # Load the i-th simulated dataset
+  loaded_data <- read_single_simulation_data(
+    n = n, 
+    R = R, 
+    is_time_varying = is_time_varying, 
+    i = i, 
+    eta_type = eta_type,  
+    baseline_type = baseline_type
   )
   
-  saveRDS(results, result_file)
-  cat("Results saved to", result_file, "\n")
+  single_data <- loaded_data$data
+  tau_true <- loaded_data$params$tau
+  light_censoring <- loaded_data$params$light_censoring
+  
+  # Run Cox model estimation
+  tau_estimates_cox <- list()
+  time_taken <- list()
+  
+  if (!is.null(methods$cox) && methods$cox$enabled) {
+    cox_results <- run_cox_estimation(single_data, methods$cox)
+    
+    for (config_name in names(cox_results)) {
+      tau_estimates_cox[[config_name]] <- cox_results[[config_name]]$tau_estimate
+      time_taken[[config_name]] <- cox_results[[config_name]]$time_taken
+    }
+  }
+  
+  # Create a data frame for the result
+  result_df <- data.frame(
+    Method = rep("Cox", length(tau_estimates_cox)),
+    Specification = names(tau_estimates_cox),
+    Tau_Estimate = unlist(tau_estimates_cox),
+    Time_Taken = unlist(time_taken)
+  )
+  
+  # Save the result of the i-th iteration as a CSV file
+  result_csv_file <-paste0(output_dir, "-iteration_", i, "-seed_",seed_value,".csv")
+  write.csv(result_df, result_csv_file, row.names = FALSE)
+  
+  cat("Results for iteration", i, "saved to", result_csv_file, "\n")
 }

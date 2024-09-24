@@ -1,0 +1,4 @@
+Loaded dataset 4 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data/simulated/time-varying/linear-interaction_cosine/sim_data_n_200_R_200/sim_data_4_seed_167.rds 
+Results for iteration 4 saved to results/TV-CSL/linear-interaction_cosine-n_200-iteration_4-seed_167.csv 
+Loaded dataset 4 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data/simulated/time-varying/linear-interaction_cosine/sim_data_n_200_R_200/sim_data_4_seed_167.rds 
+Results for iteration 4 saved to results/TV-CSL/linear-interaction_cosine-n_200-iteration_4-seed_167.csv 
