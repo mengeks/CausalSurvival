@@ -1,7 +1,7 @@
 "Method","Specification","Tau_Estimate","Time_Taken"
-"Cox","correctly-specified_TRUE",0.978101561372465,0.551680088043213
-"Cox","correctly-specified_FALSE",-1.13940131538822,0.0179550647735596
-"Cox","mildly-mis-specified_TRUE",0.989990256541868,0.482319831848145
-"Cox","mildly-mis-specified_FALSE",-1.17551353054609,0.00374412536621094
-"Cox","quite-mis-specified_TRUE",1.11446696161802,0.518579006195068
-"Cox","quite-mis-specified_FALSE",-1.14517128944655,0.00364089012145996
+"Cox","correctly-specified_TRUE",0.978101561372465,0.560003995895386
+"Cox","correctly-specified_FALSE",-1.13940131538822,0.0194101333618164
+"Cox","mildly-mis-specified_TRUE",0.989990256541868,0.50810694694519
+"Cox","mildly-mis-specified_FALSE",-1.17551353054609,0.00432395935058594
+"Cox","quite-mis-specified_TRUE",1.11446696161802,0.544812917709351
+"Cox","quite-mis-specified_FALSE",-1.14517128944655,0.00373601913452148
