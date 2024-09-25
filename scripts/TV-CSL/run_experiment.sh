@@ -16,5 +16,7 @@ R=$(jq '.R' $json_file)
 for (( i=1; i<=R; i++ ))
 do
   echo "Running iteration $i with verbose level $verbose"
-  Rscript -e "source('R/TV-CSL-runner.R'); run_experiment_iteration($i, '$json_file', $verbose)" | tee -a "results/TV-CSL/log_iteration_${i}.txt"
+  
+  # Redirect both stdout and stderr to the log file
+  Rscript -e "source('R/TV-CSL-runner.R'); run_experiment_iteration($i, '$json_file', $verbose)" > "results/TV-CSL/log_iteration_${i}.txt" 2>&1
 done

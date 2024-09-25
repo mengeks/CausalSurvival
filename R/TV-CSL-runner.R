@@ -53,10 +53,13 @@ run_cox_estimation <- function(single_data, methods_cox) {
 run_experiment_iteration <- function(i, json_file, verbose = 0) {
   library(jsonlite)
   library(tools)
+  library(survival)
+  suppressPackageStartupMessages(library(tidyverse))
+  
   source("R/data-reader.R")
   source("R/time-varying-estimate.R")
   
-  if (verbose >= 1) cat("Running iteration", i, "\n")
+  if (verbose >= 1) message("Running iteration ", i)
   
   config <- fromJSON(json_file)
   
@@ -77,9 +80,9 @@ run_experiment_iteration <- function(i, json_file, verbose = 0) {
   output_dir <- paste0("results/TV-CSL/", eta_type_folder_name, "-n_", n)
   
   if (verbose >= 2) {
-    cat("Configuration Parameters:\n")
-    cat("n:", n, "\nR:", R, "\nis_time_varying:", is_time_varying, "\neta_type:", eta_type, "\nbaseline_type:", baseline_type, "\n")
-    cat("Seed value for iteration", i, ":", seed_value, "\n")
+    message("Configuration Parameters:")
+    message("n: ", n, "\nR: ", R, "\nis_time_varying: ", is_time_varying, "\neta_type: ", eta_type, "\nbaseline_type: ", baseline_type)
+    message("Seed value for iteration ", i, ": ", seed_value)
   }
   
   # Load the i-th simulated dataset
@@ -94,7 +97,7 @@ run_experiment_iteration <- function(i, json_file, verbose = 0) {
   )
   end_time <- Sys.time()
   
-  if (verbose >= 1) cat("Time to load dataset:", as.numeric(difftime(end_time, start_time, units = "secs")), "seconds\n")
+  if (verbose >= 1) message("Time to load dataset: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
   
   single_data <- loaded_data$data
   tau_true <- loaded_data$params$tau
@@ -114,9 +117,9 @@ run_experiment_iteration <- function(i, json_file, verbose = 0) {
       time_taken[[config_name]] <- cox_results[[config_name]]$time_taken
     }
     
-    if (verbose >= 1) cat("Time to run Cox model:", as.numeric(difftime(end_time, start_time, units = "secs")), "seconds\n")
+    if (verbose >= 1) message("Time to run Cox model: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
     if (verbose >= 2) {
-      cat("Cox Results:\n")
+      message("Cox Results:")
       print(tau_estimates_cox)
     }
   }
@@ -133,5 +136,5 @@ run_experiment_iteration <- function(i, json_file, verbose = 0) {
   result_csv_file <- paste0(output_dir, "-iteration_", i, "-seed_", seed_value, ".csv")
   write.csv(result_df, result_csv_file, row.names = FALSE)
   
-  if (verbose >= 1) cat("Results for iteration", i, "saved to", result_csv_file, "\n")
+  if (verbose >= 1) message("Results for iteration ", i, " saved to ", result_csv_file)
 }
