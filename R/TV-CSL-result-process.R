@@ -199,7 +199,6 @@ save_metrics_to_csv <- function(metrics_df, time_metrics_df, output_csv_dir) {
   cat("Aggregated results saved to CSV files in:", output_csv_dir, "\n")
 }
 
-# Main function to process results and write metrics to CSV
 process_results_to_csv <- function(json_file) {
   # Load experiment configuration
   config <- load_experiment_config(json_file)

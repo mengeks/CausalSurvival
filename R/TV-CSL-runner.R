@@ -45,7 +45,8 @@ run_cox_estimation <- function(single_data, methods_cox) {
 
 #' Run a Single Iteration of the Experiment and Save Results to CSV
 #'
-#' This function runs the experiment for a single iteration and saves the results to a CSV file.
+#' This function runs the experiment for a single iteration, saves the estimation results to a CSV file, 
+#' and also saves the true parameters used in the simulation.
 #'
 #' @param i The iteration number to run.
 #' @param json_file Path to the JSON configuration file.
@@ -132,9 +133,22 @@ run_experiment_iteration <- function(i, json_file, verbose = 0) {
     Time_Taken = unlist(time_taken)
   )
   
+  # Create a data frame for the true parameters (tau_true)
+  true_params_df <- data.frame(
+    Parameter = "tau_true",
+    Value = tau_true
+  )
+  
   # Save the result of the i-th iteration as a CSV file
   result_csv_file <- paste0(output_dir, "-iteration_", i, "-seed_", seed_value, ".csv")
   write.csv(result_df, result_csv_file, row.names = FALSE)
   
-  if (verbose >= 1) message("Results for iteration ", i, " saved to ", result_csv_file)
+  # Save the true parameters as a separate CSV file
+  true_params_file <- paste0(output_dir, "-iteration_", i, "-seed_", seed_value, "-true_params.csv")
+  write.csv(true_params_df, true_params_file, row.names = FALSE)
+  
+  if (verbose >= 1) {
+    message("Results for iteration ", i, " saved to ", result_csv_file)
+    message("True parameters for iteration ", i, " saved to ", true_params_file)
+  }
 }
