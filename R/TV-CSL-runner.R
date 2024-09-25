@@ -67,7 +67,7 @@ run_experiment_iteration <- function(i, json_file, verbose = 0) {
   R <- config$R
   is_time_varying <- config$is_time_varying
   methods <- config$methods
-  K <- ifelse(is.null(config$K), 2, config$K)
+  K <- ifelse(is.null(config$K), 8, config$K)
   
   eta_type <- config$eta_type
   baseline_type <- config$baseline_type
