@@ -18,5 +18,5 @@ do
   echo "Running iteration $i with verbose level $verbose"
   
   # Redirect both stdout and stderr to the log file
-  Rscript -e "source('R/TV-CSL-runner.R'); run_experiment_iteration($i, '$json_file', $verbose)" > "results/TV-CSL/log_iteration_${i}.txt" 2>&1
+  Rscript -e "source('scripts/TV-CSL/TV-CSL-runner.R'); run_experiment_iteration($i, '$json_file', $verbose)" > "results/TV-CSL/log_iteration_${i}.txt" 2>&1
 done
