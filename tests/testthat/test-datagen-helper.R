@@ -1,10 +1,267 @@
-# Load necessary libraries
 library(tidyverse)
 library(survival)
 library(here)
-
-# Load helper functions
 source("R/datagen-helper.R")
+library(testthat)
+
+test_that("generate_simulated_data produces correct structure for non-time-varying data", {
+  n <- 200
+  CATE_type <- "non-linear"
+  eta_type <- "10-dim-non-linear"
+  
+  other_params <- list(
+    lambda_C = 0.1,   
+    p = 10,
+    X_distribution = "normal", 
+    X_cov_type = "toeplitz",
+    tx_difficulty = "simple"
+  )
+  params <- c(list(
+    n = n,
+    CATE_type = CATE_type,
+    eta_type = eta_type,
+    seed_value = 123
+  ),other_params)
+  
+  source("R/datagen-helper.R")
+  simulated_data_i_n <- generate_simulated_data(
+    n, 
+    lambda_C = params$lambda_C,
+    p = params$p,  
+    eta_type = params$eta_type,
+    X_distribution = params$X_distribution, 
+    X_cov_type = params$X_cov_type,
+    tx_difficulty = params$tx_difficulty,
+    CATE_type = params$CATE_type,
+    seed_value = params$seed_value,
+    verbose = 0
+  )
+  
+  # Check if the data is a data.frame
+  expect_true(is.data.frame(simulated_data_i_n), "The output should be a data.frame")
+  
+  # Check if the number of rows is correct
+  expect_equal(
+    nrow(simulated_data_i_n), n)
+  
+  expect_true("A" %in% colnames(simulated_data_i_n), "The column 'A' should exist in non-time-varying data")
+  
+  expect_true(all(c("T", "U", "Delta", "C") %in% colnames(simulated_data_i_n)), 
+              "The essential columns 'T', 'U', 'Delta', and 'C' should be present")
+})
+
+
+test_that("sigma function works for normal(0,1) input and plots its behavior", {
+  sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
+  # Step 1: Generate 1000 samples from a normal(0,1) distribution
+  set.seed(123)  # For reproducibility
+  x <- rnorm(1000, mean = 0, sd = 1)
+  
+  # Step 2: Apply the sigma function to the samples
+  sigma_values <- sigma(x)
+  hist(sigma_values)
+  
+  x_vals <- seq(-3, 3, length.out = 100)  # Values from -3 to 3
+  y_vals <- sigma(x_vals)
+  
+  # Create the plot using ggplot2
+  plot_data <- data.frame(x = x_vals, sigma = y_vals)
+  
+  p <- ggplot(plot_data, aes(x = x, y = sigma)) +
+    geom_line(color = "blue", size = 1) +
+    labs(title = "Plot of Sigma Function", x = "x", y = "sigma(x)") +
+    theme_minimal()
+  
+  print(p)
+})
+
+
+test_that("generate_simulated_data generates good data for eta_type  = 10-dim-non-linear", {
+  n <- 200
+  eta_type <- "10-dim-non-linear"
+  lambda_C = 0.1
+  seed_value = 123
+  
+  source("R/datagen-helper.R")
+  sim_non_linear <- generate_simulated_data(
+    n, 
+    lambda_C = lambda_C,
+    eta_type = eta_type,
+    CATE_type = "non-linear",
+    seed_value = params$seed_value,
+    verbose = 0
+  )
+  
+  # test: CATE better have a range of values
+  hist(sim_non_linear$CATE)
+  
+  # test: the proportion of non-censored should be greater than 0.7
+  proportion_Delta <- sim_non_linear %>%
+    summarise(proportion_Delta = mean(Delta))
+  print(proportion_Delta)
+  
+  
+  # test: the proportion of treated should be 
+  #   between 0.2 and 0.8, ideally be close to 0.5
+  proportion_W <- sim_non_linear %>%
+    mutate(W = A < U) %>%
+    summarise(proportion_W = mean(W))
+  print(proportion_W)
+  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
+  
+  # test: the range of non-censored time should not be too small
+  hist(sim_non_linear$T)
+  expect_true(max(sim_non_linear$T) >= 9)
+  
+  
+  source("R/datagen-helper.R")
+  sim_linear <- generate_simulated_data(
+    n, 
+    lambda_C = lambda_C,
+    eta_type = eta_type,
+    CATE_type = "linear",
+    seed_value = seed_value,
+    verbose = 0
+  )
+  # test: the range of non-censored time should not be too small
+  hist(sim_linear$T)
+  expect_true(max(sim_linear$T) >= 9)
+  
+  # test: the proportion of treated should be 
+  #   between 0.2 and 0.8, ideally be close to 0.5
+  proportion_W <- sim_linear %>%
+    mutate(W = A < U) %>%
+    summarise(proportion_W = mean(W))
+  print(proportion_W)
+  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
+  
+  # test: the proportion of non-censored should be greater than 0.7
+  proportion_Delta <- sim_linear %>%
+    summarise(proportion_Delta = mean(Delta))
+  print(proportion_Delta)
+  
+  # test: CATE better have a range of values
+  hist(sim_linear$CATE)
+  
+  sim_zero <- generate_simulated_data(
+    n, 
+    lambda_C = lambda_C,
+    eta_type = eta_type,
+    CATE_type = "zero",
+    seed_value = seed_value,
+    verbose = 0
+  )
+  
+  # test: the range of non-censored time should not be too small
+  hist(sim_zero$T)
+  expect_true(max(sim_zero$T) >= 9)
+  
+  # test: the proportion of treated should be 
+  #   between 0.2 and 0.8, ideally be close to 0.5
+  proportion_W <- sim_zero %>%
+    mutate(W = A < U) %>%
+    summarise(proportion_W = mean(W))
+  print(proportion_W)
+  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
+  
+  # test: the proportion of non-censored should be greater than 0.7
+  proportion_Delta <- sim_zero %>%
+    summarise(proportion_Delta = mean(Delta))
+  print(proportion_Delta)
+  
+  # test: CATE better have a range of values
+  hist(sim_zero$CATE)
+  
+  sim_constant <- generate_simulated_data(
+    n, 
+    lambda_C = lambda_C,
+    eta_type = eta_type,
+    CATE_type = "constant",
+    seed_value = seed_value,
+    verbose = 0
+  )
+  
+  # test: the range of non-censored time should not be too small
+  hist(sim_constant$T)
+  expect_true(max(sim_constant$T) >= 8)
+  
+  # test: the proportion of treated should be 
+  #   between 0.2 and 0.8, ideally be close to 0.5
+  proportion_W <- sim_constant %>%
+    mutate(W = A < U) %>%
+    summarise(proportion_W = mean(W))
+  print(proportion_W)
+  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
+  
+  # test: the proportion of non-censored should be greater than 0.7
+  proportion_Delta <- sim_constant %>%
+    summarise(proportion_Delta = mean(Delta))
+  print(proportion_Delta)
+  
+  # test: CATE better have a range of values
+  hist(sim_constant$CATE)
+  
+  sim_zero <- generate_simulated_data(
+    n, 
+    lambda_C = lambda_C,
+    eta_type = eta_type,
+    CATE_type = "zero",
+    seed_value = seed_value,
+    verbose = 0
+  )
+  
+  # test: the range of non-censored time should not be too small
+  hist(sim_zero$T)
+  expect_true(max(sim_zero$T) >= 9)
+  
+  # test: the proportion of treated should be 
+  #   between 0.2 and 0.8, ideally be close to 0.5
+  proportion_W <- sim_zero %>%
+    mutate(W = A < U) %>%
+    summarise(proportion_W = mean(W))
+  print(proportion_W)
+  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
+  
+  # test: the proportion of non-censored should be greater than 0.7
+  proportion_Delta <- sim_zero %>%
+    summarise(proportion_Delta = mean(Delta))
+  print(proportion_Delta)
+  
+  # test: CATE better have a range of values
+  hist(sim_zero$CATE)
+  
+  sim_ReLU <- generate_simulated_data(
+    n, 
+    lambda_C = lambda_C,
+    eta_type = eta_type,
+    CATE_type = "ReLU",
+    seed_value = seed_value,
+    verbose = 0
+  )
+  
+  # test: the range of non-censored time should not be too small
+  hist(sim_ReLU$T)
+  expect_true(max(sim_ReLU$T) >= 8)
+  
+  # test: the proportion of treated should be 
+  #   between 0.2 and 0.8, ideally be close to 0.5
+  proportion_W <- sim_ReLU %>%
+    mutate(W = A < U) %>%
+    summarise(proportion_W = mean(W))
+  print(proportion_W)
+  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
+  
+  # test: the proportion of non-censored should be greater than 0.7
+  proportion_Delta <- sim_ReLU %>%
+    summarise(proportion_Delta = mean(Delta))
+  print(proportion_Delta)
+  
+  # test: CATE better have a range of values
+  hist(sim_ReLU$CATE)
+})
+
+
+
 
 # --------------------------
 # Test: run_simulation function
@@ -49,36 +306,6 @@ sim_params <- loaded_data$params
 # generate_simulated_data should be tested separately with different parameter settings 
 # to ensure it works for both time-varying and non-time-varying scenarios.
 
-library(testthat)
-test_that("generate_simulated_data produces correct structure for non-time-varying data", {
-  n <- 200
-  p <- 5
-  
-  # Call the generate_simulated_data function
-  data <- generate_simulated_data(n = n, 
-                                  is_time_varying = FALSE, 
-                                  light_censoring = FALSE, 
-                                  lambda_C = 0.1, 
-                                  tau = 1, 
-                                  p = p, 
-                                  beta = rep(1, p), 
-                                  delta = 0.5)
-  
-  # Check if the data is a data.frame
-  expect_true(is.data.frame(data), "The output should be a data.frame")
-  
-  # Check if the number of rows is correct
-  expect_equal(
-    nrow(data), n)
-  
-  # Check if columns like W exist for non-time-varying data
-  expect_true("W" %in% colnames(data), "The column 'W' should exist in non-time-varying data")
-  expect_false("A" %in% colnames(data), "The column 'A' should not exist in non-time-varying data")
-  
-  # Check for the presence of essential columns
-  expect_true(all(c("T", "U", "Delta", "C") %in% colnames(data)), 
-              "The essential columns 'T', 'U', 'Delta', and 'C' should be present")
-})
 
 test_that("generate_simulated_data produces correct structure for time-varying data", {
   n <- 200

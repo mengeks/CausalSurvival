@@ -3,30 +3,36 @@ library(survival)
 library(here)
 source("R/datagen-helper.R")
 
-# Set simulation parameters
-params <- list(
-  light_censoring = TRUE,  # Assuming light_censoring is set to TRUE in your runs
-  lambda_C = 20,           # Based on light_censoring = TRUE
-  tau = 1,
-  p = 5,
-  beta = rep(1, 5),        # 5 predictors, all with coefficient 1
-  delta = 0.5,
-  # eta_type = "linear-interaction", 
-  eta_type = "log",
-  # baseline_type = "cosine"
-  baseline_type = "linear"
-)
-
 n_list <- c(200, 500, 1000)
 R <- 200
-# is_time_varying_range <- c(TRUE, FALSE)
-is_time_varying_range <- c(FALSE)
+CATE_type_list <- c("zero", "linear", "non-linear")
+eta_type_list <- c("10-dim-linear", "non-linear","10-dim-non-linear")
 
-run_simulation(
+other_params <- list(
+  light_censoring = F,
+  lambda_C = 0.1,   
+  p = 10,
+  X_distribution = "normal", 
+  X_cov_type = "toeplitz",
+  tx_difficulty = "simple"
+)
+
+params <- c(list(
+  n = n,
+  CATE_type = CATE_type,
+  eta_type = eta_type
+),other_params)
+
+
+
+run_datagen(
   n_list = n_list, 
   R = R, 
-  is_time_varying_range = is_time_varying_range, 
-  params = params, verbose = 0
+  is_time_varying_range = T, 
+  CATE_type_list = CATE_type_list,
+  eta_type_list = eta_type_list,
+  other_params = other_params, 
+  verbose = 0
 )
 
 # Use verbose to print

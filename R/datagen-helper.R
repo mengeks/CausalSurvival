@@ -3,34 +3,180 @@ library(dplyr)
 library(tidyverse)
 library(parallel)  # Load parallel here
 
-# Helper function to generate covariates
-generate_covariates <- function(n, p, is_time_varying) {
-  X <- matrix(runif(n * p, min = -1, max = 1), n, p)
+generate_X <- 
+  function(n, p = 5, 
+           distribution = "uniform", 
+           cov_type = "identity") {
+  if (distribution == "uniform") {
+    X <- matrix(runif(n * p, min = -1, max = 1), n, p)
+  } else if (distribution == "normal") {
+    if (cov_type == "identity") {
+      Sigma <- diag(p)
+    } else if (cov_type == "toeplitz") {
+      Sigma <- toeplitz((p:1)/p)
+    } else {
+      stop("Unsupported covariance type")
+    }
+    X <- MASS::mvrnorm(n, mu = rep(0, p), Sigma = Sigma)
+  } else {
+    stop("Unsupported distribution")
+  }
+  return(X)
+}
+
+
+CATE_function <- function(x, type = "zero") {
   
+  # Handle different cases based on 'type'
+  if (type == "zero") {
+    return(0)
+    
+  } else if (type == "constant") {
+    return(2)
+    
+  } else if (type == "ReLU") {
+    # Ensure that x has at least 5 dimensions
+    if (length(x) < 5) stop("ReLU type requires at least 5 dimensions")
+    return(max(x[1] + x[2] + x[3], 0) - max(x[4] + x[5], 0))
+    
+  } else if (type == "linear") {
+    p <- length(x)
+    beta <- rep(0, p)
+    beta[1] <- beta[p] <- 1
+    return(sum(x * beta))
+    
+  } else if (type == "non-linear") {
+    sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
+    
+    if (length(x) < 2) stop("Non-linear type requires at least 2 dimensions")
+    return(sigma(x[1]) * sigma(x[10]))
+    
+  } else {
+    stop("Unsupported type")
+  }
+}
+
+
+
+generate_treatment <- 
+  function(n, X, is_time_varying, difficulty = "simple") {
+  # Define functions for each difficulty level
+  simple_fn <- function(X) X[, 2] + X[, 3]
+  
+  hard_fn <- function(X) sin(pi * X[, 1] * X[, 2])
+  
+  super_hard_fn <- function(X) {
+    L1 <- X[, 1]
+    L2 <- X[, 2]
+    L5 <- X[, 5]
+    L6 <- X[, 6]
+    L10 <- ifelse(ncol(X) >= 10, X[, 10], 0) # Handle if X has only 5 columns
+    
+    exp(-2 * sqrt(abs(L1 * L2)) + 
+          2 * sqrt(abs(L10)) - 
+          2 * cos(L5) + 
+          2 * cos(L5) * cos(L6))
+  }
+  
+  # Treatment generation logic
+  if (difficulty == "simple") {
+    fn <- simple_fn
+  } else if (difficulty == "hard") {
+    fn <- hard_fn
+  } else if (difficulty == "super-hard") {
+    fn <- super_hard_fn
+  }
+  
+  if (difficulty == "uniform") {
+    if (is_time_varying) {
+      A <- runif(n, min = 0, max = 20)
+    } else {
+      W <- rbinom(n, 1, prob = 0.5)
+    }
+  } else {
+    if (is_time_varying) {
+      A <- rexp(n, rate = exp(fn(X)))
+    } else {
+      expit <- function(x) 1 / (1 + exp(-x))  # Logistic function
+      W <- rbinom(n, 1, prob = expit(fn(X)))
+    }
+  }
+  
+  # Return the generated treatment
   if (is_time_varying) {
-    A <- rexp(n, rate = exp(X[, 2] + X[, 3]))
-    covariates <- data.frame(id = 1:n, X = X, A = A)
+    return(A)
   } else {
-    expit <- function(x) 1 / (1 + exp(-x))
-    W <- rbinom(n, 1, prob = expit(X[, 2] + X[, 3]))
-    covariates <- data.frame(id = 1:n, X = X, W = W)
+    return(W)
   }
+}
+
+generate_covariates <- function(n, 
+                                p = 5, 
+                                X_distribution = "uniform", 
+                                X_cov_type = "identity", 
+                                is_time_varying = TRUE, 
+                                tx_difficulty = "simple", 
+                                CATE_type = "constant") {
   
-  return(covariates)
-}
-
-# Helper function to generate censoring times
-generate_censoring_times <- function(n, light_censoring, lambda_C) {
-  if (light_censoring) {
-    return(rep(20, n))  # Large constant for censoring
+  # Step 1: Generate X using the generate_X function
+  X <- generate_X(n = n, 
+                  p = p, 
+                  distribution = X_distribution, 
+                  cov_type = X_cov_type)
+  
+  # Step 2: Generate CATE using the CATE_function
+  CATE <- apply(X, 1, function(row) CATE_function(x = row, type = CATE_type))
+  
+  # Step 3: Generate treatment based on is_time_varying
+  if (is_time_varying) {
+    A <- generate_treatment(n = n, 
+                            X = X, 
+                            is_time_varying = TRUE, 
+                            difficulty = tx_difficulty)
+    return(data.frame(id=1:n,X = X, A = A, CATE = CATE))  # Return X, A, and CATE for time-varying case
   } else {
-    return(rexp(n, rate = lambda_C))  # Regular censoring
+    W <- generate_treatment(n = n, 
+                            X = X, 
+                            is_time_varying = FALSE, 
+                            difficulty = tx_difficulty)
+    return(data.frame(id=1:n, X = X, W = W, CATE = CATE))  # Return X, W, and CATE for non-time-varying case
   }
 }
 
-# Baseline hazard function
-# Function to calculate the linear predictor (eta_0) based on eta_type
-calculate_eta <- function(x, betas, eta_type = "linear-interaction") {
+
+
+# generate_covariates_old <- 
+#   function(n, p, is_time_varying) {
+#   X <- 
+#     matrix(runif(n * p, min = -1, max = 1), n, p)
+#   
+#   if (is_time_varying) {
+#     A <- rexp(n, rate = exp(X[, 2] + X[, 3]))
+#     covariates <- data.frame(id = 1:n, X = X, A = A)
+#   } else {
+#     expit <- function(x) 1 / (1 + exp(-x))
+#     W <- rbinom(n, 1, prob = expit(X[, 2] + X[, 3]))
+#     covariates <- 
+#       data.frame(id = 1:n, X = X, W = W)
+#   }
+#   
+#   return(covariates)
+# }
+
+generate_censoring_times <- 
+  function(n, light_censoring, lambda_C) {
+  if (light_censoring) {
+    return(rep(20, n))
+  } else {
+    return(rexp(n, rate = lambda_C))
+  }
+}
+
+calculate_eta <- function(x, eta_type = "linear-interaction") {
+  # Hardcoded betas and delta
+  betas <- rep(1, 5)
+  delta <- 0.5
+  
   # Extract relevant covariates
   X1 <- x[, "X.1"]
   X2 <- x[, "X.2"]
@@ -38,15 +184,39 @@ calculate_eta <- function(x, betas, eta_type = "linear-interaction") {
   X4 <- x[, "X.4"]
   X5 <- x[, "X.5"]
   
+  if (ncol(x) >= 10) {
+    # If 10-dimensional data is provided, extract additional covariates
+    X6 <- x[, "X.6"]
+    X10 <- x[, "X.10"]
+  }
+  
   # Calculate eta_0 based on the type of interaction
   if (eta_type == "linear-interaction") {
     # Linear-Interaction form
-    eta_0 <- X1 * betas["beta1"] +
-      X2 * betas["beta2"] + 
-      X3 * betas["beta3"] + 
-      X4 * betas["beta4"] + 
-      X5 * betas["beta5"] + 
-      betas["delta"] * X1 * X2
+    eta_0 <- X1 * betas[1] +
+      X2 * betas[2] + 
+      X3 * betas[3] + 
+      X4 * betas[4] + 
+      X5 * betas[5] + 
+      delta * X1 * X2
+    
+  } else if (eta_type == "non-linear") {
+    # Non-linear form: 𝜎(x1)𝜎(x2), where 𝜎(x) = 2 / (1 + e^(-12(x - 1/2)))
+    sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
+    eta_0 <- (-1/200) * sigma(X1) * sigma(X2)
+    
+  } else if (eta_type == "10-dim-linear") {
+    # 10-dimensional linear form: -2.5 - 0.5 * sum(X_j / j) for j=1 to 10
+    eta_0 <- -2.5 - 0.5 * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
+    
+  } else if (eta_type == "10-dim-non-linear") {
+    # 10-dimensional non-linear form
+    eta_0 <- -2 + (2/3) * (
+      - 0.5 * sqrt(abs(X1 * X2)) +
+        0.5 * sqrt(abs(X10)) -
+        0.5 * cos(X5) +
+        0.5 * cos(X5) * cos(X6)
+    )
     
   } else if (eta_type == "log") {
     # Log form
@@ -58,6 +228,9 @@ calculate_eta <- function(x, betas, eta_type = "linear-interaction") {
   
   return(eta_0)
 }
+
+
+
 
 # Function to calculate the baseline hazard based on baseline_type
 calculate_baseline_hazard <- function(t, baseline_type = "cosine") {
@@ -72,130 +245,200 @@ calculate_baseline_hazard <- function(t, baseline_type = "cosine") {
   return(baseline_hazard)
 }
 
-# Main function to calculate the hazard
-calculate_hazard <- function(t, x, betas, is_time_varying, baseline_type = "cosine", eta_type = "linear-interaction") {
+calculate_hazard <- function(t, 
+                             x, 
+                             is_time_varying, 
+                             baseline_type = "linear", 
+                             eta_type = "linear-interaction") {
   
-  # Calculate the linear predictor eta_0
-  eta_0 <- calculate_eta(x, betas, eta_type)
+  eta_0 <- calculate_eta(x = x, eta_type = eta_type)
   
-  # Calculate the baseline hazard
-  baseline_hazard <- calculate_baseline_hazard(t, baseline_type)
+  baseline_hazard <- 
+    calculate_baseline_hazard(
+      t = t, 
+      baseline_type = baseline_type
+    )
   
-  # Calculate the hazard based on whether time-varying or not
   if (is_time_varying) {
-    hazard <- exp(eta_0 + (t >= x[, "A"]) * betas["tau"]) * baseline_hazard
+    hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "CATE"]) * baseline_hazard
   } else {
-    hazard <- exp(eta_0 + x[, "W"] * betas["tau"]) * baseline_hazard
+    hazard <- exp(eta_0 + x[, "W"] * x[, "CATE"]) * baseline_hazard
   }
   
   return(hazard)
 }
 
 
-
-# Main function to generate simulated data
-generate_simulated_data <- function(n, 
-                                    is_time_varying = FALSE, 
-                                    light_censoring = FALSE,
-                                    lambda_C = 0.1,
-                                    tau = 1,
-                                    p = 5,  
-                                    beta = rep(1, 5),  
-                                    delta = 0.5,
-                                    baseline_type = "cosine",
-                                    eta_type = "linear-interaction") {  
+generate_simulated_data <- 
+  function(n, 
+           is_time_varying = TRUE, 
+           light_censoring = FALSE,
+           lambda_C = 0.1,
+           p = 10,  
+           baseline_type = "linear",
+           eta_type = "linear-interaction",
+           X_distribution = "normal", 
+           X_cov_type = "toeplitz",
+           tx_difficulty = "simple",
+           CATE_type = "constant",
+           max_censoring_time = 20,
+           seed_value = 123,
+           verbose = 0) {
   
-  # Step 1: Generate covariates
-  covariates <- generate_covariates(n, p, is_time_varying)
+    verbose_print <- function(message, level = 1) {
+      if (verbose >= level) {
+        cat(message, "\n")
+      }
+    }
+  verbose_print("Step 0: Setting seed", 2)
+  set.seed(seed_value)
+    
+  verbose_print("Step 1: Generating covariates...", 2)
+  covariates <- generate_covariates(
+    n = n, 
+    p = p, 
+    X_distribution = X_distribution, 
+    X_cov_type = X_cov_type, 
+    tx_difficulty = tx_difficulty,
+    is_time_varying = is_time_varying,
+    CATE_type = CATE_type
+  )
   
-  # Step 2: Generate censoring times
-  C <- generate_censoring_times(n, light_censoring, lambda_C)
+  verbose_print("Step 2: Generating censoring times...", 2)
+  start_time <- Sys.time()
+  C_gen <- 
+    generate_censoring_times(n, light_censoring, lambda_C)
+  # verbose_print( paste0("C_gen is: ", ) , 2)
+  C <- pmin(max_censoring_time, C_gen)
+  end_time <- Sys.time()
+  verbose_print(sprintf("Censoring times generated in %.2f seconds.", as.numeric(end_time - start_time)), 1)
   
-  # Step 3: Define the baseline hazard function
+  
+  verbose_print(paste0("baseline_type passed to generate_simulated_data is:    ", baseline_type), 2) 
+  verbose_print("Step 3: Defining the baseline hazard function...", 2)
   hazard_function <- function(t, x, betas, ...) {
-    calculate_hazard(t, x, betas, is_time_varying, baseline_type,eta_type)  # PASSING BASELINE_TYPE
+    verbose_print(paste0("baseline_type passed to hazard_function is:    ", baseline_type), 2) 
+    calculate_hazard(
+      t, x,
+      is_time_varying = is_time_varying, 
+      baseline_type = baseline_type, 
+      eta_type = eta_type)  # Passing baseline_type and eta_type
   }
   
-  
   # Step 4: Simulate survival data
+  verbose_print("Step 4: Simulating survival data...", 2)
+  start_time <- Sys.time()
   simulated_data <- simsurv(
     hazard = hazard_function,
     x = covariates,
     interval = c(1e-22, 500),
-    betas = c(beta1 = beta[1], 
-              beta2 = beta[2], 
-              beta3 = beta[3], 
-              beta4 = beta[4], 
-              beta5 = beta[5], 
-              delta = delta, 
-              tau = tau), 
-    maxt = 10  # Maximum follow-up time
+    maxt = max_censoring_time
   )
+  end_time <- Sys.time()
+  verbose_print(sprintf("Survival data simulated in %.2f seconds.", as.numeric(end_time - start_time)), 1)
   
-  # Step 5: Merge covariates with simulated data
-  simulated_data <- merge(simulated_data, covariates, by = "id")
+  processed_data <- 
+    post_process(simulated_data = simulated_data, 
+                covariates = covariates, 
+                C = C, 
+                C_gen = C_gen,
+                verbose = verbose)
   
-  # Step 6: Determine observed times and event indicators
-  simulated_data <- simulated_data %>%
+  verbose_print("Data generation completed.", 1)
+  
+  return(processed_data)
+}
+
+post_process <- function(simulated_data, 
+                         covariates,
+                         C,
+                         C_gen,
+                         verbose = 0) {
+  
+  # Helper function for printing based on verbosity level
+  verbose_print <- function(message, level = 1) {
+    if (verbose >= level) {
+      cat(message, "\n")
+    }
+  }
+  
+  # Step 1: Merge covariates with simulated data
+  verbose_print("Step 1: Merging covariates with simulated data...", 2)
+  processed_data <- 
+    merge(simulated_data, 
+          covariates, by = "id")
+  
+  # Step 2: Calculate observed times and event indicators
+  verbose_print("Step 2: Calculating observed times and event indicators...", 2)
+  processed_data <- processed_data %>%
     mutate(U = pmin(eventtime, C),  # Observed time is the minimum of event time and censoring time
            Delta = as.numeric(eventtime <= C))  # Indicator for event before censoring
   
-  # Step 7: Rename eventtime to T for clarity
-  simulated_data <- simulated_data %>%
+  # Step 3: Rename eventtime to T
+  verbose_print("Step 3: Renaming eventtime to T...", 2)
+  processed_data <- processed_data %>%
     rename(T = "eventtime")
   
-  # Step 8: Combine with censoring times
-  simulated_data <- cbind(simulated_data, C)
+  # Step 4: Add censoring times to the final dataset
+  verbose_print("Step 4: Adding censoring times...", 2)
+  processed_data <- 
+    cbind(processed_data, C = C, C_gen = C_gen)
   
-  return(simulated_data)
+  return(processed_data)
 }
 
 
 
+
 # Function to generate and save datasets with params
-generate_and_save_data <- function(i, n, is_time_varying, path_for_sim_data, params) {
+generate_and_save_data <- 
+  function(i, 
+           n, 
+           path_for_sim_data, 
+           params,
+           verbose = 0) {
   print(paste("Generating dataset", i, "for n =", n, "and time_varying =", is_time_varying))
   
   seed_value <- 123 + 11 * i
-  set.seed(seed_value)
+  params$seed <- seed_value
+  # set.seed(seed_value)
   
-  # Generate one dataset
-  # Inside generate_and_save_data
   simulated_data_i_n <- generate_simulated_data(
-    n = n,
-    is_time_varying = is_time_varying, 
+    n, 
+    is_time_varying = params$is_time_varying, 
     light_censoring = params$light_censoring,
     lambda_C = params$lambda_C,
-    tau = params$tau,
-    p = params$p,
-    beta = params$beta,
-    delta = params$delta,
-    eta_type = params$eta_type,  # Pass eta_type from params
-    baseline_type = params$baseline_type  # Pass baseline_type from params
-  )
+    p = params$p,  
+    baseline_type = params$baseline_type,
+    eta_type = params$eta_type,
+    X_distribution = params$X_distribution, 
+    X_cov_type = params$X_cov_type,
+    tx_difficulty = params$tx_difficulty,
+    CATE_type = params$CATE_type,
+    seed_value = params$seed_value,
+    verbose = verbose)
   
-  # Combine the dataset with the simulation parameters (metadata)
+  
   dataset_with_params <- list(
     data = simulated_data_i_n,
     params = params
   )
   
-  # Define the file name and path
-  file_name <- paste0("sim_data_", i, "_seed_", seed_value, ".rds")
+  file_name <- paste0("sim_data_", i, ".rds")
   file_path <- file.path(path_for_sim_data, file_name)
-  
-  # Save the generated dataset with parameters
+
   saveRDS(dataset_with_params, file_path)
   
   cat("Saved dataset", i, "to", file_path, "\n")
 }
 
 
-run_simulation <- function(n_list, R, 
-                           is_time_varying_range, 
-                           params, 
-                           cores = detectCores(),
-                           verbose = 0) {
+run_datagen <- function(n_list, 
+                        R, 
+                        is_time_varying_range = T, 
+                        params, 
+                        cores = detectCores(),
+                        verbose = 0) {
   for (n in n_list) {
     for (is_time_varying in is_time_varying_range) {
       
@@ -203,9 +446,9 @@ run_simulation <- function(n_list, R,
         print(paste("n:", n,"is_time_varying:", is_time_varying, sep="\t"))
       }
       
-      folder_name <- if (is_time_varying) "data/simulated/time-varying" else "data/simulated/non-time-varying"
+      folder_name <- if (is_time_varying) "data/simulated" else "data/simulated/non-time-varying"
       path_for_sim_data <- here::here(
-        folder_name, paste0(params$eta_type, "_", params$baseline_type), paste0("sim_data_n_", n, "_R_", R)
+        folder_name, paste0(eta_type, "_", CATE_type)
       )
       
       dir.create(path_for_sim_data, 
@@ -228,7 +471,7 @@ run_simulation <- function(n_list, R,
         })
         print(paste("Time taken for iterations", group_start, "to", group_end, ":", time_taken[3], "seconds"))
       }
-    }
+    } # end for is_time_varying
   }
 }
 
