@@ -203,11 +203,10 @@ calculate_eta <- function(x, eta_type = "linear-interaction") {
   } else if (eta_type == "non-linear") {
     # Non-linear form: 𝜎(x1)𝜎(x2), where 𝜎(x) = 2 / (1 + e^(-12(x - 1/2)))
     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
-    eta_0 <- (-1/200) * sigma(X1) * sigma(X2)
+    eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
     
   } else if (eta_type == "10-dim-linear") {
-    # 10-dimensional linear form: -2.5 - 0.5 * sum(X_j / j) for j=1 to 10
-    eta_0 <- -2.5 - 0.5 * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
+    eta_0 <- -1.5 - 0.5 * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
     
   } else if (eta_type == "10-dim-non-linear") {
     # 10-dimensional non-linear form
@@ -403,20 +402,22 @@ generate_and_save_data <-
   params$seed <- seed_value
   # set.seed(seed_value)
   
-  simulated_data_i_n <- generate_simulated_data(
-    n, 
-    is_time_varying = params$is_time_varying, 
-    light_censoring = params$light_censoring,
-    lambda_C = params$lambda_C,
-    p = params$p,  
-    baseline_type = params$baseline_type,
-    eta_type = params$eta_type,
-    X_distribution = params$X_distribution, 
-    X_cov_type = params$X_cov_type,
-    tx_difficulty = params$tx_difficulty,
-    CATE_type = params$CATE_type,
-    seed_value = params$seed_value,
-    verbose = verbose)
+  simulated_data_i_n <- 
+    generate_simulated_data(
+      n, 
+      is_time_varying = params$is_time_varying, 
+      light_censoring = params$light_censoring,
+      lambda_C = params$lambda_C,
+      p = params$p,  
+      baseline_type = params$baseline_type,
+      eta_type = params$eta_type,
+      X_distribution = params$X_distribution, 
+      X_cov_type = params$X_cov_type,
+      tx_difficulty = params$tx_difficulty,
+      CATE_type = params$CATE_type,
+      seed_value = params$seed_value,
+      verbose = verbose
+    )
   
   
   dataset_with_params <- list(
