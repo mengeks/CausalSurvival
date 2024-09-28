@@ -1,7 +1,8 @@
 library(simsurv)
-library(dplyr)
-library(tidyverse)
+suppressPackageStartupMessages(library(tidyverse))
 library(parallel)  # Load parallel here
+library(survival)
+library(here)
 
 generate_X <- 
   function(n, p = 5, 
@@ -400,7 +401,6 @@ generate_and_save_data <-
   
   seed_value <- 123 + 11 * i
   params$seed <- seed_value
-  # set.seed(seed_value)
   
   simulated_data_i_n <- 
     generate_simulated_data(
@@ -408,8 +408,7 @@ generate_and_save_data <-
       is_time_varying = params$is_time_varying, 
       light_censoring = params$light_censoring,
       lambda_C = params$lambda_C,
-      p = params$p,  
-      baseline_type = params$baseline_type,
+      p = params$p,
       eta_type = params$eta_type,
       X_distribution = params$X_distribution, 
       X_cov_type = params$X_cov_type,
@@ -433,46 +432,4 @@ generate_and_save_data <-
   cat("Saved dataset", i, "to", file_path, "\n")
 }
 
-
-run_datagen <- function(n_list, 
-                        R, 
-                        is_time_varying_range = T, 
-                        params, 
-                        cores = detectCores(),
-                        verbose = 0) {
-  for (n in n_list) {
-    for (is_time_varying in is_time_varying_range) {
-      
-      if (verbose==2){
-        print(paste("n:", n,"is_time_varying:", is_time_varying, sep="\t"))
-      }
-      
-      folder_name <- if (is_time_varying) "data/simulated" else "data/simulated/non-time-varying"
-      path_for_sim_data <- here::here(
-        folder_name, paste0(eta_type, "_", CATE_type)
-      )
-      
-      dir.create(path_for_sim_data, 
-                 showWarnings = FALSE, 
-                 recursive = TRUE)
-      if (verbose == 1){
-        print( "Save path:" )
-        print(path_for_sim_data)
-      }
-      for (group_start in seq(1, R, by = 20)) {
-        group_end <- min(group_start + 19, R)
-        time_taken <- system.time({
-          mclapply(group_start:group_end, 
-                   generate_and_save_data, 
-                   n = n, 
-                   is_time_varying = is_time_varying, 
-                   path_for_sim_data = path_for_sim_data, 
-                   params = params,  # Pass params with eta_type and baseline_type included
-                   mc.cores = cores)
-        })
-        print(paste("Time taken for iterations", group_start, "to", group_end, ":", time_taken[3], "seconds"))
-      }
-    } # end for is_time_varying
-  }
-}
 

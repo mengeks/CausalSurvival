@@ -1,0 +1,16 @@
+{
+  "n_list": [200, 500, 1000],
+  "R": 200,
+  "CATE_type_list": ["zero", "constant", "ReLU", "linear", "non-linear"],
+  "eta_type_list": ["10-dim-linear", "non-linear", "10-dim-non-linear"],
+  "other_params": {
+    "is_time_varying": true,
+    "light_censoring": false,
+    "lambda_C": 0.1,
+    "p": 10,
+    "X_distribution": "normal",
+    "X_cov_type": "toeplitz",
+    "tx_difficulty": "simple"
+  },
+  "verbose": 0
+}
