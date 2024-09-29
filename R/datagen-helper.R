@@ -424,7 +424,7 @@ generate_and_save_data <-
     params = params
   )
   
-  file_name <- paste0("sim_data_", i, ".rds")
+  file_name <- paste0("sim_data_", i, "_n_",n, ".rds")
   file_path <- file.path(path_for_sim_data, file_name)
 
   saveRDS(dataset_with_params, file_path)

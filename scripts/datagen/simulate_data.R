@@ -1,5 +1,6 @@
 # Load necessary libraries
-library(jsonlite)
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(jsonlite))
 library(here)
 
 # Parse command-line arguments
@@ -8,9 +9,8 @@ i <- as.numeric(args[2])
 n <- as.numeric(args[4])
 eta_type <- args[6]
 CATE_type <- args[8]
-# output_dir <- args[10]
-params_file <- args[12]
-verbose <- as.numeric(args[14])
+params_file <- args[10]
+verbose <- as.numeric(args[12])
 
 # Load the generate_and_save_data function from the external file
 source(here::here("R/datagen-helper.R"))
@@ -32,11 +32,11 @@ params <- c(list(
 
 # This ensures that output_dir is within the /data/ directory in the root folder
 output_dir <- here::here("data", paste0(eta_type, "_", CATE_type))
+
 # Create the directory if it doesn't exist
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
 }
-
 
 # Call the generate_and_save_data function
 generate_and_save_data(
