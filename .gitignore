@@ -5,6 +5,9 @@
 # Results
 /results
 
+# Log files
+logs/
+
 # Session Data files
 .RData
 .RDataTmp
