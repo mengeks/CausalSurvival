@@ -4,7 +4,7 @@
 PARAMS_FILE=$1
 VERBOSE=$(jq -r '.verbose' $PARAMS_FILE)
 
-# Define a function to call the R script for each parameter set
+# Define a function to call the R script for each parameter set and redirect output to a log file
 run_simulation() {
   local i=$1
   local N=$2
@@ -13,17 +13,28 @@ run_simulation() {
   local PARAMS_FILE=$5
   local VERBOSE=$6
 
-  # Call the R script with the current parameters
+  # Create a unique log file for each run
+  LOG_FILE="./logs/log_n${N}_eta${ETA_TYPE}_CATE${CATE_TYPE}_iter${i}.log"
+
+  # If the log file already exists, skip this iteration
+  if [ -f "$LOG_FILE" ]; then
+    # if [ "$VERBOSE" -eq 2 ]; then
+      echo "Log file for iteration $i already exists. Skipping."
+    # fi
+    return 0
+  fi
+
+  # Call the R script with the current parameters and redirect stdout and stderr to the log file
   Rscript --vanilla simulate_data.R \
     --i "$i" \
     --n "$N" \
     --eta_type "$ETA_TYPE" \
     --CATE_type "$CATE_TYPE" \
     --params_file "$PARAMS_FILE" \
-    --verbose "$VERBOSE"
+    --verbose "$VERBOSE" > "$LOG_FILE" 2>&1
 
   if [ "$VERBOSE" -eq 2 ]; then
-    echo "Iteration $i completed for n=$N, eta_type=$ETA_TYPE, CATE_type=$CATE_TYPE."
+    echo "Iteration $i completed for n=$N, eta_type=$ETA_TYPE, CATE_type=$CATE_TYPE. Log: $LOG_FILE"
   fi
 }
 
@@ -42,7 +53,7 @@ for N in $(jq -r '.n_list[]' $PARAMS_FILE); do
       # Get the value of R
       R=$(jq -r '.R' $PARAMS_FILE)
       
-      # Use GNU Parallel to parallelize the iterations
+      # Use GNU Parallel to parallelize the iterations and output to log files
       seq 1 $R | parallel -j 7 run_simulation {} $N $ETA_TYPE $CATE_TYPE $PARAMS_FILE $VERBOSE
 
     done
