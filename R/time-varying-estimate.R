@@ -89,15 +89,31 @@ create_pseudo_dataset <- function(survival_data) {
 #' }
 #' @return A character string representing the regressor part of the formula.
 #' @export
-generate_regressor_part <- function(model_spec) {
+generate_regressor_part <- function(model_spec = "correctly-specified", 
+                                    CATE_type = "constant", 
+                                    eta_type = "linear-interaction") {
+  
+  # Handle W based on CATE_type
+  if (CATE_type == "constant") {
+    W_part <- "W"
+  } else if (CATE_type == "linear") {
+    # W_part <- "W * (X.1 + X.10)"
+    W_part <- "W:X.1 + W:X.10"
+  }
+  
   if (model_spec == "correctly-specified") {
-    return("W + X.1 + X.2 + X.3 + X.4 + X.5 + X.1:X.2")
+    if (eta_type == "10-dim-non-linear") {
+      return(paste(W_part, "+ sqrt(abs(X.1 * X.2)) + sqrt(abs(X.10)) + cos(X.5) + cos(X.5) * cos(X.6)"))
+    } else {
+      return(paste(W_part, "+ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8"))
+    }
   } else if (model_spec == "mildly-mis-specified") {
-    return("W + X.1 + X.2 + X.3 + X.4 + X.5")
+    return(paste(W_part, "+ X.1 + X.2 + X.3 + X.4 + X.5"))
   } else if (model_spec == "quite-mis-specified") {
-    return("W + X.1 + X.2")
+    return(paste(W_part, "+ X.1 + X.2"))
   }
 }
+
 
 #' Create the Cox model formula
 #'
@@ -110,8 +126,14 @@ generate_regressor_part <- function(model_spec) {
 #' @param run_time_varying Logical value. If TRUE, the time-varying Cox model is used.
 #' @return A formula object for the Cox model.
 #' @export
-create_cox_formula <- function(model_spec, run_time_varying) {
-  regressor_part <- generate_regressor_part(model_spec)
+create_cox_formula <- function(model_spec, 
+                               run_time_varying,
+                               CATE_type = "constant",
+                               eta_type = "linear-interaction") {
+  regressor_part <- 
+    generate_regressor_part(model_spec = model_spec,
+                            CATE_type = CATE_type,
+                            eta_type = eta_type)
   
   if (run_time_varying) {
     formula <- as.formula(paste("Surv(tstart, tstop, Delta) ~", regressor_part))
@@ -145,24 +167,53 @@ preprocess_data <- function(single_data, run_time_varying) {
 #' @return The estimated coefficient for W in the Cox model.
 #' @export
 cox_model_estimation <- function(
-    single_data, methods_cox, light_censoring = NULL) {
+    single_data, 
+    methods_cox, 
+    light_censoring = NULL,
+    CATE_type = "constant",
+    eta_type = "linear-interaction"
+  ) {
   model_spec <- methods_cox$model_spec
   run_time_varying <- methods_cox$run_time_varying
   
   data_to_use <- 
-    preprocess_data(single_data, run_time_varying)
+    preprocess_data(single_data, 
+                    run_time_varying)
   
   formula <- 
-    create_cox_formula(model_spec, run_time_varying)
+    create_cox_formula(model_spec = model_spec, 
+                       run_time_varying = run_time_varying,
+                       CATE_type = CATE_type,
+                       eta_type = eta_type)
   
   cox_model <- 
     coxph(formula, 
           data = data_to_use, 
           ties = "breslow")
   
-  tau_est_cox <- cox_model$coefficients["W"]
+  # tau_est_cox <- cox_model$coefficients["W"]
+  beta_est_cox <- extract_W_coefficients(
+    fit=cox_model, 
+    CATE_type = "constant")
   
-  return(tau_est_cox)
+  # return(tau_est_cox)
+  return(beta_est_cox)
 }
 
+
+extract_W_coefficients <- function(fit, CATE_type = "constant") {
+  all_coefs <- coef(fit)
+  
+  if (CATE_type == "constant") {
+    W_part <- "W"
+  } else if (CATE_type == "linear") {
+    W_part <- "W:X.1|W:X.10"  # Modify as per how W interacts with X covariates in your model
+  } else {
+    stop("Unsupported CATE_type")
+  }
+  
+  W_coefs <- all_coefs[grep(W_part, names(all_coefs))]
+  
+  return(W_coefs)
+}
 

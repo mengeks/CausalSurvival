@@ -13,10 +13,13 @@ fi
 # Extract R value from the JSON file (number of iterations)
 R=$(jq '.R' $json_file)
 
+log_dir="$HOME/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/results/TV-CSL"
+mkdir -p "$log_dir"
+
 for (( i=1; i<=R; i++ ))
 do
   echo "Running iteration $i with verbose level $verbose"
   
   # Redirect both stdout and stderr to the log file
-  Rscript -e "source('scripts/TV-CSL/TV-CSL-runner.R'); run_experiment_iteration($i, '$json_file', $verbose)" > "results/TV-CSL/log_iteration_${i}.txt" 2>&1
+  Rscript -e "source('scripts/TV-CSL/TV-CSL-runner.R'); run_experiment_iteration($i, '$json_file', $verbose)" > "$log_dir/log_iteration_${i}.txt" 2>&1
 done

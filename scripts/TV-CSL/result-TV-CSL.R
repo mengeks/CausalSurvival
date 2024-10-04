@@ -1,13 +1,17 @@
 library(jsonlite)
 library(here)
 library(dplyr)
-source("R/result-summaries.R")
+# source("R/result-summaries.R")
 source("R/TV-CSL-result-process.R")
 
-## Run a test
 process_results_to_csv(
-  "scripts/TV-CSL/linear-interaction_cosine/config-n-200.json"
+  "scripts/TV-CSL/params.json"
 )
+
+# ## Run a test
+# process_results_to_csv(
+#   "scripts/TV-CSL/linear-interaction_cosine/config-n-200.json"
+# )
 
 ##### 
 ## linear baselines

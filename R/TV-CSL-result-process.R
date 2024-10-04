@@ -20,18 +20,18 @@ read_single_iteration_result <- function(csv_file) {
 process_all_iterations <- function(config, results_dir) {
   n <- config$n
   eta_type <- config$eta_type
-  baseline_type <- config$baseline_type
+  CATE_type <- config$CATE_type
+  # baseline_type <- config$baseline_type
   R <- config$R
   
   eta_type_folder_name <- 
-    paste0(eta_type, "_", baseline_type)
+    # paste0(eta_type, "_", baseline_type)
+    paste0(eta_type, "_", CATE_type)
   
-  # Initialize lists to store results
   all_results <- list()
   all_times <- list()
   
   for (i in 1:R) {
-    # Construct the file name for the i-th iteration
     seed_value <- 123 + 11 * i
     
     result_csv_file <- 
@@ -54,10 +54,13 @@ process_all_iterations <- function(config, results_dir) {
   aggregated_metrics <- combined_results %>%
     group_by(Method, Specification) %>%
     summarise(
-      Bias = mean(Tau_Estimate - 1),  # Assuming tau_true is 1 if not found
-      SE = sd(Tau_Estimate),
-      MSE = mean((Tau_Estimate - 1)^2)
+      MSE = mean(MSE_Estimate)
     )
+    # summarise(
+    #   Bias = mean(Tau_Estimate - 1),  # Assuming tau_true is 1 if not found
+    #   SE = sd(Tau_Estimate),
+    #   MSE = mean((Tau_Estimate - 1)^2)
+    # )
   
   return(aggregated_metrics)
 }
@@ -77,14 +80,14 @@ process_results_to_csv <- function(json_file) {
       results_dir=results_dir
     )
   
-  
   # Ensure CSV directory
   output_csv_dir <- "tables/TV-CSL"
   
-  # Save the aggregated metrics to CSV
+  eta_type_folder_name <- 
+    paste0(config$eta_type, "_", config$CATE_type)
   metrics_csv_file <- 
     file.path(output_csv_dir, 
-              paste0("linear-interaction_cosine_n_", n, "_est_quality.csv") )
+              paste0(eta_type_folder_name,"_n_", n, "_est_quality.csv") )
   write.csv(
     aggregated_metrics, 
     metrics_csv_file, 

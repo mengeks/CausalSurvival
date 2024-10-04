@@ -8,7 +8,8 @@
 #' @param methods_cox A list containing the model specification and time-varying flag for Cox model.
 #' @return A list of results containing the tau estimates and time taken for each model specification.
 #' @export
-run_cox_estimation <- function(single_data, methods_cox) {
+run_cox_estimation <- function(
+    single_data, methods_cox, CATE_type, eta_type) {
   results <- list()
   
   if (methods_cox$enabled) {
@@ -25,15 +26,22 @@ run_cox_estimation <- function(single_data, methods_cox) {
         current_methods_cox$run_time_varying <- run_time_varying
         
         # Run the Cox model estimation using the current configuration
-        tau_est_cox <- cox_model_estimation(single_data, current_methods_cox)
+        # tau_est_cox <- 
+        beta_est_cox <- 
+          cox_model_estimation(
+            single_data = single_data, 
+            methods_cox = current_methods_cox,
+            CATE_type = CATE_type,
+            eta_type = eta_type
+          )
         
         end_time <- Sys.time()
         
         time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
         
-        # Save the result using config_name
         results[[config_name]] <- list(
-          tau_estimate = tau_est_cox,
+          # tau_estimate = tau_est_cox,
+          beta_estimate = beta_est_cox,
           time_taken = time_taken
         )
       }
@@ -51,7 +59,8 @@ run_cox_estimation <- function(single_data, methods_cox) {
 #' @param i The iteration number to run.
 #' @param json_file Path to the JSON configuration file.
 #' @param verbose The level of verbosity (0 = default, 1 = progress info, 2 = detailed info).
-run_experiment_iteration <- function(i, json_file, verbose = 0) {
+run_experiment_iteration <- 
+  function(i, json_file, verbose = 0) {
   library(jsonlite)
   library(tools)
   library(survival)
@@ -60,95 +69,149 @@ run_experiment_iteration <- function(i, json_file, verbose = 0) {
   source("R/data-reader.R")
   source("R/time-varying-estimate.R")
   
-  if (verbose >= 1) message("Running iteration ", i)
+  if (verbose >= 1) 
+    message("Running iteration ", i)
   
   config <- fromJSON(json_file)
   
   n <- config$n
   R <- config$R
-  is_time_varying <- config$is_time_varying
+  # is_time_varying <- config$is_time_varying
   methods <- config$methods
-  K <- ifelse(is.null(config$K), 8, config$K)
+  K <- ifelse(is.null(config$K), 5, config$K)
   
   eta_type <- config$eta_type
-  baseline_type <- config$baseline_type
+  # baseline_type <- config$baseline_type
+  CATE_type <- config$CATE_type
   
-  json_file_name <- file_path_sans_ext(basename(json_file))
-  eta_type_folder_name <- paste0(eta_type, "_", baseline_type)
+  input_setting <- paste0(eta_type, "_", CATE_type)
+  
+  # json_file_name <- 
+  #   file_path_sans_ext(basename(json_file))
+  # eta_type_folder_name <- paste0(eta_type, "_", baseline_type)
   seed_value <- 123 + 11 * i
   set.seed(seed_value)
   
-  output_dir <- paste0("results/TV-CSL/", eta_type_folder_name, "-n_", n)
+  
+  
+  output_prefix <- 
+    paste0("results/TV-CSL/", 
+           input_setting, 
+           "-n_", n)
+  
+  input_dir <- 
+    here::here("data", input_setting)
   
   if (verbose >= 2) {
     message("Configuration Parameters:")
-    message("n: ", n, "\nR: ", R, "\nis_time_varying: ", is_time_varying, "\neta_type: ", eta_type, "\nbaseline_type: ", baseline_type)
+    message("n: ", n, "\nR: ", R, "\neta_type: ", eta_type, "\nCATE_type: ", CATE_type)
     message("Seed value for iteration ", i, ": ", seed_value)
   }
   
-  # Load the i-th simulated dataset
   start_time <- Sys.time()
   loaded_data <- read_single_simulation_data(
     n = n, 
-    R = R, 
-    is_time_varying = is_time_varying, 
     i = i, 
     eta_type = eta_type,  
-    baseline_type = baseline_type
+    CATE_type = CATE_type
   )
   end_time <- Sys.time()
   
-  if (verbose >= 1) message("Time to load dataset: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
+  if (verbose >= 1) 
+    message("Time to load dataset: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
   
   single_data <- loaded_data$data
-  tau_true <- loaded_data$params$tau
-  light_censoring <- loaded_data$params$light_censoring
+  # tau_true <- loaded_data$params$tau
+  # light_censoring <- loaded_data$params$light_censoring
   
   # Run Cox model estimation
-  tau_estimates_cox <- list()
+  # tau_estimates_cox <-  list()
+  beta_estimates_cox <- mse_estimates_cox <- list()
   time_taken <- list()
   
   if (!is.null(methods$cox) && methods$cox$enabled) {
     start_time <- Sys.time()
-    cox_results <- run_cox_estimation(single_data, methods$cox)
+    cox_results <- 
+      run_cox_estimation(
+        single_data, 
+        methods$cox,
+        CATE_type = CATE_type,
+        eta_type = eta_type
+      )
     end_time <- Sys.time()
     
     for (config_name in names(cox_results)) {
-      tau_estimates_cox[[config_name]] <- cox_results[[config_name]]$tau_estimate
-      time_taken[[config_name]] <- cox_results[[config_name]]$time_taken
+      # tau_estimates_cox[[config_name]] <- 
+        # cox_results[[config_name]]$tau_estimate
+      beta_estimates_cox[[config_name]] <- 
+        cox_results[[config_name]]$beta_estimate
+      time_taken[[config_name]] <- 
+        cox_results[[config_name]]$time_taken
+      mse_estimates_cox[[config_name]] <- 
+        calculate_mse(beta_estimates_cox[[config_name]], 
+                      n,
+                      i, 
+                      CATE_type,
+                      eta_type)
+      print(paste0("MSE estimate of config_name ", 
+                   config_name," is")) 
+      print(mse_estimates_cox[[config_name]])
     }
     
     if (verbose >= 1) message("Time to run Cox model: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
     if (verbose >= 2) {
       message("Cox Results:")
-      print(tau_estimates_cox)
+      print(beta_estimates_cox)
     }
   }
   
-  # Create a data frame for the result
+  
   result_df <- data.frame(
-    Method = rep("Cox", length(tau_estimates_cox)),
-    Specification = names(tau_estimates_cox),
-    Tau_Estimate = unlist(tau_estimates_cox),
+    Method = rep("Cox", length(mse_estimates_cox)),
+    Specification = names(mse_estimates_cox),
+    MSE_Estimate = unlist(mse_estimates_cox),
     Time_Taken = unlist(time_taken)
   )
   
-  # Create a data frame for the true parameters (tau_true)
-  true_params_df <- data.frame(
-    Parameter = "tau_true",
-    Value = tau_true
-  )
+  # true_params_df <- data.frame(
+  #   Parameter = "tau_true",
+  #   Value = tau_true
+  # )
   
   # Save the result of the i-th iteration as a CSV file
-  result_csv_file <- paste0(output_dir, "-iteration_", i, "-seed_", seed_value, ".csv")
+  result_csv_file <- 
+    paste0(output_prefix, 
+           "-iteration_", 
+           i, "-seed_", 
+           seed_value, ".csv")
+  # print(result_csv_file)
   write.csv(result_df, result_csv_file, row.names = FALSE)
   
-  # Save the true parameters as a separate CSV file
-  true_params_file <- paste0(output_dir, "-iteration_", i, "-seed_", seed_value, "-true_params.csv")
-  write.csv(true_params_df, true_params_file, row.names = FALSE)
+  # true_params_file <- paste0(output_prefix, "-iteration_", i, "-seed_", seed_value, "-true_params.csv")
+  # write.csv(true_params_df, true_params_file, row.names = FALSE)
   
   if (verbose >= 1) {
     message("Results for iteration ", i, " saved to ", result_csv_file)
-    message("True parameters for iteration ", i, " saved to ", true_params_file)
+    # message("True parameters for iteration ", i, " saved to ", true_params_file)
   }
+}
+
+
+calculate_mse <- function(beta_estimate, n, i, CATE_type,eta_type) {
+  # print(paste0("test_data is from ", i + 100))
+  test_data <- 
+    read_single_simulation_data(
+      n = n, 
+      i = i + 100, 
+      eta_type = eta_type,
+      CATE_type = CATE_type)$data
+  
+  if (CATE_type == "linear") {
+    CATE_est <- beta_estimate[1] * test_data$X.1 + beta_estimate[2] * test_data$X.10
+  } else if (CATE_type == "constant") {
+    CATE_est <- rep(beta_estimate, nrow(test_data))
+  }
+  
+  MSE <- mean((CATE_est - test_data$CATE)^2)
+  return(MSE)
 }

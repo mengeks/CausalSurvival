@@ -1,0 +1,7 @@
+"Method","Specification","MSE"
+"Cox","correctly-specified_FALSE",0.0188640825165526
+"Cox","correctly-specified_TRUE",0.0141131027125292
+"Cox","mildly-mis-specified_FALSE",0.0473473734415904
+"Cox","mildly-mis-specified_TRUE",0.0940135568352551
+"Cox","quite-mis-specified_FALSE",0.0488543621721789
+"Cox","quite-mis-specified_TRUE",0.094219486566287
