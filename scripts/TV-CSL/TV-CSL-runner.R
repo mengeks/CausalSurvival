@@ -51,6 +51,83 @@ run_cox_estimation <- function(
   return(results)
 }
 
+
+#'
+#' This function runs lasso model estimation for the provided dataset 
+#' using different model specifications from the \code{methods_lasso}.
+#'
+#' @param single_data A data frame containing the survival data.
+#' @param methods_cox A list containing the model specification and time-varying flag for Cox model.
+#' @return A list of results containing the tau estimates and time taken for each model specification.
+#' @export
+run_lasso_estimation <- function(
+    single_data, i, methods_lasso, CATE_type, eta_type) {
+  results <- list()
+  
+  if (methods_lasso$enabled) {
+    for (regressor_spec in methods_lasso$regressor_specs) {
+      for (lasso_type in methods_lasso$lasso_types) {
+        
+        config_name <- paste(lasso_type, regressor_spec, sep = "_")
+        
+        start_time <- Sys.time()
+
+        train_data <- 
+          preprocess_data(single_data, 
+                          run_time_varying = T)
+        
+        n <- nrow(single_data)
+        test_data <- 
+          read_single_simulation_data(
+            n = n, 
+            i = i + 100, 
+            eta_type = eta_type,
+            CATE_type = CATE_type)$data
+        
+        if (lasso_type == "T_lasso"){
+          lasso_ret <- 
+            T_lasso(train_data = train_data, 
+                    test_data = test_data,
+                    regressor_spec = regressor_spec)
+        }else if (lasso_type == "S_lasso"){
+          for (CATE_spec in methods_lasso$CATE_specs){
+            config_name <- paste(lasso_type, CATE_spec, regressor_spec, sep = "_")
+            lasso_ret <- 
+              S_lasso(train_data = train_data, 
+                      test_data = test_data,
+                      regressor_spec = regressor_spec,
+                      CATE_spec = CATE_spec)
+          }
+        }else{
+          stop("lasso_type should be T_lasso or S_lasso")
+        }
+        
+        # lasso_est_ret <- 
+        #   lasso_model_estimation(
+        #     single_data = single_data, 
+        #     i = i,
+        #     methods_lasso = current_methods_lasso,
+        #     CATE_type = CATE_type,
+        #     eta_type = eta_type
+        #   )
+        
+        end_time <- Sys.time()
+        
+        time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
+        
+        results[[config_name]] <- list(
+          CATE_est = lasso_ret$CATE_est,
+          CATE_true = lasso_ret$CATE_true,
+          MSE = lasso_ret$MSE,
+          time_taken = time_taken
+        )
+      }
+    }
+  }
+  
+  return(results)
+}
+
 #' Run a Single Iteration of the Experiment and Save Results to CSV
 #'
 #' This function runs the experiment for a single iteration, saves the estimation results to a CSV file, 
@@ -67,7 +144,7 @@ run_experiment_iteration <-
   suppressPackageStartupMessages(library(tidyverse))
   
   source("R/data-reader.R")
-  source("R/time-varying-estimate.R")
+  source("time-varying-estimate.R")
   
   if (verbose >= 1) 
     message("Running iteration ", i)
@@ -86,9 +163,6 @@ run_experiment_iteration <-
   
   input_setting <- paste0(eta_type, "_", CATE_type)
   
-  # json_file_name <- 
-  #   file_path_sans_ext(basename(json_file))
-  # eta_type_folder_name <- paste0(eta_type, "_", baseline_type)
   seed_value <- 123 + 11 * i
   set.seed(seed_value)
   
@@ -121,11 +195,8 @@ run_experiment_iteration <-
     message("Time to load dataset: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
   
   single_data <- loaded_data$data
-  # tau_true <- loaded_data$params$tau
-  # light_censoring <- loaded_data$params$light_censoring
   
   # Run Cox model estimation
-  # tau_estimates_cox <-  list()
   beta_estimates_cox <- mse_estimates_cox <- list()
   time_taken <- list()
   
@@ -141,8 +212,6 @@ run_experiment_iteration <-
     end_time <- Sys.time()
     
     for (config_name in names(cox_results)) {
-      # tau_estimates_cox[[config_name]] <- 
-        # cox_results[[config_name]]$tau_estimate
       beta_estimates_cox[[config_name]] <- 
         cox_results[[config_name]]$beta_estimate
       time_taken[[config_name]] <- 
@@ -166,33 +235,67 @@ run_experiment_iteration <-
   }
   
   
-  result_df <- data.frame(
+  result_df_cox <- data.frame(
     Method = rep("Cox", length(mse_estimates_cox)),
     Specification = names(mse_estimates_cox),
     MSE_Estimate = unlist(mse_estimates_cox),
     Time_Taken = unlist(time_taken)
   )
   
-  # true_params_df <- data.frame(
-  #   Parameter = "tau_true",
-  #   Value = tau_true
-  # )
   
-  # Save the result of the i-th iteration as a CSV file
+  beta_estimates_lasso <- mse_estimates_lasso <- list()
+  time_taken <- list()
+  
+  if (!is.null(methods$lasso) && methods$lasso$enabled) {
+    start_time <- Sys.time()
+    lasso_results <- 
+      run_lasso_estimation(
+        single_data = single_data,
+        i = i,
+        methods_lasso = methods$lasso,
+        CATE_type = CATE_type,
+        eta_type = eta_type
+      )
+    end_time <- Sys.time()
+    
+    for (config_name in names(lasso_results)) {
+      time_taken[[config_name]] <- 
+        lasso_results[[config_name]]$time_taken
+      mse_estimates_lasso[[config_name]] <- lasso_results[[config_name]]$MSE
+    }
+    
+    if (verbose >= 1) 
+      message("Time to run lasso model: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
+    if (verbose >= 2) {
+      message("Lasso Results:")
+      print(mse_estimates_lasso)
+    }
+  }
+  
+  
+  result_df_lasso <- data.frame(
+    Method = rep("Lasso", length(mse_estimates_lasso)),
+    Specification = names(mse_estimates_lasso),
+    MSE_Estimate = unlist(mse_estimates_lasso),
+    Time_Taken = unlist(time_taken)
+  )
+  
+  
+  result_df <- 
+    rbind(result_df_cox, 
+          result_df_lasso)
+
   result_csv_file <- 
     paste0(output_prefix, 
            "-iteration_", 
            i, "-seed_", 
            seed_value, ".csv")
-  # print(result_csv_file)
+  
   write.csv(result_df, result_csv_file, row.names = FALSE)
   
-  # true_params_file <- paste0(output_prefix, "-iteration_", i, "-seed_", seed_value, "-true_params.csv")
-  # write.csv(true_params_df, true_params_file, row.names = FALSE)
   
   if (verbose >= 1) {
     message("Results for iteration ", i, " saved to ", result_csv_file)
-    # message("True parameters for iteration ", i, " saved to ", true_params_file)
   }
 }
 

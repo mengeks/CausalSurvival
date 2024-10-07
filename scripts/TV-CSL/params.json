@@ -5,12 +5,28 @@
   "eta_type": "10-dim-non-linear",
   "methods": {
     "cox": {
-        "enabled": true,
+        "enabled": false,
         "run_time_varying": [true, false],
         "model_specifications": [
           "correctly-specified",
           "mildly-mis-specified",
           "quite-mis-specified"
+        ]
+      },
+    "lasso": {
+        "enabled": true,
+        "regressor_specs": [
+          "linear-only",
+          "mild-complex"
+        ],
+        "lasso_types": [
+          "T_lasso",
+          "S_lasso"
+        ],
+        "CATE_specs": [
+          "correctly-specified",
+          "linear",
+          "flexible"
         ]
       },
     "TV-CSL": {
