@@ -40,7 +40,7 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     lambda_C = lambda_C,
     eta_type = eta_type,
     CATE_type = "non-linear",
-    seed_value = params$seed_value,
+    seed_value = seed_value,
     verbose = 0
   )
   

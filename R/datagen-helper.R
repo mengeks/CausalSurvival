@@ -42,8 +42,14 @@ CATE_function <- function(x, type = "zero") {
     
   } else if (type == "linear") {
     p <- length(x)
+    
     beta <- rep(0, p)
     beta[1] <- beta[p] <- 1
+    
+    # beta <- rep(0, p)
+    # beta[1] <- beta[2] <- 1
+    # 
+    # beta <- rep(1, p)
     return(sum(x * beta))
     
   } else if (type == "non-linear") {
