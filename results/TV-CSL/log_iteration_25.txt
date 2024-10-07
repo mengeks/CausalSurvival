@@ -1,0 +1,19 @@
+Loaded dataset 25 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data//10-dim-non-linear_linear/sim_data_25_n_500.rds 
+Loaded dataset 125 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data//10-dim-non-linear_linear/sim_data_125_n_500.rds 
+[1] "MSE estimate of config_name correctly-specified_TRUE is"
+[1] 0.04654411
+Loaded dataset 125 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data//10-dim-non-linear_linear/sim_data_125_n_500.rds 
+[1] "MSE estimate of config_name correctly-specified_FALSE is"
+[1] 0.0531274
+Loaded dataset 125 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data//10-dim-non-linear_linear/sim_data_125_n_500.rds 
+[1] "MSE estimate of config_name mildly-mis-specified_TRUE is"
+[1] 0.1697391
+Loaded dataset 125 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data//10-dim-non-linear_linear/sim_data_125_n_500.rds 
+[1] "MSE estimate of config_name mildly-mis-specified_FALSE is"
+[1] 0.104087
+Loaded dataset 125 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data//10-dim-non-linear_linear/sim_data_125_n_500.rds 
+[1] "MSE estimate of config_name quite-mis-specified_TRUE is"
+[1] 0.1472774
+Loaded dataset 125 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data//10-dim-non-linear_linear/sim_data_125_n_500.rds 
+[1] "MSE estimate of config_name quite-mis-specified_FALSE is"
+[1] 0.08451089

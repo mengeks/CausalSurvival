@@ -1,0 +1,6 @@
+Running iteration 1
+Loaded dataset 1 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data/simulated/time-varying/linear-interaction_cosine/sim_data_n_200_R_200/sim_data_1_seed_134.rds 
+Time to load dataset: 0.0197210311889648 seconds
+Time to run Cox model: 1.57836484909058 seconds
+Results for iteration 1 saved to results/TV-CSL/linear-interaction_cosine-n_200-iteration_1-seed_134.csv
+True parameters for iteration 1 saved to results/TV-CSL/linear-interaction_cosine-n_200-iteration_1-seed_134-true_params.csv
