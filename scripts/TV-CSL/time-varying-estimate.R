@@ -1,5 +1,6 @@
 
 library(survival)
+library(glmnet)
 library(tidyverse)
 source("R/cox-loglik.R")
 
@@ -305,8 +306,7 @@ extract_W_coefficients <- function(fit, CATE_type = "constant") {
 T_lasso <- function(train_data, 
                     test_data, 
                     regressor_spec = "mild-complex") {
-  library(glmnet)
-  library(survival)
+
   
   # Get row indexes for control and treatment groups
   index_co <- which(train_data$W == 0)
@@ -326,8 +326,15 @@ T_lasso <- function(train_data,
   data_tx <- train_data[index_tx, ]
   
   # Fit Cox models for control and treatment groups
-  eta_0 <- glmnet(transformed_X_co, Surv(data_co$tstart, data_co$tstop, data_co$Delta), family = "cox")
-  eta_1 <- glmnet(transformed_X_tx, Surv(data_tx$tstart, data_tx$tstop, data_tx$Delta), family = "cox")
+  eta_0 <- cv.glmnet(transformed_X_co, Surv(data_co$tstart, data_co$tstop, data_co$Delta), family = "cox")
+  eta_1 <- cv.glmnet(transformed_X_tx, Surv(data_tx$tstart, data_tx$tstop, data_tx$Delta), family = "cox")
+  
+  print("eta_0 coefficient: ")
+  print(coef(eta_0, s = "lambda.min"))
+  print("eta_1 coefficient ")
+  print(coef(eta_1, s = "lambda.min"))
+  
+  
   
   # Transform the test data
   test_transformed_X <- transform_X(
@@ -336,12 +343,22 @@ T_lasso <- function(train_data,
   )
   
   # Predict on test data using both models
-  y_1_pred <- predict(eta_0, newx = test_transformed_X, s = "lambda.min")
-  y_0_pred <- predict(eta_1, newx = test_transformed_X, s = "lambda.min")
+  y_1_pred <- predict(eta_1, newx = test_transformed_X, s = "lambda.min")
+  y_0_pred <- predict(eta_0, newx = test_transformed_X, s = "lambda.min")
+  
+  # print("head(y_1_pred)")
+  # print(head(y_1_pred))
+  # print("head(y_0_pred)")
+  # print(head(y_0_pred))
   
   # Compute CATE estimate
   CATE_est <- y_1_pred - y_0_pred
   CATE_true <- test_data$CATE
+  
+  print("head(CATE_est)")
+  print(head(CATE_est))
+  print("head(CATE_true)")
+  print(head(CATE_true))
   
   # Calculate Mean Squared Error
   MSE <- mean((CATE_est - CATE_true)^2)
@@ -377,37 +394,63 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
   }
   
   regressor <- cbind(transformed_X, regressor_CATE)
+  regressor <- as.matrix(regressor)
+  # print("head(regressor)")
+  # print(head(regressor))
   
-  m <- glmnet(regressor, Surv(train_data$tstart, train_data$tstop, train_data$Delta), family = "cox")
+  m <- cv.glmnet(regressor, Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
+                  # lambda = 10^seq(-4, 1, length = 100),
+                 family = "cox"
+                 )
   
-  m_beta <- coef(m)[-1]
+  m_beta <- coef(m, s = "lambda.min")
+
+  n_transformed_X <- ncol(transformed_X)
+  beta_CATE <- m_beta[(n_transformed_X + 1):length(m_beta)] 
   
-  test_transformed_X <- transform_X(test_data)
+  # CATE_est_train <- as.vector(cbind(train_data$X.1, train_data$X.10) %*% beta_CATE)
+  # MSE_train <- mean( (CATE_est_train - train_data$CATE)^2)
+  
+  test_transformed_X <- transform_X(
+    single_data = test_data,
+    regressor_spec = regressor_spec)
+  
   
   if (CATE_spec == "correctly-specified") {
-    test_regressor_CATE <- test_data$W * cbind(test_data$X.1, test_data$X.10)
+    test_regressor_CATE <- cbind(test_data$X.1, test_data$X.10)
   } else if (CATE_spec == "linear") {
-    test_regressor_CATE <- cbind(test_data$W, test_data$W * test_data[, paste0("X.", 1:10)])
+    test_regressor_CATE <- cbind(1, as.matrix(test_data[, paste0("X.", 1:10)]))
   } else if (CATE_spec == "flexible") {
-    test_regressor_CATE <- cbind(test_data$W, test_data$W * test_transformed_X)
+    test_regressor_CATE <- cbind(1, as.matrix(test_transformed_X))
   }
   
-  CATE_est <- as.vector(test_regressor_CATE %*% m_beta)
-  
+  CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
   CATE_true <- test_data$CATE
   
+  print("head(CATE_est)")
+  print(head(CATE_est))
+  print("head(CATE_true)")
+  print(head(CATE_true))
+  
   MSE <- mean((CATE_est - CATE_true)^2)
+  print(MSE)
   
   ret <- list(
     m = m,
     m_beta = m_beta,
+    beta_CATE = beta_CATE,
     CATE_est = CATE_est,
     CATE_true = CATE_true,
     MSE = MSE
   )
   
+  print("m_beta: ")
+  print(m_beta)
+  print("beta_CATE: ")
+  print(beta_CATE)
+  
   class(ret) <- "slasso"
-  return(ret)
+  ret
 }
 
 
@@ -422,43 +465,177 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
 # 
 # lasso_type == “linear-only”:
 #   - Linear terms
-transform_X <- function(single_data, 
-                        regressor_spec = "linear-only") {
+transform_X <- function(single_data, regressor_spec = "linear-only") {
   library(splines)
   X_vars <- single_data[grep("^X", names(single_data))]
   
-  transformed_X <- data.frame()
+  transformed_X <- matrix(nrow = nrow(X_vars), ncol = 0)
   
   if (regressor_spec == "mild-complex") {
     
-    transformed_X <- X_vars
+    transformed_X <- as.matrix(X_vars)
     
     for (var_name in names(X_vars)) {
       spline_terms <- ns(X_vars[[var_name]], df = 3)
       colnames(spline_terms) <- paste0(var_name, "_spline", 1:3)
-      transformed_X <- cbind(transformed_X, spline_terms)
+      transformed_X <- cbind(transformed_X, as.matrix(spline_terms))
     }
     
     for (var_name in names(X_vars)) {
       square_term <- X_vars[[var_name]]^2
-      transformed_X[[paste0(var_name, "_squared")]] <- square_term
+      transformed_X <- cbind(transformed_X, as.matrix(square_term))
     }
     
     var_names <- names(X_vars)
     for (i in 1:(length(var_names)-1)) {
       for (j in (i+1):length(var_names)) {
         interaction_term <- X_vars[[var_names[i]]] * X_vars[[var_names[j]]]
-        interaction_name <- paste0(var_names[i], "_x_", var_names[j])
-        transformed_X[[interaction_name]] <- interaction_term
+        transformed_X <- cbind(transformed_X, as.matrix(interaction_term))
       }
     }
     
   } else if (regressor_spec == "linear-only") {
     
-    transformed_X <- X_vars
+    transformed_X <- as.matrix(X_vars)
     
   }
   
   return(transformed_X)
 }
 
+
+
+#' Run Cox Model Estimation for Different Specifications
+#'
+#' This function runs Cox model estimation for the provided dataset 
+#' using different model specifications from the \code{methods_cox}.
+#'
+#' @param single_data A data frame containing the survival data.
+#' @param methods_cox A list containing the model specification and time-varying flag for Cox model.
+#' @return A list of results containing the tau estimates and time taken for each model specification.
+#' @export
+run_cox_estimation <- function(
+    single_data, methods_cox, CATE_type, eta_type) {
+  results <- list()
+  
+  if (methods_cox$enabled) {
+    for (spec in methods_cox$model_specifications) {
+      for (run_time_varying in methods_cox$run_time_varying) {
+        
+        config_name <- paste(spec, run_time_varying, sep = "_")
+        
+        start_time <- Sys.time()
+        
+        # Create a temporary methods_cox object that contains the current specification and run_time_varying
+        current_methods_cox <- methods_cox
+        current_methods_cox$model_spec <- spec
+        current_methods_cox$run_time_varying <- run_time_varying
+        
+        # Run the Cox model estimation using the current configuration
+        # tau_est_cox <- 
+        beta_est_cox <- 
+          cox_model_estimation(
+            single_data = single_data, 
+            methods_cox = current_methods_cox,
+            CATE_type = CATE_type,
+            eta_type = eta_type
+          )
+        
+        end_time <- Sys.time()
+        
+        time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
+        
+        results[[config_name]] <- list(
+          # tau_estimate = tau_est_cox,
+          beta_estimate = beta_est_cox,
+          time_taken = time_taken
+        )
+      }
+    }
+  }
+  
+  return(results)
+}
+
+
+#'
+#' This function runs lasso model estimation for the provided dataset 
+#' using different model specifications from the \code{methods_lasso}.
+#'
+#' @param single_data A data frame containing the survival data.
+#' @param methods_cox A list containing the model specification and time-varying flag for Cox model.
+#' @return A list of results containing the tau estimates and time taken for each model specification.
+#' @export
+run_lasso_estimation <- function(
+    single_data, i, methods_lasso, CATE_type, eta_type) {
+  results <- list()
+  n <- nrow(single_data)
+  test_data <- 
+    read_single_simulation_data(
+      n = n, 
+      i = i + 100, 
+      eta_type = eta_type,
+      CATE_type = CATE_type)$data
+  train_data <- 
+    preprocess_data(single_data, 
+                    run_time_varying = T)
+  
+    for (regressor_spec in methods_lasso$regressor_specs) {
+      for (lasso_type in methods_lasso$lasso_types) {
+        
+        
+        
+        if (lasso_type == "T_lasso"){
+          config_name <- paste(lasso_type, regressor_spec, sep = "_")
+          start_time <- Sys.time()
+          lasso_ret <- 
+            T_lasso(train_data = train_data, 
+                    test_data = test_data,
+                    regressor_spec = regressor_spec)
+          
+          end_time <- Sys.time()
+          
+          
+          time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
+          
+          results[[config_name]] <- list(
+            CATE_est = lasso_ret$CATE_est,
+            CATE_true = lasso_ret$CATE_true,
+            MSE = lasso_ret$MSE,
+            time_taken = time_taken
+          )
+          print(paste0("config_name: ", config_name, ". MSE: ", lasso_ret$MSE, ". time_taken: ", time_taken))
+          
+        }else if (lasso_type == "S_lasso"){
+          for (CATE_spec in methods_lasso$CATE_specs){
+            print(paste0("CATE_spec: ", CATE_spec))
+            
+            start_time <- Sys.time()
+            config_name <- paste(lasso_type, CATE_spec, regressor_spec, sep = "_")
+            lasso_ret <- 
+              S_lasso(train_data = train_data, 
+                      test_data = test_data,
+                      regressor_spec = regressor_spec,
+                      CATE_spec = CATE_spec)
+            
+            end_time <- Sys.time()
+            
+            time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
+            print(paste0("config_name: ", config_name, "; MSE: ", lasso_ret$MSE, "; time_taken: ", time_taken))
+            
+            results[[config_name]] <- list(
+              CATE_est = lasso_ret$CATE_est,
+              CATE_true = lasso_ret$CATE_true,
+              MSE = lasso_ret$MSE,
+              time_taken = time_taken
+            )
+          }
+        }else{
+          stop("lasso_type should be T_lasso or S_lasso")
+        }
+        
+      } # End looping lasso_types
+    } # End looping regressor_specs
+  
+  return(results)
+}

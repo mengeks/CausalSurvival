@@ -1,0 +1,148 @@
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Running iteration 1
+Configuration Parameters:
+n: 500
+R: 100
+eta_type: 10-dim-non-linear
+CATE_type: linear
+Seed value for iteration 1: 134
+Loaded dataset 1 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_1_n_500.rds 
+Time to load dataset: 0.00116610527038574 seconds
+Loaded dataset 101 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_101_n_500.rds 
+[1] "eta_0 coefficient: "
+10 x 1 sparse Matrix of class "dgCMatrix"
+     1
+X.1  .
+X.2  .
+X.3  .
+X.4  .
+X.5  .
+X.6  .
+X.7  .
+X.8  .
+X.9  .
+X.10 .
+[1] "eta_1 coefficient "
+10 x 1 sparse Matrix of class "dgCMatrix"
+              1
+X.1  0.71864928
+X.2  .         
+X.3  .         
+X.4  0.01908865
+X.5  .         
+X.6  .         
+X.7  .         
+X.8  .         
+X.9  .         
+X.10 0.94943015
+[1] "head(CATE_est)"
+              1
+[1,]  0.2571027
+[2,] -0.3996480
+[3,]  0.7123865
+[4,]  0.9774899
+[5,]  0.6636492
+[6,] -0.8032278
+[1] "head(CATE_true)"
+[1]  0.5133344 -0.5164468  0.7917728  0.9875004  0.8813031 -0.9434285
+[1] "config_name: T_lasso_linear-only. MSE: 0.085358339005529. time_taken: 15.831315279007"
+[1] "CATE_spec: correctly-specified"
+[1] "head(CATE_est)"
+[1]  0.1463670 -0.3771772  0.7384171  1.0414409  0.6166177 -0.8321393
+[1] "head(CATE_true)"
+[1]  0.5133344 -0.5164468  0.7917728  0.9875004  0.8813031 -0.9434285
+[1] 0.1140507
+[1] "m_beta: "
+12 x 1 sparse Matrix of class "dgCMatrix"
+               1
+X.1   0.06003859
+X.2   .         
+X.3   .         
+X.4   .         
+X.5   .         
+X.6   .         
+X.7   .         
+X.8  -0.07320091
+X.9   .         
+X.10  .         
+      0.67958522
+      1.02428945
+[1] "beta_CATE: "
+[1] 0.6795852 1.0242894
+[1] "config_name: S_lasso_correctly-specified_linear-only; MSE: 0.114050654453404; time_taken: 8.94224524497986"
+[1] "CATE_spec: linear"
+[1] "head(CATE_est)"
+[1]  0.05770782 -0.46079385  0.66707741  1.00679553  0.53917014 -0.89598019
+[1] "head(CATE_true)"
+[1]  0.5133344 -0.5164468  0.7917728  0.9875004  0.8813031 -0.9434285
+[1] 0.1402917
+[1] "m_beta: "
+21 x 1 sparse Matrix of class "dgCMatrix"
+                       1
+X.1           0.10080196
+X.2           .         
+X.3           .         
+X.4           .         
+X.5           .         
+X.6           .         
+X.7           .         
+X.8          -0.07454156
+X.9           .         
+X.10          .         
+train_data$W -0.08296782
+X.1           0.62599372
+X.2           .         
+X.3           .         
+X.4           0.02863526
+X.5           0.01425059
+X.6           .         
+X.7           .         
+X.8           .         
+X.9           .         
+X.10          1.02166442
+[1] "beta_CATE: "
+ [1] -0.08296782  0.62599372  0.00000000  0.00000000  0.02863526  0.01425059
+ [7]  0.00000000  0.00000000  0.00000000  0.00000000  1.02166442
+[1] "config_name: S_lasso_linear_linear-only; MSE: 0.140291707222697; time_taken: 13.8874304294586"
+[1] "CATE_spec: flexible"
+[1] "head(CATE_est)"
+[1]  0.2130184 -0.3702938  0.6773890  0.9371654  0.6123244 -0.7633185
+[1] "head(CATE_true)"
+[1]  0.5133344 -0.5164468  0.7917728  0.9875004  0.8813031 -0.9434285
+[1] 0.1308677
+[1] "m_beta: "
+21 x 1 sparse Matrix of class "dgCMatrix"
+              1
+X.1  0.01773419
+X.2  .         
+X.3  .         
+X.4  .         
+X.5  .         
+X.6  .         
+X.7  .         
+X.8  .         
+X.9  .         
+X.10 .         
+     .         
+X.1  0.66572098
+X.2  .         
+X.3  .         
+X.4  0.01336370
+X.5  .         
+X.6  .         
+X.7  .         
+X.8  .         
+X.9  .         
+X.10 0.91316441
+[1] "beta_CATE: "
+ [1] 0.0000000 0.6657210 0.0000000 0.0000000 0.0133637 0.0000000 0.0000000
+ [8] 0.0000000 0.0000000 0.0000000 0.9131644
+[1] "config_name: S_lasso_flexible_linear-only; MSE: 0.130867655681248; time_taken: 13.2604732513428"

@@ -24,9 +24,6 @@ read_single_simulation_data <-
   )
   
   
-  # seed_value <- 123 + 11 * i)
-  # print(paste0("class of i is: ", class(i)))
-  # print(paste0("class of n is: ", class(n)))
   file_name <- paste0("sim_data_", i, 
                       # "_seed_", seed_value, 
                       "_n_", n,

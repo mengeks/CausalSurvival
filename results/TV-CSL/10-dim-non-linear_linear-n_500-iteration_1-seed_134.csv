@@ -1,7 +1,7 @@
 "Method","Specification","MSE_Estimate","Time_Taken"
-"Cox","correctly-specified_TRUE",0.0316659576879001,1.35994696617126
-"Cox","correctly-specified_FALSE",0.107900179452961,0.0296230316162109
-"Cox","mildly-mis-specified_TRUE",0.103290046831416,1.26547598838806
-"Cox","mildly-mis-specified_FALSE",0.104434189623199,0.0054008960723877
-"Cox","quite-mis-specified_TRUE",0.100872865267577,1.32250595092773
-"Cox","quite-mis-specified_FALSE",0.109896075608561,0.00461506843566895
+"Lasso","S_lasso_correctly-specified_linear-only",0.423403654282801,8.38178396224976
+"Lasso","S_lasso_linear_linear-only",0.423028883102864,21.1137387752533
+"Lasso","S_lasso_flexible_linear-only",0.484421124548625,33.7716708183289
+"Lasso","S_lasso_correctly-specified_mild-complex",0.484737952858333,33.9008450508118
+"Lasso","S_lasso_linear_mild-complex",0.328252167502201,69.8849897384644
+"Lasso","S_lasso_flexible_mild-complex",0.484421124548625,140.825147628784

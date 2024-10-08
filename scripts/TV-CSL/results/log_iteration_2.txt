@@ -1,0 +1,166 @@
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Running iteration 2
+Configuration Parameters:
+n: 500
+R: 100
+eta_type: 10-dim-non-linear
+CATE_type: linear
+Seed value for iteration 2: 145
+Loaded dataset 2 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_2_n_500.rds 
+Time to load dataset: 0.056549072265625 seconds
+Loaded dataset 102 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_102_n_500.rds 
+[1] "eta_0 coefficient: "
+10 x 1 sparse Matrix of class "dgCMatrix"
+     1
+X.1  .
+X.2  .
+X.3  .
+X.4  .
+X.5  .
+X.6  .
+X.7  .
+X.8  .
+X.9  .
+X.10 .
+[1] "eta_1 coefficient: "
+10 x 1 sparse Matrix of class "dgCMatrix"
+             1
+X.1  0.5073258
+X.2  .        
+X.3  .        
+X.4  .        
+X.5  .        
+X.6  .        
+X.7  .        
+X.8  .        
+X.9  .        
+X.10 0.6218720
+[1] "Checking intercept:"
+[1] 0.5073258
+[1] "head(y_1_pred)"
+              1
+[1,] -0.1797467
+[2,] -1.7336928
+[3,] -0.4784452
+[4,]  0.6623851
+[5,] -0.1486018
+[6,] -0.3662888
+[1] "head(y_0_pred)"
+     1
+[1,] 0
+[2,] 0
+[3,] 0
+[4,] 0
+[5,] 0
+[6,] 0
+[1] "head(CATE_est)"
+              1
+[1,] -0.1797467
+[2,] -1.7336928
+[3,] -0.4784452
+[4,]  0.6623851
+[5,] -0.1486018
+[6,] -0.3662888
+[1] "head(CATE_true)"
+[1] -0.2142602 -2.2738824 -0.7569232  0.6496281 -0.1190999 -0.4797377
+[1] "config_name: T_lasso_linear-only. MSE: 0.0827047284227628. time_taken: 16.7447443008423"
+[1] "CATE_spec: correctly-specified"
+[1] "head(CATE_est)"
+[1] -0.1320805 -1.2060887 -0.2904862  0.5325372 -0.1281912 -0.2550412
+[1] "head(CATE_true)"
+[1] -0.2142602 -2.2738824 -0.7569232  0.6496281 -0.1190999 -0.4797377
+[1] 0.3655634
+[1] "m_beta: "
+12 x 1 sparse Matrix of class "dgCMatrix"
+              1
+X.1  0.05435648
+X.2  .         
+X.3  .         
+X.4  .         
+X.5  .         
+X.6  .         
+X.7  .         
+X.8  .         
+X.9  .         
+X.10 .         
+     0.50771749
+     0.65916156
+[1] "beta_CATE: "
+[1] 0.5077175 0.6591616
+[1] "config_name: S_lasso_correctly-specified_linear-only; MSE: 0.365563407899838; time_taken: 9.13818407058716"
+[1] "CATE_spec: linear"
+[1] "head(CATE_est)"
+[1] -0.1320805 -1.2060887 -0.2904862  0.5325372 -0.1281912 -0.2550412
+[1] "head(CATE_true)"
+[1] -0.2142602 -2.2738824 -0.7569232  0.6496281 -0.1190999 -0.4797377
+[1] 0.3655634
+[1] "m_beta: "
+21 x 1 sparse Matrix of class "dgCMatrix"
+                      1
+X.1          0.05435648
+X.2          .         
+X.3          .         
+X.4          .         
+X.5          .         
+X.6          .         
+X.7          .         
+X.8          .         
+X.9          .         
+X.10         .         
+train_data$W .         
+X.1          0.50771749
+X.2          .         
+X.3          .         
+X.4          .         
+X.5          .         
+X.6          .         
+X.7          .         
+X.8          .         
+X.9          .         
+X.10         0.65916156
+[1] "beta_CATE: "
+ [1] 0.0000000 0.5077175 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+ [8] 0.0000000 0.0000000 0.0000000 0.6591616
+[1] "config_name: S_lasso_linear_linear-only; MSE: 0.365563407899838; time_taken: 11.3083598613739"
+[1] "CATE_spec: flexible"
+[1] "head(CATE_est)"
+[1] -0.1477380 -1.3099530 -0.2897139  0.6220698 -0.1543371 -0.2771401
+[1] "head(CATE_true)"
+[1] -0.2142602 -2.2738824 -0.7569232  0.6496281 -0.1190999 -0.4797377
+[1] 0.2748875
+[1] "m_beta: "
+21 x 1 sparse Matrix of class "dgCMatrix"
+              1
+X.1  0.09005432
+X.2  .         
+X.3  .         
+X.4  .         
+X.5  .         
+X.6  .         
+X.7  .         
+X.8  .         
+X.9  .         
+X.10 .         
+     .         
+X.1  0.54616820
+X.2  .         
+X.3  .         
+X.4  .         
+X.5  .         
+X.6  .         
+X.7  .         
+X.8  .         
+X.9  .         
+X.10 0.74584038
+[1] "beta_CATE: "
+ [1] 0.0000000 0.5461682 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+ [8] 0.0000000 0.0000000 0.0000000 0.7458404
+[1] "config_name: S_lasso_flexible_linear-only; MSE: 0.274887474775872; time_taken: 11.5800712108612"

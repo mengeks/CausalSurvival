@@ -1,6 +1,15 @@
 #!/bin/bash
+#SBATCH -J gen_data         # Job name
+#SBATCH -o logs/gen_data_%j.out   # Standard output log (%j will be replaced with job ID)
+#SBATCH -e logs/gen_data_%j.err   # Standard error log
+#SBATCH -p sapphire           # Partition (queue) name
+#SBATCH -c 100               # Number of cores
+#SBATCH --mem=4000          # Memory in MB
+#SBATCH -t 02:00:00         # Runtime (hours:minutes:seconds)
 
 # Usage: ./run_experiment.sh path/to/config.json [verbose]
+
+module load R/4.2.2-fasrc01
 
 json_file=$1
 verbose=${2:-0}  # Default verbosity is 0 if not provided

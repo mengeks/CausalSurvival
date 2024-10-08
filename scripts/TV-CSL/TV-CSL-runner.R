@@ -1,132 +1,10 @@
+library(jsonlite)
+# library(tools)
+# library(survival)
+suppressPackageStartupMessages(library(tidyverse))
 
-#' Run Cox Model Estimation for Different Specifications
-#'
-#' This function runs Cox model estimation for the provided dataset 
-#' using different model specifications from the \code{methods_cox}.
-#'
-#' @param single_data A data frame containing the survival data.
-#' @param methods_cox A list containing the model specification and time-varying flag for Cox model.
-#' @return A list of results containing the tau estimates and time taken for each model specification.
-#' @export
-run_cox_estimation <- function(
-    single_data, methods_cox, CATE_type, eta_type) {
-  results <- list()
-  
-  if (methods_cox$enabled) {
-    for (spec in methods_cox$model_specifications) {
-      for (run_time_varying in methods_cox$run_time_varying) {
-        
-        config_name <- paste(spec, run_time_varying, sep = "_")
-        
-        start_time <- Sys.time()
-        
-        # Create a temporary methods_cox object that contains the current specification and run_time_varying
-        current_methods_cox <- methods_cox
-        current_methods_cox$model_spec <- spec
-        current_methods_cox$run_time_varying <- run_time_varying
-        
-        # Run the Cox model estimation using the current configuration
-        # tau_est_cox <- 
-        beta_est_cox <- 
-          cox_model_estimation(
-            single_data = single_data, 
-            methods_cox = current_methods_cox,
-            CATE_type = CATE_type,
-            eta_type = eta_type
-          )
-        
-        end_time <- Sys.time()
-        
-        time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
-        
-        results[[config_name]] <- list(
-          # tau_estimate = tau_est_cox,
-          beta_estimate = beta_est_cox,
-          time_taken = time_taken
-        )
-      }
-    }
-  }
-  
-  return(results)
-}
-
-
-#'
-#' This function runs lasso model estimation for the provided dataset 
-#' using different model specifications from the \code{methods_lasso}.
-#'
-#' @param single_data A data frame containing the survival data.
-#' @param methods_cox A list containing the model specification and time-varying flag for Cox model.
-#' @return A list of results containing the tau estimates and time taken for each model specification.
-#' @export
-run_lasso_estimation <- function(
-    single_data, i, methods_lasso, CATE_type, eta_type) {
-  results <- list()
-  
-  if (methods_lasso$enabled) {
-    for (regressor_spec in methods_lasso$regressor_specs) {
-      for (lasso_type in methods_lasso$lasso_types) {
-        
-        config_name <- paste(lasso_type, regressor_spec, sep = "_")
-        
-        start_time <- Sys.time()
-
-        train_data <- 
-          preprocess_data(single_data, 
-                          run_time_varying = T)
-        
-        n <- nrow(single_data)
-        test_data <- 
-          read_single_simulation_data(
-            n = n, 
-            i = i + 100, 
-            eta_type = eta_type,
-            CATE_type = CATE_type)$data
-        
-        if (lasso_type == "T_lasso"){
-          lasso_ret <- 
-            T_lasso(train_data = train_data, 
-                    test_data = test_data,
-                    regressor_spec = regressor_spec)
-        }else if (lasso_type == "S_lasso"){
-          for (CATE_spec in methods_lasso$CATE_specs){
-            config_name <- paste(lasso_type, CATE_spec, regressor_spec, sep = "_")
-            lasso_ret <- 
-              S_lasso(train_data = train_data, 
-                      test_data = test_data,
-                      regressor_spec = regressor_spec,
-                      CATE_spec = CATE_spec)
-          }
-        }else{
-          stop("lasso_type should be T_lasso or S_lasso")
-        }
-        
-        # lasso_est_ret <- 
-        #   lasso_model_estimation(
-        #     single_data = single_data, 
-        #     i = i,
-        #     methods_lasso = current_methods_lasso,
-        #     CATE_type = CATE_type,
-        #     eta_type = eta_type
-        #   )
-        
-        end_time <- Sys.time()
-        
-        time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
-        
-        results[[config_name]] <- list(
-          CATE_est = lasso_ret$CATE_est,
-          CATE_true = lasso_ret$CATE_true,
-          MSE = lasso_ret$MSE,
-          time_taken = time_taken
-        )
-      }
-    }
-  }
-  
-  return(results)
-}
+source("R/data-reader.R")
+source("scripts/TV-CSL/time-varying-estimate.R")
 
 #' Run a Single Iteration of the Experiment and Save Results to CSV
 #'
@@ -138,13 +16,6 @@ run_lasso_estimation <- function(
 #' @param verbose The level of verbosity (0 = default, 1 = progress info, 2 = detailed info).
 run_experiment_iteration <- 
   function(i, json_file, verbose = 0) {
-  library(jsonlite)
-  library(tools)
-  library(survival)
-  suppressPackageStartupMessages(library(tidyverse))
-  
-  source("R/data-reader.R")
-  source("time-varying-estimate.R")
   
   if (verbose >= 1) 
     message("Running iteration ", i)
@@ -153,12 +24,10 @@ run_experiment_iteration <-
   
   n <- config$n
   R <- config$R
-  # is_time_varying <- config$is_time_varying
   methods <- config$methods
   K <- ifelse(is.null(config$K), 5, config$K)
   
   eta_type <- config$eta_type
-  # baseline_type <- config$baseline_type
   CATE_type <- config$CATE_type
   
   input_setting <- paste0(eta_type, "_", CATE_type)
@@ -166,10 +35,8 @@ run_experiment_iteration <-
   seed_value <- 123 + 11 * i
   set.seed(seed_value)
   
-  
-  
   output_prefix <- 
-    paste0("results/TV-CSL/", 
+    paste0("scripts/TV-CSL/results/", 
            input_setting, 
            "-n_", n)
   
@@ -196,7 +63,7 @@ run_experiment_iteration <-
   
   single_data <- loaded_data$data
   
-  # Run Cox model estimation
+  
   beta_estimates_cox <- mse_estimates_cox <- list()
   time_taken <- list()
   
@@ -256,6 +123,7 @@ run_experiment_iteration <-
         CATE_type = CATE_type,
         eta_type = eta_type
       )
+    # print(paste0("lasso_results: ", lasso_results))
     end_time <- Sys.time()
     
     for (config_name in names(lasso_results)) {
