@@ -690,7 +690,7 @@ run_TV_CSL_estimation <- function(
   n <- nrow(train_data_original)
   
   train_data <- create_pseudo_dataset(survival_data = train_data_original)
-  train_data <- train_data%>% 
+  train_data_original <- train_data_original %>% 
     mutate(U_A = pmin(A,U),
            Delta_A = A <= U)
   
@@ -714,10 +714,13 @@ run_TV_CSL_estimation <- function(
             
             fold_nuisance <- train_data[train_data$id %in% nuisance_ids, ]
             fold_causal <- train_data[train_data$id %in% causal_ids, ]
+            train_data_original_nuisance <- 
+              train_data_original[train_data_original$id %in% nuisance_ids, ]
             
             fold_causal_fitted <- TV_CSL_nuisance(
               fold_train = fold_nuisance, 
               fold_test = fold_causal, 
+              train_data_original = train_data_original_nuisance,
               prop_score_spec = prop_score_spec,
               lasso_type = lasso_type,
               regressor_spec = regressor_spec
@@ -786,7 +789,8 @@ run_TV_CSL_estimation <- function(
 #' @importFrom glmnet cv.glmnet
 #' @export
 TV_CSL_nuisance <- function(fold_train, 
-                            fold_test, 
+                            fold_test,
+                            train_data_original, # for estimating the propensity score
                             prop_score_spec,
                             lasso_type,
                             regressor_spec) {
@@ -794,9 +798,9 @@ TV_CSL_nuisance <- function(fold_train,
   # 1. Estimate the propensity score
   if (grepl("^cox", prop_score_spec)) {
     if (prop_score_spec == "cox-linear-censored-only") {
-      df_prop_score <- fold_train %>% filter(Delta == 1)
+      df_prop_score <- train_data_original %>% filter(Delta == 1)
     }else if (prop_score_spec == "cox-linear-all-data") {
-      df_prop_score <- fold_train
+      df_prop_score <- train_data_original
     }
     
     treatment_model <- coxph(Surv(U_A, Delta_A) ~ X.2 + X.3, 
