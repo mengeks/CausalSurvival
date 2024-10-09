@@ -395,8 +395,6 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
   
   regressor <- cbind(transformed_X, regressor_CATE)
   regressor <- as.matrix(regressor)
-  # print("head(regressor)")
-  # print(head(regressor))
   
   m <- cv.glmnet(regressor, Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
                   # lambda = 10^seq(-4, 1, length = 100),
@@ -407,6 +405,7 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
 
   n_transformed_X <- ncol(transformed_X)
   beta_CATE <- m_beta[(n_transformed_X + 1):length(m_beta)] 
+  beta_eta_0 <- m_beta[1:(n_transformed_X)] 
   
   # CATE_est_train <- as.vector(cbind(train_data$X.1, train_data$X.10) %*% beta_CATE)
   # MSE_train <- mean( (CATE_est_train - train_data$CATE)^2)
@@ -427,10 +426,16 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
   CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
   CATE_true <- test_data$CATE
   
-  print("head(CATE_est)")
-  print(head(CATE_est))
-  print("head(CATE_true)")
-  print(head(CATE_true))
+  # Added y_0_pred
+  # print("head(test_regressor): ")
+  # print(head(test_regressor))
+  # print("m_beta: ")
+  # print(m_beta)
+  y_0_pred <- as.vector(test_transformed_X %*% beta_eta_0)
+  y_1_pred <- y_0_pred + CATE_est
+  
+  
+  
   
   MSE <- mean((CATE_est - CATE_true)^2)
   print(MSE)
@@ -439,6 +444,9 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
     m = m,
     m_beta = m_beta,
     beta_CATE = beta_CATE,
+    beta_eta_0 = beta_eta_0,
+    y_0_pred = y_0_pred,
+    y_1_pred = y_1_pred, 
     CATE_est = CATE_est,
     CATE_true = CATE_true,
     MSE = MSE
@@ -588,10 +596,14 @@ run_lasso_estimation <- function(
         if (lasso_type == "T_lasso"){
           config_name <- paste(lasso_type, regressor_spec, sep = "_")
           start_time <- Sys.time()
-          lasso_ret <- 
-            T_lasso(train_data = train_data, 
+          lasso_ret <-
+            T_lasso(train_data = train_data,
                     test_data = test_data,
                     regressor_spec = regressor_spec)
+          ## Test output
+          # lasso_ret <- list(MSE = 1, 
+          #                   CATE_est = 1,
+          #                   CATE_true = 1)
           
           end_time <- Sys.time()
           
@@ -612,11 +624,15 @@ run_lasso_estimation <- function(
             
             start_time <- Sys.time()
             config_name <- paste(lasso_type, CATE_spec, regressor_spec, sep = "_")
-            lasso_ret <- 
-              S_lasso(train_data = train_data, 
+            lasso_ret <-
+              S_lasso(train_data = train_data,
                       test_data = test_data,
                       regressor_spec = regressor_spec,
                       CATE_spec = CATE_spec)
+            ## Test output
+            # lasso_ret <- list(MSE = 1, 
+            #                   CATE_est = 1,
+            #                   CATE_true = 1)
             
             end_time <- Sys.time()
             
@@ -638,4 +654,260 @@ run_lasso_estimation <- function(
     } # End looping regressor_specs
   
   return(results)
+}
+
+
+
+#' Run TV_CSL Estimation
+#'
+#' This function runs the Time-Varying Conditional Survival Learning (TV-CSL) model estimation with multiple configurations. It performs k-fold cross-validation for different specifications of the model, including the type of lasso, regressor, and propensity score method.
+#'
+#' @param train_data_original A data frame containing the original training data.
+#' @param test_data A data frame containing the test data.
+#' @param methods_TV_CSL A list specifying the various configurations to use in TV-CSL, including the propensity score specification, lasso types, and final model methods.
+#' @param K An integer representing the number of folds for cross-validation. Default is 5.
+#'
+#' @details
+#' The function takes the training and test data, and for each configuration of propensity score specification, lasso type, regressor specification, and final model method, it performs k-fold cross-validation. It estimates the Conditional Average Treatment Effect (CATE) for each fold and returns the results, including the MSE and computation time for each configuration.
+#'
+#' @return A list where each entry corresponds to a configuration and contains the CATE estimates, true CATE values, MSE, and the time taken.
+#'
+#' @examples
+#' \dontrun{
+#' # Example of how to run the function
+#' results <- run_TV_CSL_estimation(train_data_original, test_data, methods_TV_CSL, K = 5)
+#' }
+#'
+#' @export
+run_TV_CSL_estimation <- function(
+    train_data_original, 
+    test_data,
+    methods_TV_CSL,
+    K = 5
+) {
+  
+  results <- list()
+  n <- nrow(train_data_original)
+  
+  train_data <- create_pseudo_dataset(survival_data = train_data_original)
+  train_data <- train_data%>% 
+    mutate(U_A = pmin(A,U),
+           Delta_A = A <= U)
+  
+  folds <- cut(seq(1, n), breaks = K, labels = FALSE)
+  
+  for (prop_score_spec in methods_TV_CSL$prop_score_specs) {
+    for (regressor_spec in methods_TV_CSL$regressor_specs) {
+      for (lasso_type in methods_TV_CSL$lasso_types) {
+        for (final_model_method in methods_TV_CSL$final_model_methods) {
+          
+          config_name <- paste(lasso_type, prop_score_spec, regressor_spec, final_model_method, sep = "_")
+          start_time <- Sys.time()
+          
+          CATE_ests <- matrix(NA, nrow = n, ncol = K)
+          
+          # Perform K-fold cross-fitting
+          for (k in 1:K) {
+            
+            nuisance_ids <- train_data_original[folds != k, "id"]
+            causal_ids <- train_data_original[folds == k, "id"]
+            
+            fold_nuisance <- train_data[train_data$id %in% nuisance_ids, ]
+            fold_causal <- train_data[train_data$id %in% causal_ids, ]
+            
+            fold_causal_fitted <- TV_CSL_nuisance(
+              fold_train = fold_nuisance, 
+              fold_test = fold_causal, 
+              prop_score_spec = prop_score_spec,
+              lasso_type = lasso_type,
+              regressor_spec = regressor_spec
+            )
+            
+            fit_TV_CSL_ret <- fit_TV_CSL(
+              fold_causal_fitted = fold_causal_fitted, 
+              final_model_method = final_model_method,
+              test_data = test_data
+            )
+            
+            CATE_ests[, k] <- fit_TV_CSL_ret$CATE_est
+          }
+          
+          end_time <- Sys.time()
+          
+          CATE_est <- rowMeans(CATE_ests, na.rm = TRUE)
+          CATE_true <- test_data$CATE
+          
+          MSE <- mean((CATE_true - CATE_est)^2)
+          
+          time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
+          
+          results[[config_name]] <- list(
+            CATE_est = CATE_est,
+            CATE_true = CATE_true,
+            MSE = MSE,
+            time_taken = time_taken
+          )
+          
+          print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
+          
+        } # End looping over final_model_methods
+      } # End looping over lasso_types
+    } # End looping over regressor_specs
+  } # End looping over prop_score_specs
+  
+  return(results)
+}
+
+
+
+#' TV_CSL Nuisance Estimation
+#'
+#' This function estimates the nuisance components for the time-varying conditional survival model (TV-CSL). It calculates the propensity score and performs the lasso-based nuisance estimation.
+#'
+#' @param fold_train A data frame containing the training set.
+#' @param fold_test A data frame containing the test set.
+#' @param prop_score_spec A character string specifying the method for propensity score estimation (e.g., "cox-linear-censored-only").
+#' @param lasso_type A character string specifying the type of lasso model ("T_lasso" or "S_lasso").
+#' @param regressor_spec A character string specifying the regressor used in the lasso model.
+#'
+#' @details
+#' The function first estimates the propensity score based on the specified propensity score model. If the model is based on the Cox proportional hazards model (e.g., "cox-linear-censored-only"), it estimates the treatment probability using a Cox regression. It then splits the test set based on time intervals, computes the treatment probabilities within each interval, and fits a lasso model (either "T_lasso" or "S_lasso") to estimate the nuisance parameters for each fold.
+#'
+#' @return A data frame containing the augmented test set, including the nuisance estimates.
+#'
+#' @examples
+#' # Example usage of TV_CSL_nuisance
+#' fold_train <- your_train_data
+#' fold_test <- your_test_data
+#' result <- TV_CSL_nuisance(fold_train, fold_test, "cox-linear-censored-only", "T_lasso", "linear")
+#'
+#' @importFrom dplyr mutate left_join filter
+#' @importFrom survival coxph Surv
+#' @importFrom glmnet cv.glmnet
+#' @export
+TV_CSL_nuisance <- function(fold_train, 
+                            fold_test, 
+                            prop_score_spec,
+                            lasso_type,
+                            regressor_spec) {
+  
+  # 1. Estimate the propensity score
+  if (grepl("^cox", prop_score_spec)) {
+    if (prop_score_spec == "cox-linear-censored-only") {
+      df_prop_score <- fold_train %>% filter(Delta == 1)
+    }else if (prop_score_spec == "cox-linear-all-data") {
+      df_prop_score <- fold_train
+    }
+    
+    treatment_model <- coxph(Surv(U_A, Delta_A) ~ X.2 + X.3, 
+                             data = df_prop_score, 
+                             ties = "breslow")
+    alpha_estimate <- treatment_model$coefficients
+    
+    calculate_eX <- function(alpha_estimate, X, t) {
+      hazard_adapt_date <- exp(alpha_estimate * X)
+      trt_prob <- 1 - exp(-t * hazard_adapt_date)
+      return(trt_prob)
+    }
+  }else {
+    stop(paste0("Unknown prop_score_spec."))
+  }
+  
+  # 2. Obtain the propensity score at each interval
+  granular_cut_points <- unique(fold_test$tstop)
+  
+  split_within_intervals <- function(row, cut_points) {
+    original_tstart <- row[["tstart"]]
+    original_tstop <- row[["tstop"]]
+    
+    valid_cuts <- cut_points[cut_points > original_tstart & cut_points < original_tstop]
+    final_cuts <- sort(c(original_tstart, valid_cuts, original_tstop))
+    
+    new_intervals <- data.frame(
+      tstart = head(final_cuts, -1),
+      tstop = tail(final_cuts, -1),
+      id = row[["id"]]
+    )
+    return(new_intervals)
+  }
+  
+  fold_test_split <- map_dfr(seq_len(nrow(fold_test)), function(i) {
+    split_within_intervals(fold_test[i, ], granular_cut_points)
+  })
+  
+  fold_test_split <- fold_test_split %>%
+    mutate(a_t_X = calculate_eX(
+      alpha_estimate = alpha_estimate, 
+      X = cbind(fold_test_split$X.2, fold_test_split$X.3),
+      t = fold_test_split$tstop
+    ))
+  
+  # 3. Obtain nu 
+  if (lasso_type == "T_lasso") {
+    lasso_ret <- T_lasso(
+      train_data = fold_train,  
+      test_data = fold_test,  
+      regressor_spec = regressor_spec
+    )
+  } else if (lasso_type == "S_lasso") {
+    lasso_ret <- S_lasso(
+      train_data = fold_train,
+      test_data = fold_test,
+      regressor_spec = regressor_spec,
+      CATE_spec = CATE_spec
+    )
+    # fold_test$nu_X <- lasso_ret$y_pred
+  }
+  fold_test$eta_1 <- lasso_ret$y_1_pred
+  fold_test$eta_0 <- lasso_ret$y_0_pred
+  
+  # 3.2 Join the data
+  fold_test_final <- 
+    left_join(fold_test_split, 
+              fold_test %>% select(-tstart, -tstop), 
+              by = "id")
+  
+  fold_test_final <- fold_test_final %>%
+    mutate(nu_X = a_t_X * eta_1 + (1 - a_t_X) * eta_0)
+  
+  return(fold_test_final)
+}
+
+
+fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
+  
+  beta_CATE <- NULL
+  
+  if (final_model_method == "coxph") {
+    final_model <- coxph(
+      Surv(tstart, tstop, Delta) ~ I(W - a_t_X) * paste0("X.", 1:10) + offset(nu_X), 
+      data = fold_causal_fitted, 
+      ties = "breslow"
+    )
+    beta_CATE <- coef(final_model)
+    
+  } else if (final_model_method == "lasso") {
+    regressor_TV_CSL <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) *
+      cbind(1, fold_causal_fitted[, paste0("X.", 1:10)])
+    
+    final_model <- cv.glmnet(
+      regressor_TV_CSL, 
+      Surv(fold_causal_fitted$tstart, fold_causal_fitted$tstop, fold_causal_fitted$Delta), 
+      offset = fold_causal_fitted$nu_X,
+      family = "cox"
+    )
+
+    beta_CATE <- as.vector(coef(final_model, s = "lambda.min")[-1])  # Removing the intercept
+  }
+  
+  test_regressor_CATE <- cbind(1, test_data[, paste0("X.", 1:10)])
+  CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
+  
+  ret <- list(
+    CATE_est = CATE_est,
+    beta_CATE = beta_CATE,
+    final_model_method = final_model_method
+  )
+  
+  return(ret)
 }

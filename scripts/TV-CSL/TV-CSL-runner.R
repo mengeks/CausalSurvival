@@ -56,6 +56,12 @@ run_experiment_iteration <-
     eta_type = eta_type,  
     CATE_type = CATE_type
   )
+  test_data <- 
+    read_single_simulation_data(
+      n = n, 
+      i = i + 100, 
+      eta_type = eta_type,
+      CATE_type = CATE_type)$data
   end_time <- Sys.time()
   
   if (verbose >= 1) 
@@ -65,7 +71,7 @@ run_experiment_iteration <-
   
   
   beta_estimates_cox <- mse_estimates_cox <- list()
-  time_taken <- list()
+  time_taken_cox <- list()
   
   if (!is.null(methods$cox) && methods$cox$enabled) {
     start_time <- Sys.time()
@@ -81,7 +87,7 @@ run_experiment_iteration <-
     for (config_name in names(cox_results)) {
       beta_estimates_cox[[config_name]] <- 
         cox_results[[config_name]]$beta_estimate
-      time_taken[[config_name]] <- 
+      time_taken_cox[[config_name]] <- 
         cox_results[[config_name]]$time_taken
       mse_estimates_cox[[config_name]] <- 
         calculate_mse(beta_estimates_cox[[config_name]], 
@@ -106,12 +112,11 @@ run_experiment_iteration <-
     Method = rep("Cox", length(mse_estimates_cox)),
     Specification = names(mse_estimates_cox),
     MSE_Estimate = unlist(mse_estimates_cox),
-    Time_Taken = unlist(time_taken)
+    Time_Taken = unlist(time_taken_cox)
   )
   
   
-  beta_estimates_lasso <- mse_estimates_lasso <- list()
-  time_taken <- list()
+  time_taken_lasso <- mse_estimates_lasso <- list()
   
   if (!is.null(methods$lasso) && methods$lasso$enabled) {
     start_time <- Sys.time()
@@ -123,17 +128,17 @@ run_experiment_iteration <-
         CATE_type = CATE_type,
         eta_type = eta_type
       )
-    # print(paste0("lasso_results: ", lasso_results))
     end_time <- Sys.time()
     
     for (config_name in names(lasso_results)) {
-      time_taken[[config_name]] <- 
+      time_taken_lasso[[config_name]] <- 
         lasso_results[[config_name]]$time_taken
       mse_estimates_lasso[[config_name]] <- lasso_results[[config_name]]$MSE
     }
     
     if (verbose >= 1) 
-      message("Time to run lasso model: ", as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
+      message("Time to run lasso model: ", 
+              as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
     if (verbose >= 2) {
       message("Lasso Results:")
       print(mse_estimates_lasso)
@@ -145,13 +150,52 @@ run_experiment_iteration <-
     Method = rep("Lasso", length(mse_estimates_lasso)),
     Specification = names(mse_estimates_lasso),
     MSE_Estimate = unlist(mse_estimates_lasso),
+    Time_Taken = unlist(time_taken_lasso)
+  )
+  
+  
+  mse_estimates_TV_CSL <- list()
+  time_taken <- list()
+  
+  if (!is.null(methods$TV_CSL) && methods$TV_CSL$enabled) {
+    start_time <- Sys.time()
+    
+    TV_CSL_results <- 
+      run_TV_CSL_estimation(
+        train_data_original = single_data, 
+        test_data = test_data,
+        methods_TV_CSL = methods$TV_CSL,
+        K = 5
+      )
+    
+    end_time <- Sys.time()
+    
+    for (config_name in names(TV_CSL_results)) {
+      time_taken[[config_name]] <- TV_CSL_results[[config_name]]$time_taken
+      mse_estimates_TV_CSL[[config_name]] <- TV_CSL_results[[config_name]]$MSE
+    }
+    
+    if (verbose >= 1)
+      message("Time to run TV_CSL model: ",
+              as.numeric(difftime(end_time, start_time, units = "secs")), " seconds")
+    if (verbose >= 2) {
+      message("TV_CSL Results:")
+      print(mse_estimates_TV_CSL)
+    }
+  }
+  
+  result_df_TV_CSL <- data.frame(
+    Method = rep("TV_CSL", length(mse_estimates_TV_CSL)),
+    Specification = names(mse_estimates_TV_CSL),
+    MSE_Estimate = unlist(mse_estimates_TV_CSL),
     Time_Taken = unlist(time_taken)
   )
   
   
   result_df <- 
     rbind(result_df_cox, 
-          result_df_lasso)
+          result_df_lasso,
+          result_df_TV_CSL)
 
   result_csv_file <- 
     paste0(output_prefix, 

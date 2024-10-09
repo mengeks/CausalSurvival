@@ -1,8 +1,8 @@
 {
   "n": 500,
   "R": 100,
+  "eta_type": "non-linear",
   "CATE_type": "linear",
-  "eta_type": "10-dim-non-linear",
   "methods": {
     "cox": {
         "enabled": false,
@@ -14,7 +14,7 @@
         ]
       },
     "lasso": {
-        "enabled": true,
+        "enabled": false,
         "regressor_specs": [
           "linear-only",
           "mild-complex"
@@ -29,12 +29,24 @@
           "flexible"
         ]
       },
-    "TV-CSL": {
-        "enabled": false,
-        "tx_spec": ["true-model","correctly-specified","mildly-mis-specified","quite-mis-specified"], 
-        "outcome_type": ["T-learner", "S-learner"],
-        "outcome_spec": ["correct", "incorrect"],
-        "final_model_method": "coxph"
+    "TV_CSL": {
+        "enabled": true,
+        "prop_score_specs": [
+          "cox-linear-censored-only",
+          "cox-linear-all-data"
+        ],
+        "regressor_specs": [
+          "linear-only",
+          "mild-complex"
+        ],
+        "lasso_types": [
+          "T_lasso",
+          "S_lasso"
+        ],
+        "final_model_methods": [
+          "coxph", 
+          "lasso"
+        ]
       }
     },
   "verbose": 0

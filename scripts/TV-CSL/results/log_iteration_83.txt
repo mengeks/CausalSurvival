@@ -16,22 +16,25 @@ CATE_type: linear
 Seed value for iteration 83: 1036
 Loaded dataset 83 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_83_n_500.rds 
 Loaded dataset 183 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_183_n_500.rds 
-Time to load dataset: 0.0548906326293945 seconds
-Error in `train_data[folds != k, ]`:
-! Can't subset rows with `folds != k`.
-✖ Logical subscript `folds != k` must be size 1 or 807, not 500.
+Time to load dataset: 0.0376946926116943 seconds
+Error in `mutate()`:
+ℹ In argument: `U_A = pmin(A, U)`.
+Caused by error:
+! object 'A' not found
 Backtrace:
      ▆
   1. ├─global run_experiment_iteration(...)
   2. │ └─global run_TV_CSL_estimation(...)
-  3. │   ├─train_data[folds != k, ]
-  4. │   └─tibble:::`[.tbl_df`(train_data, folds != k, )
-  5. │     └─tibble:::vectbl_as_row_index(i, x, i_arg)
-  6. │       └─tibble:::vectbl_as_row_location(i, nr, i_arg, assign, call)
-  7. │         ├─tibble:::subclass_row_index_errors(...)
-  8. │         │ └─base::withCallingHandlers(...)
-  9. │         └─vctrs::vec_as_location(...)
- 10. └─vctrs (local) `<fn>`()
- 11.   └─vctrs:::stop_indicator_size(...)
- 12.     └─rlang::cnd_signal(...)
+  3. │   └─train_data %>% mutate(U_A = pmin(A, U), Delta_A = A <= U)
+  4. ├─dplyr::mutate(., U_A = pmin(A, U), Delta_A = A <= U)
+  5. ├─dplyr:::mutate.data.frame(., U_A = pmin(A, U), Delta_A = A <= U)
+  6. │ └─dplyr:::mutate_cols(.data, dplyr_quosures(...), by)
+  7. │   ├─base::withCallingHandlers(...)
+  8. │   └─dplyr:::mutate_col(dots[[i]], data, mask, new_columns)
+  9. │     └─mask$eval_all_mutate(quo)
+ 10. │       └─dplyr (local) eval()
+ 11. ├─base::pmin(A, U)
+ 12. └─base::.handleSimpleError(`<fn>`, "object 'A' not found", base::quote(NULL))
+ 13.   └─dplyr (local) h(simpleError(msg, call))
+ 14.     └─rlang::abort(message, class = error_class, parent = parent, call = error_call)
 Execution halted

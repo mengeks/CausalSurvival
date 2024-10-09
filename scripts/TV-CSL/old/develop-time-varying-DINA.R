@@ -151,7 +151,7 @@ obtain_nuisance_data <-
     map_dfr(seq_len(nrow(causal_fold)), function(i) {
       split_within_intervals(causal_fold[i, ], granular_cut_points)
     })
-  # tmp <- causal_fold_split %>% filter(id==20)
+
   calculate_eX <- 
     function(alpha_estimate, X, t){
       hazard_adapt_date <- 

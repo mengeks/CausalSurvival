@@ -71,7 +71,7 @@ process_results_to_csv <- function(json_file) {
   n <- config$n
   
   # Generate result directories
-  results_dir <- "results/TV-CSL"
+  results_dir <- "scripts/TV-CSL/results"
   
   # Process all iterations
   aggregated_metrics <- 
@@ -81,7 +81,7 @@ process_results_to_csv <- function(json_file) {
     )
   
   # Ensure CSV directory
-  output_csv_dir <- "tables/TV-CSL"
+  output_csv_dir <- "scripts/TV-CSL/tables"
   
   eta_type_folder_name <- 
     paste0(config$eta_type, "_", config$CATE_type)

@@ -1,31 +1,31 @@
 library(jsonlite)
 library(here)
 library(dplyr)
-# source("R/result-summaries.R")
 source("R/TV-CSL-result-process.R")
 
 process_results_to_csv(
   "scripts/TV-CSL/params.json"
 )
 
-# ## Run a test
+
+# # ## Run a test
+# # process_results_to_csv(
+# #   "scripts/TV-CSL/linear-interaction_cosine/config-n-200.json"
+# # )
+# 
+# ##### 
+# ## linear baselines
+# #####
 # process_results_to_csv(
-#   "scripts/TV-CSL/linear-interaction_cosine/config-n-200.json"
+#   "scripts/replicate-DINA/log-linear/config-n-200.json"
 # )
-
-##### 
-## linear baselines
-#####
-process_results_to_csv(
-  "scripts/replicate-DINA/log-linear/config-n-200.json"
-)
-process_results_to_csv(
-  "scripts/replicate-DINA/log-linear/config-n-500.json"
-)
-
-process_results_to_csv(
-  "scripts/replicate-DINA/log-linear/config-n-1000.json"
-)
+# process_results_to_csv(
+#   "scripts/replicate-DINA/log-linear/config-n-500.json"
+# )
+# 
+# process_results_to_csv(
+#   "scripts/replicate-DINA/log-linear/config-n-1000.json"
+# )
 
 
 
