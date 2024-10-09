@@ -1,0 +1,22 @@
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Running iteration 47
+Configuration Parameters:
+n: 500
+R: 100
+eta_type: non-linear
+CATE_type: linear
+Seed value for iteration 47: 640
+Loaded dataset 47 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_47_n_500.rds 
+Loaded dataset 147 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_147_n_500.rds 
+Time to load dataset: 0.042992115020752 seconds
+Error in eval(predvars, data, env) : object 'U_A' not found
+Calls: run_experiment_iteration ... <Anonymous> -> model.frame.default -> eval -> eval -> Surv
+Execution halted

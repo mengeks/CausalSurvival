@@ -1,0 +1,829 @@
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Running iteration 28
+Configuration Parameters:
+n: 500
+R: 100
+eta_type: 10-dim-non-linear
+CATE_type: linear
+Seed value for iteration 28: 431
+Loaded dataset 28 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_28_n_500.rds 
+Time to load dataset: 0.00397443771362305 seconds
+Loaded dataset 128 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_128_n_500.rds 
+[1] "eta_0 coefficient: "
+10 x 1 sparse Matrix of class "dgCMatrix"
+     1
+X.1  .
+X.2  .
+X.3  .
+X.4  .
+X.5  .
+X.6  .
+X.7  .
+X.8  .
+X.9  .
+X.10 .
+[1] "eta_1 coefficient "
+10 x 1 sparse Matrix of class "dgCMatrix"
+              1
+X.1   1.1072778
+X.2   0.1819847
+X.3  -0.2691908
+X.4  -0.3176778
+X.5   0.4570864
+X.6  -0.4798768
+X.7   0.4004405
+X.8  -0.1273261
+X.9  -0.2127779
+X.10  1.4227270
+[1] "head(CATE_est)"
+              1
+[1,] -1.3972351
+[2,] -0.5286209
+[3,]  0.8562170
+[4,]  1.9806641
+[5,]  1.3929275
+[6,]  0.2833719
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] "config_name: T_lasso_linear-only. MSE: 0.113880640186013. time_taken: 28.9130907058716"
+[1] "CATE_spec: correctly-specified"
+[1] "head(CATE_est)"
+[1] -1.1962386 -0.8073291  0.6023682  1.4903328  1.3465139  0.3560761
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] 0.09610133
+[1] "m_beta: "
+12 x 1 sparse Matrix of class "dgCMatrix"
+              1
+X.1   0.1735655
+X.2   0.1972841
+X.3  -0.2113852
+X.4  -0.1650223
+X.5   0.1943862
+X.6  -0.3152914
+X.7   0.3375409
+X.8  -0.1654588
+X.9  -0.2008561
+X.10  0.1205304
+      0.7985521
+      1.2465719
+[1] "beta_CATE: "
+[1] 0.7985521 1.2465719
+[1] "config_name: S_lasso_correctly-specified_linear-only; MSE: 0.0961013279875069; time_taken: 17.9686918258667"
+[1] "CATE_spec: linear"
+[1] "head(CATE_est)"
+[1] -1.6116849 -1.0205760  0.7896057  1.3100639  1.2052518  0.1180827
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] 0.1651052
+[1] "m_beta: "
+21 x 1 sparse Matrix of class "dgCMatrix"
+                       1
+X.1           0.02966665
+X.2           0.17835950
+X.3           .         
+X.4           .         
+X.5           .         
+X.6          -0.03358945
+X.7           .         
+X.8          -0.10778220
+X.9          -0.14631097
+X.10          0.11726294
+train_data$W -0.15660535
+X.1           0.97652306
+X.2           .         
+X.3          -0.24060700
+X.4          -0.24164077
+X.5           0.31838140
+X.6          -0.31342875
+X.7           0.30850899
+X.8           .         
+X.9           .         
+X.10          1.17658407
+[1] "beta_CATE: "
+ [1] -0.1566053  0.9765231  0.0000000 -0.2406070 -0.2416408  0.3183814
+ [7] -0.3134288  0.3085090  0.0000000  0.0000000  1.1765841
+[1] "config_name: S_lasso_linear_linear-only; MSE: 0.165105227075861; time_taken: 25.2906737327576"
+[1] "CATE_spec: flexible"
+[1] "head(CATE_est)"
+[1] -0.9299979 -0.3368380  0.4375092  1.3475710  1.2142962  0.2765489
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] 0.04156472
+[1] "m_beta: "
+21 x 1 sparse Matrix of class "dgCMatrix"
+             1
+X.1  .        
+X.2  .        
+X.3  .        
+X.4  .        
+X.5  .        
+X.6  .        
+X.7  .        
+X.8  .        
+X.9  .        
+X.10 .        
+     .        
+X.1  0.7949140
+X.2  .        
+X.3  .        
+X.4  .        
+X.5  .        
+X.6  .        
+X.7  .        
+X.8  .        
+X.9  .        
+X.10 0.9861477
+[1] "beta_CATE: "
+ [1] 0.0000000 0.7949140 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+ [8] 0.0000000 0.0000000 0.0000000 0.9861477
+[1] "config_name: S_lasso_flexible_linear-only; MSE: 0.0415647152377128; time_taken: 25.2542276382446"
+[1] "eta_0 coefficient: "
+95 x 1 sparse Matrix of class "dgCMatrix"
+                         1
+X.1           .           
+X.2           .           
+X.3           .           
+X.4           .           
+X.5           .           
+X.6           .           
+X.7           .           
+X.8           .           
+X.9           .           
+X.10          .           
+X.1_spline1   .           
+X.1_spline2   .           
+X.1_spline3   .           
+X.2_spline1   .           
+X.2_spline2   .           
+X.2_spline3   .           
+X.3_spline1   .           
+X.3_spline2   .           
+X.3_spline3   .           
+X.4_spline1   .           
+X.4_spline2   .           
+X.4_spline3   .           
+X.5_spline1   .           
+X.5_spline2   .           
+X.5_spline3   .           
+X.6_spline1   .           
+X.6_spline2   .           
+X.6_spline3   .           
+X.7_spline1   .           
+X.7_spline2   .           
+X.7_spline3   .           
+X.8_spline1   .           
+X.8_spline2   .           
+X.8_spline3   .           
+X.9_spline1   .           
+X.9_spline2  -0.1267476131
+X.9_spline3   .           
+X.10_spline1  .           
+X.10_spline2 -0.0002169552
+X.10_spline3  .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              0.0517446272
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              .           
+              0.0021099482
+              0.0082412324
+[1] "eta_1 coefficient "
+95 x 1 sparse Matrix of class "dgCMatrix"
+                      1
+X.1          0.64336902
+X.2          .         
+X.3          .         
+X.4          .         
+X.5          .         
+X.6          .         
+X.7          .         
+X.8          .         
+X.9          .         
+X.10         1.02229109
+X.1_spline1  .         
+X.1_spline2  .         
+X.1_spline3  1.08331217
+X.2_spline1  .         
+X.2_spline2  .         
+X.2_spline3  .         
+X.3_spline1  .         
+X.3_spline2  .         
+X.3_spline3  .         
+X.4_spline1  .         
+X.4_spline2  .         
+X.4_spline3  .         
+X.5_spline1  .         
+X.5_spline2  .         
+X.5_spline3  .         
+X.6_spline1  .         
+X.6_spline2  .         
+X.6_spline3  .         
+X.7_spline1  .         
+X.7_spline2  0.26975676
+X.7_spline3  .         
+X.8_spline1  .         
+X.8_spline2  .         
+X.8_spline3  .         
+X.9_spline1  .         
+X.9_spline2  .         
+X.9_spline3  .         
+X.10_spline1 .         
+X.10_spline2 .         
+X.10_spline3 0.04572446
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+[1] "head(CATE_est)"
+              1
+[1,] -1.1958281
+[2,] -0.5292903
+[3,]  0.2782299
+[4,]  1.2671141
+[5,]  1.1219013
+[6,]  0.1208044
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] "config_name: T_lasso_mild-complex. MSE: 0.0995210636274637. time_taken: 138.901587486267"
+[1] "CATE_spec: correctly-specified"
+[1] "head(CATE_est)"
+[1] -0.9128282 -0.3403417  0.4304614  1.3163755  1.1862789  0.2714525
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] 0.05182753
+[1] "m_beta: "
+97 x 1 sparse Matrix of class "dgCMatrix"
+                        1
+X.1           .          
+X.2           .          
+X.3           .          
+X.4           .          
+X.5           .          
+X.6           .          
+X.7           .          
+X.8           .          
+X.9           .          
+X.10          .          
+X.1_spline1   .          
+X.1_spline2   .          
+X.1_spline3   .          
+X.2_spline1   .          
+X.2_spline2   .          
+X.2_spline3   .          
+X.3_spline1   .          
+X.3_spline2   .          
+X.3_spline3   .          
+X.4_spline1   .          
+X.4_spline2   .          
+X.4_spline3   .          
+X.5_spline1   .          
+X.5_spline2   .          
+X.5_spline3   .          
+X.6_spline1   .          
+X.6_spline2   .          
+X.6_spline3   .          
+X.7_spline1   .          
+X.7_spline2   .          
+X.7_spline3   .          
+X.8_spline1   .          
+X.8_spline2   .          
+X.8_spline3   .          
+X.9_spline1   .          
+X.9_spline2   .          
+X.9_spline3   .          
+X.10_spline1  .          
+X.10_spline2 -0.008891295
+X.10_spline3  .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              .          
+              0.774417945
+              0.967372453
+[1] "beta_CATE: "
+[1] 0.7744179 0.9673725
+[1] "config_name: S_lasso_correctly-specified_mild-complex; MSE: 0.051827525483471; time_taken: 66.0765521526337"
+[1] "CATE_spec: linear"
+[1] "head(CATE_est)"
+[1] -0.9128282 -0.3403417  0.4304614  1.3163755  1.1862789  0.2714525
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] 0.05182753
+[1] "m_beta: "
+106 x 1 sparse Matrix of class "dgCMatrix"
+                        1
+X.1           .          
+X.2           .          
+X.3           .          
+X.4           .          
+X.5           .          
+X.6           .          
+X.7           .          
+X.8           .          
+X.9           .          
+X.10          .          
+X.1_spline1   .          
+X.1_spline2   .          
+X.1_spline3   .          
+X.2_spline1   .          
+X.2_spline2   .          
+X.2_spline3   .          
+X.3_spline1   .          
+X.3_spline2   .          
+X.3_spline3   .          
+X.4_spline1   .          
+X.4_spline2   .          
+X.4_spline3   .          
+X.5_spline1   .          
+X.5_spline2   .          
+X.5_spline3   .          
+X.6_spline1   .          
+X.6_spline2   .          
+X.6_spline3   .          
+X.7_spline1   .          
+X.7_spline2   .          
+X.7_spline3   .          
+X.8_spline1   .          
+X.8_spline2   .          
+X.8_spline3   .          
+X.9_spline1   .          
+X.9_spline2   .          
+X.9_spline3   .          
+X.10_spline1  .          
+X.10_spline2 -0.008891295
+X.10_spline3  .          
+V41           .          
+V42           .          
+V43           .          
+V44           .          
+V45           .          
+V46           .          
+V47           .          
+V48           .          
+V49           .          
+V50           .          
+V51           .          
+V52           .          
+V53           .          
+V54           .          
+V55           .          
+V56           .          
+V57           .          
+V58           .          
+V59           .          
+V60           .          
+V61           .          
+V62           .          
+V63           .          
+V64           .          
+V65           .          
+V66           .          
+V67           .          
+V68           .          
+V69           .          
+V70           .          
+V71           .          
+V72           .          
+V73           .          
+V74           .          
+V75           .          
+V76           .          
+V77           .          
+V78           .          
+V79           .          
+V80           .          
+V81           .          
+V82           .          
+V83           .          
+V84           .          
+V85           .          
+V86           .          
+V87           .          
+V88           .          
+V89           .          
+V90           .          
+V91           .          
+V92           .          
+V93           .          
+V94           .          
+V95           .          
+train_data$W  .          
+X.1           0.774417945
+X.2           .          
+X.3           .          
+X.4           .          
+X.5           .          
+X.6           .          
+X.7           .          
+X.8           .          
+X.9           .          
+X.10          0.967372453
+[1] "beta_CATE: "
+ [1] 0.0000000 0.7744179 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+ [8] 0.0000000 0.0000000 0.0000000 0.9673725
+[1] "config_name: S_lasso_linear_mild-complex; MSE: 0.051827525483471; time_taken: 71.6508359909058"
+[1] "CATE_spec: flexible"
+[1] "head(CATE_est)"
+[1] -0.8951624 -0.3119733  0.4296584  1.2786303  1.1498654  0.2663461
+[1] "head(CATE_true)"
+[1] -0.92365418  0.01709931  0.39729063  1.56683433  1.40851357  0.27432745
+[1] 0.0783604
+[1] "m_beta: "
+191 x 1 sparse Matrix of class "dgCMatrix"
+                      1
+X.1          .         
+X.2          .         
+X.3          .         
+X.4          .         
+X.5          .         
+X.6          .         
+X.7          .         
+X.8          .         
+X.9          .         
+X.10         .         
+X.1_spline1  .         
+X.1_spline2  .         
+X.1_spline3  .         
+X.2_spline1  .         
+X.2_spline2  .         
+X.2_spline3  .         
+X.3_spline1  .         
+X.3_spline2  .         
+X.3_spline3  .         
+X.4_spline1  .         
+X.4_spline2  .         
+X.4_spline3  .         
+X.5_spline1  .         
+X.5_spline2  .         
+X.5_spline3  .         
+X.6_spline1  .         
+X.6_spline2  .         
+X.6_spline3  .         
+X.7_spline1  .         
+X.7_spline2  .         
+X.7_spline3  .         
+X.8_spline1  .         
+X.8_spline2  .         
+X.8_spline3  .         
+X.9_spline1  .         
+X.9_spline2  .         
+X.9_spline3  .         
+X.10_spline1 .         
+X.10_spline2 .         
+X.10_spline3 .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+X.1          0.72518978
+X.2          .         
+X.3          .         
+X.4          .         
+X.5          .         
+X.6          .         
+X.7          .         
+X.8          .         
+X.9          .         
+X.10         0.94553073
+X.1_spline1  .         
+X.1_spline2  .         
+X.1_spline3  .         
+X.2_spline1  .         
+X.2_spline2  .         
+X.2_spline3  .         
+X.3_spline1  .         
+X.3_spline2  .         
+X.3_spline3  .         
+X.4_spline1  .         
+X.4_spline2  .         
+X.4_spline3  .         
+X.5_spline1  .         
+X.5_spline2  .         
+X.5_spline3  .         
+X.6_spline1  .         
+X.6_spline2  .         
+X.6_spline3  .         
+X.7_spline1  .         
+X.7_spline2  .         
+X.7_spline3  .         
+X.8_spline1  .         
+X.8_spline2  .         
+X.8_spline3  .         
+X.9_spline1  .         
+X.9_spline2  .         
+X.9_spline3  .         
+X.10_spline1 .         
+X.10_spline2 .         
+X.10_spline3 .         
+             0.02320874
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+             .         
+[1] "beta_CATE: "
+ [1] 0.00000000 0.72518978 0.00000000 0.00000000 0.00000000 0.00000000
+ [7] 0.00000000 0.00000000 0.00000000 0.00000000 0.94553073 0.00000000
+[13] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[19] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[25] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[31] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[37] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.02320874
+[43] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[49] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[55] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[61] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[67] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[73] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[79] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[85] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[91] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
+[1] "config_name: S_lasso_flexible_mild-complex; MSE: 0.0783604023765166; time_taken: 115.510308980942"
+Time to run lasso model: 491.533430337906 seconds
+Lasso Results:
+$`T_lasso_linear-only`
+[1] 0.1138806
+
+$`S_lasso_correctly-specified_linear-only`
+[1] 0.09610133
+
+$`S_lasso_linear_linear-only`
+[1] 0.1651052
+
+$`S_lasso_flexible_linear-only`
+[1] 0.04156472
+
+$`T_lasso_mild-complex`
+[1] 0.09952106
+
+$`S_lasso_correctly-specified_mild-complex`
+[1] 0.05182753
+
+$`S_lasso_linear_mild-complex`
+[1] 0.05182753
+
+$`S_lasso_flexible_mild-complex`
+[1] 0.0783604
+
+Results for iteration 28 saved to scripts/TV-CSL/results/10-dim-non-linear_linear-n_500-iteration_28-seed_431.csv
+There were 50 or more warnings (use warnings() to see the first 50)

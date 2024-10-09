@@ -1,0 +1,37 @@
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Running iteration 90
+Configuration Parameters:
+n: 500
+R: 100
+eta_type: non-linear
+CATE_type: linear
+Seed value for iteration 90: 1113
+Loaded dataset 90 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_90_n_500.rds 
+Loaded dataset 190 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_190_n_500.rds 
+Time to load dataset: 0.0695326328277588 seconds
+Error in `train_data[folds != k, ]`:
+! Can't subset rows with `folds != k`.
+✖ Logical subscript `folds != k` must be size 1 or 780, not 500.
+Backtrace:
+     ▆
+  1. ├─global run_experiment_iteration(...)
+  2. │ └─global run_TV_CSL_estimation(...)
+  3. │   ├─train_data[folds != k, ]
+  4. │   └─tibble:::`[.tbl_df`(train_data, folds != k, )
+  5. │     └─tibble:::vectbl_as_row_index(i, x, i_arg)
+  6. │       └─tibble:::vectbl_as_row_location(i, nr, i_arg, assign, call)
+  7. │         ├─tibble:::subclass_row_index_errors(...)
+  8. │         │ └─base::withCallingHandlers(...)
+  9. │         └─vctrs::vec_as_location(...)
+ 10. └─vctrs (local) `<fn>`()
+ 11.   └─vctrs:::stop_indicator_size(...)
+ 12.     └─rlang::cnd_signal(...)
+Execution halted

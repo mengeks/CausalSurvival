@@ -11,13 +11,12 @@ Running iteration 7
 Configuration Parameters:
 n: 500
 R: 100
-eta_type: 10-dim-non-linear
+eta_type: non-linear
 CATE_type: linear
 Seed value for iteration 7: 200
-Loaded dataset 7 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_7_n_500.rds 
-Time to load dataset: 0.0970661640167236 seconds
-Loaded dataset 107 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_107_n_500.rds 
-Error in h(simpleError(msg, call)) : 
-  error in evaluating the argument 'x' in selecting a method for function 'drop': requires numeric/complex matrix/vector arguments
-Calls: run_experiment_iteration ... weighted_mean_sd -> drop -> .handleSimpleError -> h
+Loaded dataset 7 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_7_n_500.rds 
+Loaded dataset 107 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data/non-linear_linear/sim_data_107_n_500.rds 
+Time to load dataset: 0.0505545139312744 seconds
+Error in eval(predvars, data, env) : object 'U_A' not found
+Calls: run_experiment_iteration ... <Anonymous> -> model.frame.default -> eval -> eval -> Surv
 Execution halted

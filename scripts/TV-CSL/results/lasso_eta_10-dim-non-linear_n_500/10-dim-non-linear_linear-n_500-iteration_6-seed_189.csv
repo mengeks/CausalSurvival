@@ -1,0 +1,9 @@
+"Method","Specification","MSE_Estimate","Time_Taken"
+"Lasso","T_lasso_linear-only",0.0198329230615278,29.4541471004486
+"Lasso","S_lasso_correctly-specified_linear-only",0.053337886954583,16.4942805767059
+"Lasso","S_lasso_linear_linear-only",0.0574714138717533,20.6664979457855
+"Lasso","S_lasso_flexible_linear-only",0.0592668552246834,20.4481754302979
+"Lasso","T_lasso_mild-complex",0.438084088835983,144.13529419899
+"Lasso","S_lasso_correctly-specified_mild-complex",0.00971369414184128,68.6063315868378
+"Lasso","S_lasso_linear_mild-complex",0.0229391274204522,65.3111622333527
+"Lasso","S_lasso_flexible_mild-complex",0.095600523467107,112.880958795547
