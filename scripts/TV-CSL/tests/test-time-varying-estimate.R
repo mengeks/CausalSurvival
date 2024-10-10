@@ -1,6 +1,43 @@
-## Test Lasso
 source("R/data-reader.R")
 source("scripts/TV-CSL/time-varying-estimate.R")
+
+
+# Test TV_CSL_nuisance
+data <- read_TV_CSL_nuisance_data(k = 1)
+fold_nuisance <- data$fold_nuisance
+fold_causal <- data$fold_causal
+train_data_original_nuisance <- data$train_data_original_nuisance
+
+regressor_spec <- "linear-only"
+prop_score_spec <- "cox-linear-censored-only"
+lasso_type <- "T_lasso"
+
+fold_causal_fitted <- TV_CSL_nuisance(
+  fold_train = fold_nuisance, 
+  fold_test = fold_causal, 
+  train_data_original = train_data_original_nuisance,
+  prop_score_spec = prop_score_spec,
+  lasso_type = lasso_type,
+  regressor_spec = regressor_spec
+)
+source("scripts/TV-CSL/time-varying-estimate.R")
+final_model_method <- "lasso"
+fit_TV_CSL_ret <- fit_TV_CSL(
+  fold_causal_fitted = fold_causal_fitted, 
+  final_model_method = final_model_method,
+  test_data = test_data
+)
+
+fit_TV_CSL_ret$beta_CATE
+CATE_est <- fit_TV_CSL_ret$CATE_est
+CATE_true <- test_data$CATE
+
+MSE <- mean((CATE_true - CATE_est)^2)
+## Issue now: fit_TV_CSL_ret$beta_CATE is quite bad
+
+
+######
+#### Test Lasso
 n = 500; i <- 1
 eta_type <- "10-dim-non-linear"
 CATE_type <- "linear"
@@ -25,6 +62,7 @@ test_data <-
 regressor_spec <- "linear-only"
 CATE_spec <- "correctly-specified"
 source("scripts/TV-CSL/time-varying-estimate.R")
+
 ## Test S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec)
 lasso_ret <-
   S_lasso(train_data = train_data,

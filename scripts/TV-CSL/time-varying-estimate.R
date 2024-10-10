@@ -1,4 +1,3 @@
-
 library(survival)
 library(glmnet)
 library(tidyverse)
@@ -762,6 +761,11 @@ run_TV_CSL_estimation <- function(
 }
 
 
+calculate_eX <- function(alpha_estimate, X, t) {
+  hazard_adapt_date <- exp(X %*% alpha_estimate)
+  trt_prob <- 1 - exp(-t * hazard_adapt_date)
+  return(trt_prob)
+}
 
 #' TV_CSL Nuisance Estimation
 #'
@@ -808,11 +812,6 @@ TV_CSL_nuisance <- function(fold_train,
                              ties = "breslow")
     alpha_estimate <- treatment_model$coefficients
     
-    calculate_eX <- function(alpha_estimate, X, t) {
-      hazard_adapt_date <- exp(alpha_estimate * X)
-      trt_prob <- 1 - exp(-t * hazard_adapt_date)
-      return(trt_prob)
-    }
   }else {
     stop(paste0("Unknown prop_score_spec."))
   }
@@ -830,7 +829,8 @@ TV_CSL_nuisance <- function(fold_train,
     new_intervals <- data.frame(
       tstart = head(final_cuts, -1),
       tstop = tail(final_cuts, -1),
-      id = row[["id"]]
+      id = row[["id"]],
+      W = row[["W"]]
     )
     return(new_intervals)
   }
@@ -839,12 +839,7 @@ TV_CSL_nuisance <- function(fold_train,
     split_within_intervals(fold_test[i, ], granular_cut_points)
   })
   
-  fold_test_split <- fold_test_split %>%
-    mutate(a_t_X = calculate_eX(
-      alpha_estimate = alpha_estimate, 
-      X = cbind(fold_test_split$X.2, fold_test_split$X.3),
-      t = fold_test_split$tstop
-    ))
+  
   
   # 3. Obtain nu 
   if (lasso_type == "T_lasso") {
@@ -869,7 +864,25 @@ TV_CSL_nuisance <- function(fold_train,
   fold_test_final <- 
     left_join(fold_test_split, 
               fold_test %>% select(-tstart, -tstop), 
-              by = "id")
+              by = c("id", "W") )
+  # print("colnames(fold_test_split)")
+  # print(colnames(fold_test_split))
+  # print("colnames(fold_test %>% select(-tstart, -tstop))")
+  # print(colnames(fold_test %>% select(-tstart, -tstop)))
+  # 
+  # print(head(fold_test_final))
+  print(paste("alpha_estimate: ", alpha_estimate))
+  test_X <- cbind(fold_test_final$X.2, fold_test_final$X.3)
+  prop_scores <- calculate_eX(
+    alpha_estimate = alpha_estimate, 
+    X = test_X,
+    t = fold_test_split$tstop
+  )
+  print("head(prop_scores):")
+  print( head(prop_scores) )
+  
+  fold_test_final <- fold_test_final %>%
+    mutate(a_t_X = prop_scores)
   
   fold_test_final <- fold_test_final %>%
     mutate(nu_X = a_t_X * eta_1 + (1 - a_t_X) * eta_0)
@@ -883,16 +896,26 @@ fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
   beta_CATE <- NULL
   
   if (final_model_method == "coxph") {
+    interaction_terms <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) * fold_causal_fitted[, paste0("X.", 1:10)]
+    
+    # Name the new columns appropriately and add them to the fold_causal_fitted data frame
+    colnames(interaction_terms) <- paste0("interaction_X", 1:10)
+    fold_causal_fitted <- cbind(fold_causal_fitted, interaction_terms)
+    
+    # Fit the coxph model with the interaction terms and the offset
     final_model <- coxph(
-      Surv(tstart, tstop, Delta) ~ I(W - a_t_X) * paste0("X.", 1:10) + offset(nu_X), 
+      Surv(tstart, tstop, Delta) ~ interaction_X1 + interaction_X2 + interaction_X3 + 
+        interaction_X4 + interaction_X5 + interaction_X6 + interaction_X7 + 
+        interaction_X8 + interaction_X9 + interaction_X10 + offset(nu_X), 
       data = fold_causal_fitted, 
       ties = "breslow"
     )
     beta_CATE <- coef(final_model)
     
   } else if (final_model_method == "lasso") {
-    regressor_TV_CSL <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) *
-      cbind(1, fold_causal_fitted[, paste0("X.", 1:10)])
+    
+    regressor_TV_CSL <- (fold_causal_fitted$W - as.vector(fold_causal_fitted$a_t_X)) *
+      as.matrix(fold_causal_fitted[, paste0("X.", 1:10)])
     
     final_model <- cv.glmnet(
       regressor_TV_CSL, 
@@ -901,10 +924,12 @@ fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
       family = "cox"
     )
 
-    beta_CATE <- as.vector(coef(final_model, s = "lambda.min")[-1])  # Removing the intercept
+    beta_CATE <- as.vector(coef(final_model, s = "lambda.min"))  
+    
   }
-  
-  test_regressor_CATE <- cbind(1, test_data[, paste0("X.", 1:10)])
+  print("beta_CATE")
+  print(beta_CATE)
+  test_regressor_CATE <- as.matrix(test_data[, paste0("X.", 1:10)])
   CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
   
   ret <- list(
