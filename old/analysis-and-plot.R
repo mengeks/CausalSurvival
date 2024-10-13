@@ -1,5 +1,6 @@
-setwd("~/Dropbox (Harvard University)/Xiang_Iav/code")
-source("./cox-utils.R")
+library(here)
+# source(here("old/cox-utils.R"))
+source(here("old/R/report-results.R"))
 ### Time-varying
 # Parameters
 n <- 500

@@ -1,3 +1,20 @@
+generate_path <- 
+  function(is_linear, 
+           causal,
+           n, 
+           R, 
+           data_folder,
+           light_censoring=F,
+           outcome_type = "linear") {
+    path <- paste0(data_folder,
+                   ifelse(causal,"causal_",""),
+                   ifelse(outcome_type=="linear","lin_est_","non_lin_est_"),
+                   ifelse(light_censoring,"light_censoring_",""),
+                   ifelse(is_linear,"sim_linear_n_", "sim_non_linear_n_"),
+                   n,"_R_",R,".rds")
+    return(path)
+  }
+
 report_results <- function(
     is_linear,causal, n, R, 
     data_folder, plot_folder,
