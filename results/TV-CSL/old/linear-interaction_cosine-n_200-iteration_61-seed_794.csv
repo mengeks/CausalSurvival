@@ -1,7 +1,0 @@
-"Method","Specification","Tau_Estimate","Time_Taken"
-"Cox","correctly-specified_TRUE",1.29807557405588,0.579824209213257
-"Cox","correctly-specified_FALSE",-0.889660042003363,0.0184619426727295
-"Cox","mildly-mis-specified_TRUE",1.3256228386543,0.508641004562378
-"Cox","mildly-mis-specified_FALSE",-0.956415688984722,0.00406098365783691
-"Cox","quite-mis-specified_TRUE",1.29630043846637,0.549083948135376
-"Cox","quite-mis-specified_FALSE",-0.808262349138644,0.00330877304077148

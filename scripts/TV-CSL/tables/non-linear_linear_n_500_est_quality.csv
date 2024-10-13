@@ -1,9 +1,0 @@
-"Method","Specification","MSE"
-"Lasso","S_lasso_correctly-specified_linear-only",1.18276641366991
-"Lasso","S_lasso_correctly-specified_mild-complex",0.721368540076565
-"Lasso","S_lasso_flexible_linear-only",1.21380132369684
-"Lasso","S_lasso_flexible_mild-complex",0.913161852799488
-"Lasso","S_lasso_linear_linear-only",1.2187210133525
-"Lasso","S_lasso_linear_mild-complex",0.702605258092408
-"Lasso","T_lasso_linear-only",1.25469526912848
-"Lasso","T_lasso_mild-complex",1.49847656918879

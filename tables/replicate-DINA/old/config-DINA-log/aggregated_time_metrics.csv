@@ -1,6 +1,0 @@
-"Method","Specification","Avg_Time"
-"Cox","correctly-specified",0.00402177453041077
-"Cox","mildly-mis-specified",0.00353951692581177
-"Cox","quite-mis-specified",0.00302661061286926
-"S-Lasso",NA,1.33747060537338
-"DINA",NA,NA

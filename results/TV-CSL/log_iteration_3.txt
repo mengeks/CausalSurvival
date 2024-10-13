@@ -1,1 +1,0 @@
-Loaded dataset 3 from /n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/data//10-dim-non-linear_linear/sim_data_3_n_500.rds 

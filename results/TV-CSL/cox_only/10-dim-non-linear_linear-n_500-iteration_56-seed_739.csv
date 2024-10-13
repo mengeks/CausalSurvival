@@ -1,7 +1,0 @@
-"Method","Specification","MSE_Estimate","Time_Taken"
-"Cox","correctly-specified_TRUE",0.00951626604444873,1.31434607505798
-"Cox","correctly-specified_FALSE",0.00898511362158457,0.0296998023986816
-"Cox","mildly-mis-specified_TRUE",0.0907424339754362,1.21587705612183
-"Cox","mildly-mis-specified_FALSE",0.0488668103227217,0.00525403022766113
-"Cox","quite-mis-specified_TRUE",0.122558077221596,1.1945960521698
-"Cox","quite-mis-specified_FALSE",0.0731677700086203,0.00461506843566895

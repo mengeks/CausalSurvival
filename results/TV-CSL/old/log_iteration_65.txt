@@ -1,2 +1,0 @@
-Loaded dataset 65 from /Users/xmeng/Dropbox (Harvard University)/Xiang_Iav/CausalSurvival/data/simulated/time-varying/linear-interaction_cosine/sim_data_n_200_R_200/sim_data_65_seed_838.rds 
-Results for iteration 65 saved to results/TV-CSL/linear-interaction_cosine-n_200-iteration_65-seed_838.csv 
