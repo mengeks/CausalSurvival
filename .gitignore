@@ -5,9 +5,25 @@
 # Log files
 logs/
 
+# Data
+data/
+
+
+## Ignore results
+# Ignore root-level folders
+/./results/
+/./tables/
+/./figures/
+
+# Ignore subdirectories named 'results', 'tables', and 'figures' in any folder
+**/results/
+**/tables/
+**/figures/
+
 # Session Data files
 .RData
 .RDataTmp
+.DS_Store
 
 # User-specific files
 .Ruserdata
@@ -51,7 +67,4 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# Data
-data/
 
-.DS_Store
