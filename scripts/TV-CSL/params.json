@@ -20,8 +20,8 @@
           "mild-complex"
         ],
         "lasso_types": [
-          "T_lasso",
-          "S_lasso"
+          "T-lasso",
+          "S-lasso"
         ],
         "CATE_specs": [
           "correctly-specified",
@@ -40,8 +40,8 @@
           "mild-complex"
         ],
         "lasso_types": [
-          "T_lasso",
-          "S_lasso"
+          "T-lasso",
+          "S-lasso"
         ],
         "final_model_methods": [
           "coxph", 

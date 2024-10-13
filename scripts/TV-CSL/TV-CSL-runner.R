@@ -160,12 +160,21 @@ run_experiment_iteration <-
   if (!is.null(methods$TV_CSL) && methods$TV_CSL$enabled) {
     start_time <- Sys.time()
     
+    temp_result_csv_file <- 
+      paste0("scripts/TV-CSL/results/temp/", 
+                    input_setting, 
+                    "-n_", n, 
+             "-iteration_", 
+             i, "-seed_", 
+             seed_value, ".csv")
+    
     TV_CSL_results <- 
       run_TV_CSL_estimation(
         train_data_original = single_data, 
         test_data = test_data,
         methods_TV_CSL = methods$TV_CSL,
-        K = 5
+        K = 5,
+        temp_result_csv_file = temp_result_csv_file
       )
     
     end_time <- Sys.time()
@@ -196,7 +205,7 @@ run_experiment_iteration <-
     rbind(result_df_cox, 
           result_df_lasso,
           result_df_TV_CSL)
-
+  
   result_csv_file <- 
     paste0(output_prefix, 
            "-iteration_", 

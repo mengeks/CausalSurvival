@@ -592,7 +592,7 @@ run_lasso_estimation <- function(
         
         
         
-        if (lasso_type == "T_lasso"){
+        if (lasso_type == "T-lasso"){
           config_name <- paste(lasso_type, regressor_spec, sep = "_")
           start_time <- Sys.time()
           lasso_ret <-
@@ -617,7 +617,7 @@ run_lasso_estimation <- function(
           )
           print(paste0("config_name: ", config_name, ". MSE: ", lasso_ret$MSE, ". time_taken: ", time_taken))
           
-        }else if (lasso_type == "S_lasso"){
+        }else if (lasso_type == "S-lasso"){
           for (CATE_spec in methods_lasso$CATE_specs){
             print(paste0("CATE_spec: ", CATE_spec))
             
@@ -682,7 +682,8 @@ run_TV_CSL_estimation <- function(
     train_data_original, 
     test_data,
     methods_TV_CSL,
-    K = 5
+    K,
+    temp_result_csv_file
 ) {
   
   results <- list()
@@ -752,6 +753,29 @@ run_TV_CSL_estimation <- function(
           
           print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
           
+          
+          library(readr)
+          save_res_to_csv<-
+            function(curr_res,
+                     FNAME){
+              curr_res_df <- as.data.frame(curr_res, stringsAsFactors = FALSE)
+              
+              if (file.exists(FNAME)) {
+                write_csv(curr_res_df, FNAME, append=TRUE)
+              } else {
+                write_csv(curr_res_df, FNAME)
+              }
+              print(paste("Result for config_name:", curr_res_df$config_name, "saved to", FNAME))
+            } 
+          curr_res <- list(
+            Method = "TV_CSL",
+            config_name = config_name,
+            MSE = MSE,
+            time_taken = time_taken
+          )
+          save_res_to_csv(curr_res, FNAME = temp_result_csv_file)
+          
+          
         } # End looping over final_model_methods
       } # End looping over lasso_types
     } # End looping over regressor_specs
@@ -774,11 +798,11 @@ calculate_eX <- function(alpha_estimate, X, t) {
 #' @param fold_train A data frame containing the training set.
 #' @param fold_test A data frame containing the test set.
 #' @param prop_score_spec A character string specifying the method for propensity score estimation (e.g., "cox-linear-censored-only").
-#' @param lasso_type A character string specifying the type of lasso model ("T_lasso" or "S_lasso").
+#' @param lasso_type A character string specifying the type of lasso model ("T-lasso" or "S-lasso").
 #' @param regressor_spec A character string specifying the regressor used in the lasso model.
 #'
 #' @details
-#' The function first estimates the propensity score based on the specified propensity score model. If the model is based on the Cox proportional hazards model (e.g., "cox-linear-censored-only"), it estimates the treatment probability using a Cox regression. It then splits the test set based on time intervals, computes the treatment probabilities within each interval, and fits a lasso model (either "T_lasso" or "S_lasso") to estimate the nuisance parameters for each fold.
+#' The function first estimates the propensity score based on the specified propensity score model. If the model is based on the Cox proportional hazards model (e.g., "cox-linear-censored-only"), it estimates the treatment probability using a Cox regression. It then splits the test set based on time intervals, computes the treatment probabilities within each interval, and fits a lasso model (either "T-lasso" or "S-lasso") to estimate the nuisance parameters for each fold.
 #'
 #' @return A data frame containing the augmented test set, including the nuisance estimates.
 #'
@@ -786,7 +810,7 @@ calculate_eX <- function(alpha_estimate, X, t) {
 #' # Example usage of TV_CSL_nuisance
 #' fold_train <- your_train_data
 #' fold_test <- your_test_data
-#' result <- TV_CSL_nuisance(fold_train, fold_test, "cox-linear-censored-only", "T_lasso", "linear")
+#' result <- TV_CSL_nuisance(fold_train, fold_test, "cox-linear-censored-only", "T-lasso", "linear")
 #'
 #' @importFrom dplyr mutate left_join filter
 #' @importFrom survival coxph Surv
@@ -842,18 +866,18 @@ TV_CSL_nuisance <- function(fold_train,
   
   
   # 3. Obtain nu 
-  if (lasso_type == "T_lasso") {
+  if (lasso_type == "T-lasso") {
     lasso_ret <- T_lasso(
       train_data = fold_train,  
       test_data = fold_test,  
       regressor_spec = regressor_spec
     )
-  } else if (lasso_type == "S_lasso") {
+  } else if (lasso_type == "S-lasso") {
     lasso_ret <- S_lasso(
       train_data = fold_train,
       test_data = fold_test,
       regressor_spec = regressor_spec,
-      CATE_spec = CATE_spec
+      CATE_spec = "linear" # we hard code this
     )
     # fold_test$nu_X <- lasso_ret$y_pred
   }

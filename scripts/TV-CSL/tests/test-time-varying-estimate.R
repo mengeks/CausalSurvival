@@ -9,9 +9,9 @@ fold_causal <- data$fold_causal
 train_data_original_nuisance <- data$train_data_original_nuisance
 
 regressor_spec <- "linear-only"
-prop_score_spec <- "cox-linear-censored-only"
-lasso_type <- "T_lasso"
-
+prop_score_spec <- "cox-linear-all-data"
+lasso_type <- "S-lasso"
+source("scripts/TV-CSL/time-varying-estimate.R")
 fold_causal_fitted <- TV_CSL_nuisance(
   fold_train = fold_nuisance, 
   fold_test = fold_causal, 
@@ -21,7 +21,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   regressor_spec = regressor_spec
 )
 source("scripts/TV-CSL/time-varying-estimate.R")
-final_model_method <- "lasso"
+final_model_method <- "coxph"
 fit_TV_CSL_ret <- fit_TV_CSL(
   fold_causal_fitted = fold_causal_fitted, 
   final_model_method = final_model_method,

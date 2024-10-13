@@ -5,7 +5,7 @@
 #SBATCH -c 1              # Number of cores
 #SBATCH --array=1-100  # Size of the array
 #SBATCH --mem=1G          # Memory in GB
-#SBATCH -t 02:00:00         # Runtime (hours:minutes:seconds)
+#SBATCH -t 07:30:00         # Runtime (hours:minutes:seconds)
 
 # module load R/4.2.2-fasrc01
 # export R_LIBS_USER=/n/home01/xmeng1/R/ifxrstudio/RELEASE_3_18
