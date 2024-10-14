@@ -301,6 +301,134 @@ extract_W_coefficients <- function(fit, CATE_type = "constant") {
 #' }
 
 
+#' Cox-based CATE Estimation with Flexible Regressor Specification
+#'
+#' This function fits a Cox proportional hazards regression model for estimating Conditional Average Treatment Effects (CATE) 
+#' using flexible regressor specifications, including natural splines and interaction terms.
+#'
+#' @param train_data A data frame containing the training data. Must include columns for treatment (`W`), 
+#'   time-varying covariates (`X.`), and survival times (`tstart`, `tstop`, `Delta`).
+#' @param test_data A data frame containing the test data for evaluating the model. Must include columns 
+#'   for CATE and survival-related variables.
+#' @param regressor_spec A character string specifying the type of regressor transformation:
+#'   - "linear-only": Uses linear terms only.
+#'   - "mild-complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
+#' @param CATE_spec A character string specifying the specification for CATE estimation:
+#'   - "correctly-specified": Uses true variables (`X.1` and `X.10`) for CATE estimation.
+#'   - "linear": Uses all variables starting with `X.` for CATE estimation with linear terms.
+#'   - "flexible": Uses all transformed variables (splines, interactions, etc.) for flexible CATE estimation.
+#' @param verbose A numeric flag controlling print statements for debugging (0 = no output, 1 = progress output, 2 = detailed output).
+#'
+#' @return A list containing the following components:
+#'   - `m`: The fitted Cox model.
+#'   - `m_beta`: The estimated coefficients from the model.
+#'   - `beta_CATE`: Coefficients for CATE estimation.
+#'   - `beta_eta_0`: Coefficients for baseline hazard estimation.
+#'   - `y_0_pred`: Predicted baseline outcomes for the control group.
+#'   - `y_1_pred`: Predicted outcomes for the treatment group.
+#'   - `CATE_est`: Estimated CATE values.
+#'   - `CATE_true`: True CATE values (from test data).
+#'   - `MSE`: Mean squared error of CATE estimation.
+#'
+#' @examples
+#' # Fit the model with "linear-only" regressor and "correctly-specified" CATE
+#' result <- S_cox(train_data = df_train, test_data = df_test, regressor_spec = "linear-only", CATE_spec = "correctly-specified")
+#'
+#' @export
+S_cox <- function(train_data, 
+                  test_data, 
+                  regressor_spec, 
+                  CATE_spec, 
+                  verbose = 0) {
+  
+  transformed_X <- transform_X(
+    single_data = train_data, 
+    regressor_spec = regressor_spec
+  )
+  
+  if (CATE_spec == "correctly-specified") {
+    regressor_CATE <- train_data$W * cbind(train_data$X.1, train_data$X.10)
+  } else if (CATE_spec == "linear") {
+    regressor_CATE <- cbind(train_data$W, train_data$W * train_data %>% select(starts_with("X.")))
+  } else if (CATE_spec == "flexible") {
+    regressor_CATE <- cbind(train_data$W, train_data$W * transformed_X)
+  }
+  
+  regressor <- cbind(transformed_X, regressor_CATE)
+  regressor <- as.matrix(regressor)
+  
+  # Fit Cox proportional hazards model instead of Lasso
+  m <- coxph(Surv(train_data$tstart, train_data$tstop, train_data$Delta) ~ regressor, data = train_data)
+  
+  m_beta <- coef(m)  # Get the coefficients of the Cox model
+  
+  n_transformed_X <- ncol(transformed_X)
+  beta_CATE <- m_beta[(n_transformed_X + 1):length(m_beta)] 
+  beta_eta_0 <- m_beta[1:(n_transformed_X)] 
+  
+  if (verbose >= 1){
+    print("Finished fitting the Cox model.")
+  }
+  
+  test_transformed_X <- transform_X(
+    single_data = test_data,
+    regressor_spec = regressor_spec
+  )
+  
+  if (verbose >= 1){
+    print("Start prediction.")
+  }
+  
+  if (CATE_spec == "correctly-specified") {
+    test_regressor_CATE <- cbind(test_data$X.1, test_data$X.10)
+  } else if (CATE_spec == "linear") {
+    test_regressor_CATE <- cbind(1, as.matrix(test_data %>% select(starts_with("X."))))
+  } else if (CATE_spec == "flexible") {
+    test_regressor_CATE <- cbind(1, as.matrix(test_transformed_X))
+  }
+  
+  CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
+  CATE_true <- test_data$CATE
+  
+  # Added y_0_pred
+  y_0_pred <- as.vector(test_transformed_X %*% beta_eta_0)
+  y_1_pred <- y_0_pred + CATE_est
+  
+  if (verbose >= 1){
+    print("Finished prediction.")
+  }
+  
+  MSE <- mean((CATE_est - CATE_true)^2)
+  
+  if (verbose == 2){
+    print("MSE:")
+    print(MSE)
+  }
+  
+  ret <- list(
+    m = m,
+    m_beta = m_beta,
+    beta_CATE = beta_CATE,
+    beta_eta_0 = beta_eta_0,
+    y_0_pred = y_0_pred,
+    y_1_pred = y_1_pred, 
+    CATE_est = CATE_est,
+    CATE_true = CATE_true,
+    MSE = MSE
+  )
+  
+  if (verbose >= 1){
+    print("m_beta:")
+    print(m_beta)
+    print("beta_CATE:")
+    print(beta_CATE)
+  }
+  
+  class(ret) <- "scox"
+  ret
+}
+
+
 
 T_lasso <- function(train_data, 
                     test_data, 
@@ -377,7 +505,44 @@ T_lasso <- function(train_data,
   return(ret)
 }
 
-S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
+#' Lasso-based CATE Estimation with Flexible Regressor Specification
+#'
+#' This function fits a Lasso Cox regression model for estimating Conditional Average Treatment Effects (CATE) 
+#' using flexible regressor specifications, including natural splines and interaction terms.
+#'
+#' @param train_data A data frame containing the training data. Must include columns for treatment (`W`), 
+#'   time-varying covariates (`X.`), and survival times (`tstart`, `tstop`, `Delta`).
+#' @param test_data A data frame containing the test data for evaluating the model. Must include columns 
+#'   for CATE and survival-related variables.
+#' @param regressor_spec A character string specifying the type of regressor transformation:
+#'   - "linear-only": Uses linear terms only.
+#'   - "mild-complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
+#' @param CATE_spec A character string specifying the specification for CATE estimation:
+#'   - "correctly-specified": Uses true variables (`X.1` and `X.10`) for CATE estimation.
+#'   - "linear": Uses all variables starting with `X.` for CATE estimation with linear terms.
+#'   - "flexible": Uses all transformed variables (splines, interactions, etc.) for flexible CATE estimation.
+#'
+#' @return A list containing the following components:
+#'   - `m`: The fitted Lasso Cox model.
+#'   - `m_beta`: The estimated coefficients from the model.
+#'   - `beta_CATE`: Coefficients for CATE estimation.
+#'   - `beta_eta_0`: Coefficients for baseline hazard estimation.
+#'   - `y_0_pred`: Predicted baseline outcomes for the control group.
+#'   - `y_1_pred`: Predicted outcomes for the treatment group.
+#'   - `CATE_est`: Estimated CATE values.
+#'   - `CATE_true`: True CATE values (from test data).
+#'   - `MSE`: Mean squared error of CATE estimation.
+#'
+#' @examples
+#' # Fit the model with "linear-only" regressor and "correctly-specified" CATE
+#' result <- S_lasso(train_data = df_train, test_data = df_test, regressor_spec = "linear-only", CATE_spec = "correctly-specified")
+#'
+#' @export
+S_lasso <- function(train_data, 
+                    test_data, 
+                    regressor_spec, 
+                    CATE_spec, 
+                    verbose = 0) {
   
   transformed_X <- transform_X(
     single_data = train_data, 
@@ -387,7 +552,8 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
   if (CATE_spec == "correctly-specified") {
     regressor_CATE <- train_data$W * cbind(train_data$X.1, train_data$X.10)
   } else if (CATE_spec == "linear") {
-    regressor_CATE <- cbind(train_data$W, train_data$W * train_data[, paste0("X.", 1:10)])
+    # regressor_CATE <- cbind(train_data$W, train_data$W * train_data[, paste0("X.", 1:10)])
+    regressor_CATE <- cbind(train_data$W, train_data$W * train_data %>% select(starts_with("X.")))
   } else if (CATE_spec == "flexible") {
     regressor_CATE <- cbind(train_data$W, train_data$W * transformed_X)
   }
@@ -406,18 +572,25 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
   beta_CATE <- m_beta[(n_transformed_X + 1):length(m_beta)] 
   beta_eta_0 <- m_beta[1:(n_transformed_X)] 
   
-  # CATE_est_train <- as.vector(cbind(train_data$X.1, train_data$X.10) %*% beta_CATE)
-  # MSE_train <- mean( (CATE_est_train - train_data$CATE)^2)
+  if (verbose >= 1){
+    print( "Finished fitting the lasso model. ")
+  }
+  
   
   test_transformed_X <- transform_X(
     single_data = test_data,
     regressor_spec = regressor_spec)
   
   
+  if (verbose >= 1){
+    print( "Start prediction. ")
+  }
+  
   if (CATE_spec == "correctly-specified") {
     test_regressor_CATE <- cbind(test_data$X.1, test_data$X.10)
   } else if (CATE_spec == "linear") {
-    test_regressor_CATE <- cbind(1, as.matrix(test_data[, paste0("X.", 1:10)]))
+    test_regressor_CATE <- cbind(1, as.matrix(test_data %>% select(starts_with("X.")) ) )
+    # test_regressor_CATE <- cbind(1, as.matrix(test_data[, paste0("X.", 1:10)]))
   } else if (CATE_spec == "flexible") {
     test_regressor_CATE <- cbind(1, as.matrix(test_transformed_X))
   }
@@ -426,18 +599,19 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
   CATE_true <- test_data$CATE
   
   # Added y_0_pred
-  # print("head(test_regressor): ")
-  # print(head(test_regressor))
-  # print("m_beta: ")
-  # print(m_beta)
   y_0_pred <- as.vector(test_transformed_X %*% beta_eta_0)
   y_1_pred <- y_0_pred + CATE_est
   
-  
+  if (verbose >= 1){
+    print( "Finished prediction. ")
+  }
   
   
   MSE <- mean((CATE_est - CATE_true)^2)
-  print(MSE)
+  if (verbose == 2){
+    print( "MSE: ")
+    print( MSE )
+  }
   
   ret <- list(
     m = m,
@@ -460,44 +634,186 @@ S_lasso <- function(train_data, test_data, regressor_spec, CATE_spec) {
   ret
 }
 
+#' Time-Varying Conditional Survival Learning (TV-CSL) with K-Fold Cross-Fitting
+#'
+#' This function performs K-fold cross-fitting to estimate the Conditional Average Treatment Effect (CATE) using 
+#' Time-Varying Conditional Survival Learning (TV-CSL). The procedure includes fitting nuisance parameters 
+#' and the final model on different folds of the data.
+#'
+#' @param train_data A data frame containing the training data. Must include variables needed for model training and cross-fitting, including an `id` column.
+#' @param test_data A data frame containing the test data. Must include the true CATE values (`CATE`).
+#' @param train_data_original A data frame with the original training data used for model fitting.
+#' @param folds A vector or factor specifying the fold assignment for each observation in `train_data`.
+#' @param K An integer specifying the number of folds for cross-fitting.
+#' @param prop_score_spec A character string specifying the type of propensity score specification to use in the nuisance model.
+#' @param lasso_type A character string specifying the type of Lasso to use in the model (e.g., "linear", "mild-complex").
+#' @param regressor_spec A character string specifying the regressor transformation ("linear-only" or "mild-complex").
+#' @param final_model_method A character string specifying the final model method (e.g., "cox", "lasso").
+#'
+#' @return A list containing the following components:
+#'   - `CATE_est`: Estimated CATE values for the test data.
+#'   - `CATE_true`: True CATE values from the test data.
+#'   - `MSE`: Mean squared error between the estimated and true CATE.
+#'   - `time_taken`: Time taken to run the K-fold cross-fitting procedure.
+#'
+#' @examples
+#' # Example usage of TV_CSL function
+#' result <- TV_CSL(
+#'   train_data = df_train, 
+#'   test_data = df_test, 
+#'   train_data_original = df_train_original,
+#'   folds = folds_vector,
+#'   K = 5, 
+#'   prop_score_spec = "logit",
+#'   lasso_type = "mild-complex",
+#'   regressor_spec = "linear-only",
+#'   final_model_method = "cox"
+#' )
+#'
+#' @export
+TV_CSL <- function(train_data, 
+                   test_data, 
+                   train_data_original, 
+                   K, 
+                   prop_score_spec, 
+                   lasso_type, 
+                   regressor_spec, 
+                   final_model_method,
+                   id_var = "id") {
+  
+  n <- nrow(test_data)
+  folds <- cut(seq(1, nrow(train_data_original)), breaks = K, labels = FALSE)
+  CATE_ests <- matrix(NA, nrow = n, ncol = K)
+  
+  # Measure time taken for the procedure
+  start_time <- Sys.time()
+  
+  {
+    train_data <- train_data %>% mutate(id = !!sym(id_var))
+    test_data <- test_data %>% mutate(id = !!sym(id_var))
+    train_data_original <- train_data_original %>% mutate(id = !!sym(id_var))
+  }
+  
+  
+  
+  # Perform K-fold cross-fitting
+  for (k in 1:K) {
+    
+    # Get IDs for nuisance and causal splits
+    nuisance_ids <- train_data_original[folds != k, id_var]
+    causal_ids <- train_data_original[folds == k, id_var]
+    
+    # Split the training data
+    fold_nuisance <- train_data[train_data[[id_var]] %in% nuisance_ids, ]
+    fold_causal <- train_data[train_data[[id_var]] %in% causal_ids, ]
+    train_data_original_nuisance <- 
+      train_data_original[train_data_original[[id_var]] %in% nuisance_ids, ]
+    
+    
+    fold_causal_fitted <- TV_CSL_nuisance(
+      fold_train = fold_nuisance, 
+      fold_test = fold_causal, 
+      train_data_original = train_data_original_nuisance,
+      prop_score_spec = prop_score_spec,
+      lasso_type = lasso_type,
+      regressor_spec = regressor_spec
+    )
+    
+    # Fit final model and estimate CATE
+    fit_TV_CSL_ret <- fit_TV_CSL(
+      fold_causal_fitted = fold_causal_fitted, 
+      final_model_method = final_model_method,
+      test_data = test_data
+    )
+    
+    # Store CATE estimates for the k-th fold
+    CATE_ests[, k] <- fit_TV_CSL_ret$CATE_est
+  }
+  
+  # Average CATE estimates across folds
+  CATE_est <- rowMeans(CATE_ests, na.rm = TRUE)
+  CATE_true <- test_data$CATE
+  
+  # Calculate mean squared error (MSE)
+  MSE <- mean((CATE_true - CATE_est)^2)
+  
+  # Time taken for the cross-fitting process
+  time_taken <- Sys.time() - start_time
+  
+  # Return results as a list
+  return(list(
+    CATE_est = CATE_est,
+    CATE_true = CATE_true,
+    MSE = MSE,
+    time_taken = time_taken
+  ))
+}
 
 
-# Transform X: have a transformation function that takes into single_data
-# 1. extract all variables started with "X."
-# 2. perform transformation
-# lasso_type == “mild-complex”: 
-#   - Linear terms and 3 natural splines 
-# - Square of the linear terms
-# - Pairwise interactions of the linear terms
-# 
-# lasso_type == “linear-only”:
-#   - Linear terms
+
+#' Transform X Variables for Lasso Regression
+#'
+#' This function performs transformations on variables starting with "X." from the input data.
+#' Depending on the `regressor_spec`, the function creates either simple linear terms or a more complex set of transformations including natural splines, square terms, and interaction terms.
+#'
+#' @param single_data A data frame that contains the regressors, with column names starting with "X.".
+#' @param regressor_spec A character string specifying the type of transformation. 
+#'   - "linear-only": Generates linear terms only.
+#'   - "mild-complex": Generates linear terms, 3 natural splines for continuous variables, square terms, and pairwise interaction terms for both continuous and binary variables.
+#'
+#' @details
+#' - If `regressor_spec` is "linear-only", the function will return a matrix of linear terms from all variables starting with "X.".
+#' - If `regressor_spec` is "mild-complex", the function applies the following transformations:
+#'   - Linear terms for all variables.
+#'   - 3 natural spline terms for continuous variables.
+#'   - Square terms for continuous variables.
+#'   - Pairwise interaction terms between all variables (both continuous and binary).
+#'
+#' @return A matrix of transformed regressors, including linear terms, splines, square terms, and interactions depending on the specified transformation type.
+#' 
+#' @examples
+#' # Using linear-only transformation
+#' transformed_X_linear <- transform_X(single_data = df_time_var, regressor_spec = "linear-only")
+#'
+#' # Using mild-complex transformation
+#' transformed_X_complex <- transform_X(single_data = df_time_var, regressor_spec = "mild-complex")
+#'
+#' @export
 transform_X <- function(single_data, regressor_spec = "linear-only") {
   library(splines)
-  X_vars <- single_data[grep("^X", names(single_data))]
+  library(dplyr)
+  
+  X_vars <- single_data %>% select(starts_with("X."))
+  # X_vars <- single_data[grep("^X", names(single_data))]
   
   transformed_X <- matrix(nrow = nrow(X_vars), ncol = 0)
   
   if (regressor_spec == "mild-complex") {
     
-    transformed_X <- as.matrix(X_vars)
+    # transformed_X <- as.matrix(X_vars)
+    continuous_vars <- names(X_vars)[sapply(X_vars, function(x) length(unique(x)) > 2)]
     
-    for (var_name in names(X_vars)) {
+    # Apply natural splines to continuous variables
+    for (var_name in continuous_vars) {
       spline_terms <- ns(X_vars[[var_name]], df = 3)
       colnames(spline_terms) <- paste0(var_name, "_spline", 1:3)
       transformed_X <- cbind(transformed_X, as.matrix(spline_terms))
     }
     
-    for (var_name in names(X_vars)) {
+    # Add square terms for continuous variables
+    for (var_name in continuous_vars) {
       square_term <- X_vars[[var_name]]^2
-      transformed_X <- cbind(transformed_X, as.matrix(square_term))
+      transformed_X <- cbind(transformed_X, square_term)
+      colnames(transformed_X)[ncol(transformed_X)] <- paste0(var_name, "_squared")
     }
     
+    # Add interaction terms between all pairs of variables (both continuous and binary)
     var_names <- names(X_vars)
-    for (i in 1:(length(var_names)-1)) {
-      for (j in (i+1):length(var_names)) {
+    for (i in 1:(length(var_names) - 1)) {
+      for (j in (i + 1):length(var_names)) {
         interaction_term <- X_vars[[var_names[i]]] * X_vars[[var_names[j]]]
-        transformed_X <- cbind(transformed_X, as.matrix(interaction_term))
+        transformed_X <- cbind(transformed_X, interaction_term)
+        colnames(transformed_X)[ncol(transformed_X)] <- paste0(var_names[i], "_x_", var_names[j])
       }
     }
     
@@ -694,8 +1010,6 @@ run_TV_CSL_estimation <- function(
     mutate(U_A = pmin(A,U),
            Delta_A = A <= U)
   
-  folds <- cut(seq(1, n), breaks = K, labels = FALSE)
-  
   for (prop_score_spec in methods_TV_CSL$prop_score_specs) {
     for (regressor_spec in methods_TV_CSL$regressor_specs) {
       for (lasso_type in methods_TV_CSL$lasso_types) {
@@ -704,52 +1018,62 @@ run_TV_CSL_estimation <- function(
           config_name <- paste(lasso_type, prop_score_spec, regressor_spec, final_model_method, sep = "_")
           start_time <- Sys.time()
           
-          CATE_ests <- matrix(NA, nrow = n, ncol = K)
+          TV_CSL_ret <- TV_CSL(train_data, 
+                               test_data, 
+                               train_data_original, 
+                               K, 
+                               prop_score_spec, 
+                               lasso_type, 
+                               regressor_spec, 
+                               final_model_method) 
           
-          # Perform K-fold cross-fitting
-          for (k in 1:K) {
-            
-            nuisance_ids <- train_data_original[folds != k, "id"]
-            causal_ids <- train_data_original[folds == k, "id"]
-            
-            fold_nuisance <- train_data[train_data$id %in% nuisance_ids, ]
-            fold_causal <- train_data[train_data$id %in% causal_ids, ]
-            train_data_original_nuisance <- 
-              train_data_original[train_data_original$id %in% nuisance_ids, ]
-            
-            fold_causal_fitted <- TV_CSL_nuisance(
-              fold_train = fold_nuisance, 
-              fold_test = fold_causal, 
-              train_data_original = train_data_original_nuisance,
-              prop_score_spec = prop_score_spec,
-              lasso_type = lasso_type,
-              regressor_spec = regressor_spec
-            )
-            
-            fit_TV_CSL_ret <- fit_TV_CSL(
-              fold_causal_fitted = fold_causal_fitted, 
-              final_model_method = final_model_method,
-              test_data = test_data
-            )
-            
-            CATE_ests[, k] <- fit_TV_CSL_ret$CATE_est
-          }
-          
-          end_time <- Sys.time()
-          
-          CATE_est <- rowMeans(CATE_ests, na.rm = TRUE)
-          CATE_true <- test_data$CATE
-          
-          MSE <- mean((CATE_true - CATE_est)^2)
+          # CATE_ests <- matrix(NA, nrow = n, ncol = K)
+          # 
+          # # Perform K-fold cross-fitting
+          # for (k in 1:K) {
+          #   
+          #   nuisance_ids <- train_data_original[folds != k, "id"]
+          #   causal_ids <- train_data_original[folds == k, "id"]
+          #   
+          #   fold_nuisance <- train_data[train_data$id %in% nuisance_ids, ]
+          #   fold_causal <- train_data[train_data$id %in% causal_ids, ]
+          #   train_data_original_nuisance <- 
+          #     train_data_original[train_data_original$id %in% nuisance_ids, ]
+          #   
+          #   fold_causal_fitted <- TV_CSL_nuisance(
+          #     fold_train = fold_nuisance, 
+          #     fold_test = fold_causal, 
+          #     train_data_original = train_data_original_nuisance,
+          #     prop_score_spec = prop_score_spec,
+          #     lasso_type = lasso_type,
+          #     regressor_spec = regressor_spec
+          #   )
+          #   
+          #   fit_TV_CSL_ret <- fit_TV_CSL(
+          #     fold_causal_fitted = fold_causal_fitted, 
+          #     final_model_method = final_model_method,
+          #     test_data = test_data
+          #   )
+          #   
+          #   CATE_ests[, k] <- fit_TV_CSL_ret$CATE_est
+          # }
+          # 
+          # end_time <- Sys.time()
+          # 
+          # CATE_est <- rowMeans(CATE_ests, na.rm = TRUE)
+          # CATE_true <- test_data$CATE
+          # 
+          # MSE <- mean((CATE_true - CATE_est)^2)
           
           time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
           
-          results[[config_name]] <- list(
-            CATE_est = CATE_est,
-            CATE_true = CATE_true,
-            MSE = MSE,
-            time_taken = time_taken
-          )
+          results[[config_name]] <- TV_CSL_ret 
+          # results[[config_name]] <- list(
+          #   CATE_est = CATE_est,
+          #   CATE_true = CATE_true,
+          #   MSE = MSE,
+          #   time_taken = time_taken
+          # )
           
           print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
           
@@ -821,7 +1145,8 @@ TV_CSL_nuisance <- function(fold_train,
                             train_data_original, # for estimating the propensity score
                             prop_score_spec,
                             lasso_type,
-                            regressor_spec) {
+                            regressor_spec,
+                            id_var = "id") {
   
   # 1. Estimate the propensity score
   if (grepl("^cox", prop_score_spec)) {
@@ -831,7 +1156,7 @@ TV_CSL_nuisance <- function(fold_train,
       df_prop_score <- train_data_original
     }
     
-    treatment_model <- coxph(Surv(U_A, Delta_A) ~ X.2 + X.3, 
+    treatment_model <- coxph(Surv(U_A, Delta_A) ~ X.1 + X.2 + X.3, 
                              data = df_prop_score, 
                              ties = "breslow")
     alpha_estimate <- treatment_model$coefficients
@@ -896,7 +1221,7 @@ TV_CSL_nuisance <- function(fold_train,
   # 
   # print(head(fold_test_final))
   print(paste("alpha_estimate: ", alpha_estimate))
-  test_X <- cbind(fold_test_final$X.2, fold_test_final$X.3)
+  test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
   prop_scores <- calculate_eX(
     alpha_estimate = alpha_estimate, 
     X = test_X,
@@ -920,22 +1245,33 @@ fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
   beta_CATE <- NULL
   
   if (final_model_method == "coxph") {
-    interaction_terms <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) * fold_causal_fitted[, paste0("X.", 1:10)]
     
-    # Name the new columns appropriately and add them to the fold_causal_fitted data frame
-    colnames(interaction_terms) <- paste0("interaction_X", 1:10)
+    # Select regressors that start with "X."
+    regressors <- fold_causal_fitted %>% select(starts_with("X."))
+    n_regressors <- ncol(regressors)  # Get the number of regressors
+    
+    # Compute interaction terms between (W - a_t_X) and the regressors
+    interaction_terms <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) * regressors
+    
+    # Name the new interaction columns dynamically (interaction_X1, interaction_X2, ..., interaction_Xn)
+    colnames(interaction_terms) <- paste0("interaction_X", 1:n_regressors)
+    
+    # Add interaction terms to the data frame
     fold_causal_fitted <- cbind(fold_causal_fitted, interaction_terms)
     
-    # Fit the coxph model with the interaction terms and the offset
+    # Create the formula dynamically using paste()
+    interaction_formula <- paste(paste0("interaction_X", 1:n_regressors), collapse = " + ")
+    final_formula <- as.formula(paste("Surv(tstart, tstop, Delta) ~", interaction_formula, "+ offset(nu_X)"))
+    
+    # Fit the Cox proportional hazards model using the dynamic formula
     final_model <- coxph(
-      Surv(tstart, tstop, Delta) ~ interaction_X1 + interaction_X2 + interaction_X3 + 
-        interaction_X4 + interaction_X5 + interaction_X6 + interaction_X7 + 
-        interaction_X8 + interaction_X9 + interaction_X10 + offset(nu_X), 
+      final_formula, 
       data = fold_causal_fitted, 
       ties = "breslow"
     )
-    beta_CATE <- coef(final_model)
     
+    # Extract the coefficients
+    beta_CATE <- coef(final_model)
   } else if (final_model_method == "lasso") {
     
     regressor_TV_CSL <- (fold_causal_fitted$W - as.vector(fold_causal_fitted$a_t_X)) *
@@ -953,7 +1289,7 @@ fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
   }
   print("beta_CATE")
   print(beta_CATE)
-  test_regressor_CATE <- as.matrix(test_data[, paste0("X.", 1:10)])
+  test_regressor_CATE <- as.matrix(test_data %>% select(starts_with("X.")))
   CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
   
   ret <- list(
