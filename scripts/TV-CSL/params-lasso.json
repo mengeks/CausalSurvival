@@ -1,0 +1,22 @@
+{
+  "n": 500,
+  "R": 100,
+  "methods": {
+    "lasso": {
+        "enabled": true,
+        "regressor_specs": [
+          "linear-only",
+          "mild-complex"
+        ],
+        "lasso_types": [
+          "S-lasso"
+        ],
+        "CATE_specs": [
+          "correctly-specified",
+          "linear",
+          "flexible"
+        ]
+      }
+  },
+  "verbose": 0
+}

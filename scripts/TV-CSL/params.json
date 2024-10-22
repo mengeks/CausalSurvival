@@ -14,13 +14,12 @@
         ]
       },
     "lasso": {
-        "enabled": false,
+        "enabled": true,
         "regressor_specs": [
           "linear-only",
           "mild-complex"
         ],
         "lasso_types": [
-          "T-lasso",
           "S-lasso"
         ],
         "CATE_specs": [
@@ -30,7 +29,7 @@
         ]
       },
     "TV_CSL": {
-        "enabled": true,
+        "enabled": false,
         "prop_score_specs": [
           "cox-linear-censored-only",
           "cox-linear-all-data"

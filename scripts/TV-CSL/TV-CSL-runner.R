@@ -15,7 +15,7 @@ source("scripts/TV-CSL/time-varying-estimate.R")
 #' @param json_file Path to the JSON configuration file.
 #' @param verbose The level of verbosity (0 = default, 1 = progress info, 2 = detailed info).
 run_experiment_iteration <- 
-  function(i, json_file, verbose = 0) {
+  function(i, json_file, eta_type, CATE_type, verbose = 0) {
   
   if (verbose >= 1) 
     message("Running iteration ", i)
@@ -27,18 +27,13 @@ run_experiment_iteration <-
   methods <- config$methods
   K <- ifelse(is.null(config$K), 5, config$K)
   
-  eta_type <- config$eta_type
-  CATE_type <- config$CATE_type
+  # eta_type <- config$eta_type
+  # CATE_type <- config$CATE_type
   
   input_setting <- paste0(eta_type, "_", CATE_type)
   
   seed_value <- 123 + 11 * i
   set.seed(seed_value)
-  
-  output_prefix <- 
-    paste0("scripts/TV-CSL/results/", 
-           input_setting, 
-           "-n_", n)
   
   input_dir <- 
     here::here("data", input_setting)
@@ -72,8 +67,9 @@ run_experiment_iteration <-
   
   beta_estimates_cox <- mse_estimates_cox <- list()
   time_taken_cox <- list()
+  is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
   
-  if (!is.null(methods$cox) && methods$cox$enabled) {
+  if (is_running_cox) {
     start_time <- Sys.time()
     cox_results <- 
       run_cox_estimation(
@@ -117,8 +113,8 @@ run_experiment_iteration <-
   
   
   time_taken_lasso <- mse_estimates_lasso <- list()
-  
-  if (!is.null(methods$lasso) && methods$lasso$enabled) {
+  is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
+  if (is_running_lasso) {
     start_time <- Sys.time()
     lasso_results <- 
       run_lasso_estimation(
@@ -156,8 +152,8 @@ run_experiment_iteration <-
   
   mse_estimates_TV_CSL <- list()
   time_taken <- list()
-  
-  if (!is.null(methods$TV_CSL) && methods$TV_CSL$enabled) {
+  is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
+  if (is_running_TV_CSL) {
     start_time <- Sys.time()
     
     temp_result_csv_file <- 
@@ -206,11 +202,23 @@ run_experiment_iteration <-
           result_df_lasso,
           result_df_TV_CSL)
   
-  result_csv_file <- 
-    paste0(output_prefix, 
-           "-iteration_", 
-           i, "-seed_", 
-           seed_value, ".csv")
+  
+  method_setting <- paste0(
+    ifelse(is_running_cox, "cox_", ""),
+    ifelse(is_running_lasso, "lasso_", ""),
+    ifelse(is_running_TV_CSL, "TV-CSL_", "")
+  )
+  
+  dgp_setting <- paste0("eta-", eta_type, "_CATE-", CATE_type)
+  
+  output_prefix <- paste0(
+    "scripts/TV-CSL/results/",
+    method_setting, dgp_setting, "_n-", n, "/"
+  )
+  
+  result_csv_file <- paste0(
+    "result-iteration_", i, "-seed_", seed_value, ".csv"
+  )
   
   write.csv(result_df, result_csv_file, row.names = FALSE)
   
@@ -219,6 +227,8 @@ run_experiment_iteration <-
     message("Results for iteration ", i, " saved to ", result_csv_file)
   }
 }
+
+
 
 
 calculate_mse <- function(beta_estimate, n, i, CATE_type,eta_type) {

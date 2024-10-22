@@ -19,9 +19,9 @@ verbose=${2:-0}
 
 R=$(jq '.R' $json_file)
 
-log_dir="/n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/scripts/TV-CSL/results"
-mkdir -p "$log_dir"
 
+log_dir="/n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/scripts/TV-CSL/results/"
+mkdir -p "$log_dir"
 
 export json_file verbose log_dir
 
