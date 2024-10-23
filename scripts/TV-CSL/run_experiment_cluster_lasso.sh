@@ -5,7 +5,7 @@
 #SBATCH -c 1              # Number of cores
 #SBATCH --array=1-100  # Size of the array
 #SBATCH --mem=1G          # Memory in GB
-#SBATCH -t 03:30:00         # Runtime (hours:minutes:seconds)
+#SBATCH -t 02:30:00         # Runtime (hours:minutes:seconds)
 
 # module load R/4.2.2-fasrc01
 # export R_LIBS_USER=/n/home01/xmeng1/R/ifxrstudio/RELEASE_3_18
@@ -17,7 +17,7 @@ rstudio_singularity_image="/n/singularity_images/informatics/ifxrstudio/ifxrstud
 json_file=$1
 verbose=${2:-0}
 
-R=$(jq '.R' $json_file)
+# R=$(jq '.R' $json_file)
 n=$(jq '.n' "$json_file")
 
 for eta_type in "10-dim-linear" "non-linear"; do

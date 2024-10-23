@@ -1,6 +1,6 @@
 {
   "n": 500,
-  "R": 100,
+  "R": 2,
   "methods": {
     "lasso": {
         "enabled": true,
@@ -14,7 +14,7 @@
         "CATE_specs": [
           "correctly-specified",
           "linear",
-          "flexible"
+          "complex"
         ]
       }
   },

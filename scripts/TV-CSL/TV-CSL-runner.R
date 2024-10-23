@@ -203,22 +203,17 @@ run_experiment_iteration <-
           result_df_TV_CSL)
   
   
-  method_setting <- paste0(
-    ifelse(is_running_cox, "cox_", ""),
-    ifelse(is_running_lasso, "lasso_", ""),
-    ifelse(is_running_TV_CSL, "TV-CSL_", "")
+  result_csv_file <- generate_output_path(
+    is_running_cox = is_running_cox,
+    is_running_lasso = is_running_lasso,
+    is_running_TV_CSL = is_running_TV_CSL,
+    eta_type = eta_type,
+    CATE_type = CATE_type,
+    n = n,
+    i = i,
+    seed_value = seed_value
   )
   
-  dgp_setting <- paste0("eta-", eta_type, "_CATE-", CATE_type)
-  
-  output_prefix <- paste0(
-    "scripts/TV-CSL/results/",
-    method_setting, dgp_setting, "_n-", n, "/"
-  )
-  
-  result_csv_file <- paste0(
-    "result-iteration_", i, "-seed_", seed_value, ".csv"
-  )
   
   write.csv(result_df, result_csv_file, row.names = FALSE)
   
@@ -228,6 +223,50 @@ run_experiment_iteration <-
   }
 }
 
+
+#' Generate file paths for experiment results and save data to CSV
+#'
+#' @param is_running_cox Logical, whether cox method is running
+#' @param is_running_lasso Logical, whether lasso method is running
+#' @param is_running_TV_CSL Logical, whether TV-CSL method is running
+#' @param eta_type Character, the eta type
+#' @param CATE_type Character, the CATE type
+#' @param n Integer, the sample size
+#' @param i Integer, the iteration number
+#' @param seed_value Integer, the seed value for reproducibility
+#' 
+#' @return The full path of the saved CSV file
+generate_output_path <- function(is_running_cox, 
+                                     is_running_lasso, 
+                                     is_running_TV_CSL, 
+                                     eta_type, 
+                                     CATE_type, 
+                                     n, 
+                                     i, 
+                                     seed_value) {
+  
+  method_setting <- paste0(
+    ifelse(is_running_cox, "cox_", ""),
+    ifelse(is_running_lasso, "lasso_", ""),
+    ifelse(is_running_TV_CSL, "TV-CSL_", "")
+  )
+  
+  dgp_setting <- paste0("eta-", eta_type, "_CATE-", CATE_type)
+  
+  output_folder <- paste0(
+    "scripts/TV-CSL/results/",
+    method_setting, dgp_setting, "_n-", n, "/"
+  )
+  
+  result_csv_file <- paste0(
+    output_folder, 
+    "result-iteration_", i, "-seed_", seed_value, ".csv"
+  )
+  
+  dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
+  
+  return(result_csv_file)
+}
 
 
 

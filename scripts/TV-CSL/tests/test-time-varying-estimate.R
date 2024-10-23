@@ -122,3 +122,60 @@ test_that("mild-complex transformation includes splines, square, and interaction
   expect_true(any(grepl("X.2_x_X.3", colnames(transformed))))
 })
 
+
+
+library(testthat)
+
+
+test_that("Check correct file paths for lasso", {
+  csv_file <- generate_output_path(
+    is_running_cox = FALSE,
+    is_running_lasso = TRUE,
+    is_running_TV_CSL = FALSE,
+    eta_type = "10-dim-linear",
+    CATE_type = "ReLU",
+    n = 500,
+    i = 1,
+    seed_value = 12345
+  )
+  
+  expected_path <- "scripts/TV-CSL/results/lasso_eta-10-dim-linear_CATE-ReLU_n-500/lasso_eta-10-dim-linear_CATE-ReLU_n-500-result-iteration_1-seed_12345.csv"
+  expect_equal(csv_file, expected_path)
+})
+
+test_that("Lasso file is saved correctly", {
+  # Create a mock result dataframe
+  result_df <- data.frame(a = rnorm(5), b = runif(5))
+  
+  # Set the parameters for lasso
+  is_running_cox <- FALSE
+  is_running_lasso <- TRUE
+  is_running_TV_CSL <- FALSE
+  eta_type <- "10-dim-linear"
+  CATE_type <- "linear"
+  n <- 500
+  i <- 1
+  seed_value <- 12345
+  
+  # Generate the expected CSV file path using the function
+  result_csv_file <- generate_output_path(
+    is_running_cox = is_running_cox,
+    is_running_lasso = is_running_lasso,
+    is_running_TV_CSL = is_running_TV_CSL,
+    eta_type = eta_type,
+    CATE_type = CATE_type,
+    n = n,
+    i = i,
+    seed_value = seed_value
+  )
+  
+  # Write the CSV file using the generated path
+  write.csv(result_df, result_csv_file, row.names = FALSE)
+  
+  
+  loaded_df <- read.csv(result_csv_file)
+  expect_equal(loaded_df, result_df)
+  
+  # Cleanup: remove the saved file after test
+  unlink(result_csv_file)
+})

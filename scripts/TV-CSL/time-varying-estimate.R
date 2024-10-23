@@ -549,13 +549,19 @@ S_lasso <- function(train_data,
     regressor_spec = regressor_spec
   )
   
+  complex_X <- transform_X(
+    single_data = train_data, 
+    regressor_spec = "mild-complex"
+  )
+  
   if (CATE_spec == "correctly-specified") {
     regressor_CATE <- train_data$W * cbind(train_data$X.1, train_data$X.10)
   } else if (CATE_spec == "linear") {
-    # regressor_CATE <- cbind(train_data$W, train_data$W * train_data[, paste0("X.", 1:10)])
     regressor_CATE <- cbind(train_data$W, train_data$W * train_data %>% select(starts_with("X.")))
   } else if (CATE_spec == "flexible") {
     regressor_CATE <- cbind(train_data$W, train_data$W * transformed_X)
+  } else if (CATE_spec == "complex") {
+    regressor_CATE <- cbind(train_data$W, train_data$W * complex_X)
   }
   
   regressor <- cbind(transformed_X, regressor_CATE)
@@ -580,6 +586,9 @@ S_lasso <- function(train_data,
   test_transformed_X <- transform_X(
     single_data = test_data,
     regressor_spec = regressor_spec)
+  test_complex_X <- transform_X(
+    single_data = test_data,
+    regressor_spec = "mild-complex")
   
   
   if (verbose >= 1){
@@ -593,6 +602,8 @@ S_lasso <- function(train_data,
     # test_regressor_CATE <- cbind(1, as.matrix(test_data[, paste0("X.", 1:10)]))
   } else if (CATE_spec == "flexible") {
     test_regressor_CATE <- cbind(1, as.matrix(test_transformed_X))
+  } else if (CATE_spec == "complex") {
+    test_regressor_CATE <- cbind(1, as.matrix(test_complex_X))
   }
   
   CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
