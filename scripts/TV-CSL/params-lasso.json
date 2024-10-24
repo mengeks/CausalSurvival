@@ -1,6 +1,5 @@
 {
   "n": 500,
-  "R": 2,
   "methods": {
     "lasso": {
         "enabled": true,

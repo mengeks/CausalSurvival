@@ -1,3 +1,5 @@
+source("R/data-handler.R")
+
 #' Load Experiment Configuration
 #'
 #' Loads the experiment configuration from a JSON file.
@@ -16,17 +18,29 @@ read_single_iteration_result <- function(csv_file) {
   return(df)
 }
 
+# generate_result_csv_file <- function(results_dir, eta_type_folder_name, n, i, seed_value) {
+#   result_csv_file <- paste0(
+#     results_dir, 
+#     "/", eta_type_folder_name, 
+#     "-n_", n, 
+#     "-iteration_", i, 
+#     "-seed_", seed_value, ".csv"
+#   )
+#   return(result_csv_file)
+# }
+
 # Function to aggregate all CSV files and calculate final metrics
 process_all_iterations <- function(config, results_dir) {
   n <- config$n
+  methods <- config$methods
   eta_type <- config$eta_type
   CATE_type <- config$CATE_type
-  # baseline_type <- config$baseline_type
   R <- config$R
   
-  eta_type_folder_name <- 
-    # paste0(eta_type, "_", baseline_type)
-    paste0(eta_type, "_", CATE_type)
+  is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
+  is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
+  is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
+
   
   all_results <- list()
   all_times <- list()
@@ -34,11 +48,18 @@ process_all_iterations <- function(config, results_dir) {
   for (i in 1:R) {
     seed_value <- 123 + 11 * i
     
-    result_csv_file <- 
-      paste0(results_dir, 
-             "/",eta_type_folder_name, "-n_",n, "-iteration_", i, "-seed_", seed_value, ".csv")
+    result_csv_file <- generate_output_path(
+      is_running_cox = is_running_cox,
+      is_running_lasso = is_running_lasso,
+      is_running_TV_CSL = is_running_TV_CSL,
+      eta_type = eta_type,
+      CATE_type = CATE_type,
+      n = n,
+      i = i,
+      seed_value = seed_value
+    )
     
-    # Read the results of the i-th iteration
+    
     if (file.exists(result_csv_file)) {
       iteration_result <- read_single_iteration_result(result_csv_file)
       all_results[[i]] <- iteration_result
@@ -47,40 +68,34 @@ process_all_iterations <- function(config, results_dir) {
     }
   }
   
-  # Combine all results into a single dataframe
   combined_results <- do.call(rbind, all_results)
+  combined_results$Specification <- 
+    gsub("S_lasso", "S-lasso", combined_results$Specification)
+  combined_results$Specification <- 
+    gsub("T_lasso", "T-lasso", combined_results$Specification)
   
-  # Now calculate the metrics like bias, SE, and MSE for each method and specification
+  
   aggregated_metrics <- combined_results %>%
     group_by(Method, Specification) %>%
     summarise(
       MSE = mean(MSE_Estimate)
     )
-    # summarise(
-    #   Bias = mean(Tau_Estimate - 1),  # Assuming tau_true is 1 if not found
-    #   SE = sd(Tau_Estimate),
-    #   MSE = mean((Tau_Estimate - 1)^2)
-    # )
   
   return(aggregated_metrics)
 }
 
 process_results_to_csv <- function(json_file) {
-  # Load experiment configuration
+  
   config <- load_experiment_config(json_file)
   n <- config$n
   
-  # Generate result directories
-  results_dir <- "scripts/TV-CSL/results"
   
-  # Process all iterations
   aggregated_metrics <- 
     process_all_iterations(
       config=config, 
-      results_dir=results_dir
+      results_dir=RESULTS_DIR
     )
   
-  # Ensure CSV directory
   output_csv_dir <- "scripts/TV-CSL/tables"
   
   eta_type_folder_name <- 

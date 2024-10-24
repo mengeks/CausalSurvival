@@ -1,0 +1,26 @@
+{
+  "n": 500,
+  "R": 100,
+  "eta_type": "non-linear",
+  "CATE_type": "linear",
+  "methods": {
+    "TV_CSL": {
+        "enabled": true,
+        "prop_score_specs": [
+          "cox-linear-censored-only"
+        ],
+        "regressor_specs": [
+          "linear-only",
+          "mild-complex"
+        ],
+        "lasso_types": [
+          "S-lasso",
+          "m-regression"
+        ],
+        "final_model_methods": [
+          "coxph"
+        ]
+      }
+    },
+  "verbose": 0
+}

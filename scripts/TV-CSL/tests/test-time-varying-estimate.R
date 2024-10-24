@@ -1,11 +1,70 @@
-source("R/data-reader.R")
+source("R/data-handler.R")
 source("scripts/TV-CSL/time-varying-estimate.R")
+library(here)
+
+
+# Test m_regression
+data <- read_TV_CSL_nuisance_data(k = 1)
+fold_nuisance <- data$fold_nuisance
+fold_causal <- data$fold_causal
+train_data_original_nuisance <- data$train_data_original_nuisance
+
+test_data <- 
+  read_single_simulation_data(
+    n = 500, 
+    i = 101, 
+    eta_type = "10-dim-non-linear",
+    CATE_type =  "linear")$data
+
+source("scripts/TV-CSL/time-varying-estimate.R")
+regressor_spec = "linear-only"
+m_ret <- m_regression(train_data = fold_nuisance, 
+                      test_data = fold_causal, 
+                      regressor_spec = regressor_spec,
+                      verbose = 0)
+
+test_transformed_X <- transform_X(
+  single_data = fold_causal,
+  regressor_spec = regressor_spec)
+y_pred_expect <- as.vector(test_transformed_X %*% m_ret$m_beta)
+all.equal(y_pred_expect, m_ret$y_pred) 
+
+m_ret <- m_regression(train_data = fold_nuisance, 
+                      regressor_spec = "mild-complex",
+                      test_data = fold_causal, 
+                      verbose = 0)
+m_ret$m_beta
+
+# Test TV_CSL for m_regression
+fold_causal_fitted <- TV_CSL_nuisance(
+  fold_train = fold_nuisance, 
+  fold_test = fold_causal, 
+  train_data_original = train_data_original_nuisance,
+  prop_score_spec = "cox-linear-all-data",
+  lasso_type = "m-regression",
+  regressor_spec = "linear-only"
+)
+source("scripts/TV-CSL/time-varying-estimate.R")
+final_model_method <- "lasso"
+fit_TV_CSL_ret <- fit_TV_CSL(
+  fold_causal_fitted = fold_causal_fitted, 
+  final_model_method = final_model_method,
+  test_data = test_data
+)
+
+fit_TV_CSL_ret$beta_CATE
+CATE_est <- fit_TV_CSL_ret$CATE_est
+CATE_true <- test_data$CATE
+
+MSE <- mean((CATE_true - CATE_est)^2)
 
 
 # Test TV_CSL
-TV_CSL_ret <- TV_CSL(train_data, 
-                     test_data, 
-                     train_data_original, 
+final_model_method <- "coxph"
+
+TV_CSL_ret <- TV_CSL(train_data = , 
+                     test_data = test_data,  
+                     train_data_original = train_data_original_nuisance, 
                      folds, 
                      K, 
                      prop_score_spec, 

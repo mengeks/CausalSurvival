@@ -1,4 +1,4 @@
-source("R/data-reader.R")
+source("R/data-handler.R")
 
 n <- 500 
 loaded_data <- read_single_simulation_data(

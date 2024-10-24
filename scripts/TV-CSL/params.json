@@ -14,7 +14,7 @@
         ]
       },
     "lasso": {
-        "enabled": true,
+        "enabled": false,
         "regressor_specs": [
           "linear-only",
           "mild-complex"
@@ -29,7 +29,7 @@
         ]
       },
     "TV_CSL": {
-        "enabled": false,
+        "enabled": true,
         "prop_score_specs": [
           "cox-linear-censored-only",
           "cox-linear-all-data"

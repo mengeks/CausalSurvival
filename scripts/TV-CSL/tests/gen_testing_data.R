@@ -3,7 +3,7 @@ library(here)
 
 generate_TV_CSL_nuisance_data <- function(n = 500, i = 1, eta_type = "10-dim-non-linear", CATE_type = "linear", k = 1, save_path = here("scripts/TV-CSL/tests/data")) {
   
-  source("R/data-reader.R")
+  source("R/data-handler.R")
   source("scripts/TV-CSL/time-varying-estimate.R")
   
   train_data_original <- read_single_simulation_data(n = n, i = i, eta_type = eta_type, CATE_type = CATE_type)$data

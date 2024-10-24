@@ -1,5 +1,5 @@
 library(jsonlite)
-source("R/data-reader.R")
+source("R/data-handler.R")
 source("R/non-time-varying-estimate.R")
 source("R/DINA-runner.R")
 

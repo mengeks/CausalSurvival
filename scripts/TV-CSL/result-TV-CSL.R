@@ -1,11 +1,15 @@
 library(jsonlite)
 library(here)
 library(dplyr)
-source("R/TV-CSL-result-process.R")
+source("scripts/TV-CSL/result-process.R")
+
 
 process_results_to_csv(
   "scripts/TV-CSL/params.json"
 )
+
+
+
 
 
 # # ## Run a test

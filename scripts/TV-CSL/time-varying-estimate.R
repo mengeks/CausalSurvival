@@ -456,9 +456,9 @@ T_lasso <- function(train_data,
   eta_0 <- cv.glmnet(transformed_X_co, Surv(data_co$tstart, data_co$tstop, data_co$Delta), family = "cox")
   eta_1 <- cv.glmnet(transformed_X_tx, Surv(data_tx$tstart, data_tx$tstop, data_tx$Delta), family = "cox")
   
-  print("eta_0 coefficient: ")
+  print("eta_0 coefficient from T-lasso: ")
   print(coef(eta_0, s = "lambda.min"))
-  print("eta_1 coefficient ")
+  print("eta_1 coefficient from T-lasso: ")
   print(coef(eta_1, s = "lambda.min"))
   
   
@@ -473,19 +473,14 @@ T_lasso <- function(train_data,
   y_1_pred <- predict(eta_1, newx = test_transformed_X, s = "lambda.min")
   y_0_pred <- predict(eta_0, newx = test_transformed_X, s = "lambda.min")
   
-  # print("head(y_1_pred)")
-  # print(head(y_1_pred))
-  # print("head(y_0_pred)")
-  # print(head(y_0_pred))
-  
   # Compute CATE estimate
   CATE_est <- y_1_pred - y_0_pred
   CATE_true <- test_data$CATE
   
-  print("head(CATE_est)")
-  print(head(CATE_est))
-  print("head(CATE_true)")
-  print(head(CATE_true))
+  # print("head(CATE_est)")
+  # print(head(CATE_est))
+  # print("head(CATE_true)")
+  # print(head(CATE_true))
   
   # Calculate Mean Squared Error
   MSE <- mean((CATE_est - CATE_true)^2)
@@ -636,12 +631,74 @@ S_lasso <- function(train_data,
     MSE = MSE
   )
   
-  print("m_beta: ")
+  print("m_beta for S-lasso: ")
   print(m_beta)
-  print("beta_CATE: ")
+  print("beta_CATE for S-lasso: ")
   print(beta_CATE)
   
   class(ret) <- "slasso"
+  ret
+}
+
+#' Lasso-based CATE Estimation with Flexible Regressor Specification
+#'
+#' This function fits a Lasso Cox regression model for estimating Conditional Average Treatment Effects (CATE) 
+#' using flexible regressor specifications, including natural splines and interaction terms.
+#'
+#' @param train_data A data frame containing the training data. Must include columns for treatment (`W`), 
+#'   time-varying covariates (`X.`), and survival times (`tstart`, `tstop`, `Delta`).
+#' @param regressor_spec A character string specifying the type of regressor transformation:
+#'   - "linear-only": Uses linear terms only.
+#'   - "mild-complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
+#'
+#'
+#' @examples
+#' # Fit the model with "linear-only" regressor and "correctly-specified" CATE
+#' result <- S_lasso(train_data = df_train, test_data = df_test, regressor_spec = "linear-only", CATE_spec = "correctly-specified")
+#'
+#' @export
+m_regression <- function(train_data, 
+                         test_data,
+                    regressor_spec,
+                    verbose = 0) {
+  
+  transformed_X <- transform_X(
+    single_data = train_data, 
+    regressor_spec = regressor_spec
+  )
+  
+  regressor <- as.matrix(transformed_X)
+  
+  m <- cv.glmnet(regressor, 
+                 Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
+                 family = "cox"
+  )
+  
+  m_beta <- coef(m, s = "lambda.min")
+  
+  test_transformed_X <- transform_X(
+    single_data = test_data,
+    regressor_spec = regressor_spec)
+  
+  
+  y_pred <- as.vector(test_transformed_X %*% m_beta)
+  y_0_pred <- y_1_pred <-  y_pred 
+  # in m_regression, there is no need to have y_0_pred, y_1_pred
+  # We have them to conform with the existing TV_CSL coding logic
+  #   to construct nu easily
+  
+  ret <- list(
+    m = m,
+    m_beta = m_beta,
+    y_pred = y_pred,
+    y_0_pred = y_0_pred,
+    y_1_pred = y_1_pred
+  )
+  
+  print("m_beta for m_regression: ")
+  print(m_beta)
+  
+  class(ret) <- "m-estimator"
   ret
 }
 
@@ -730,20 +787,29 @@ TV_CSL <- function(train_data,
       regressor_spec = regressor_spec
     )
     
-    # Fit final model and estimate CATE
+    # # To add: get the first stage CATE_est
+    # if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){
+    #   # Make a MSE estimate using lasso_ret$y_1_pred through CATE prediction 
+    # }
+    
     fit_TV_CSL_ret <- fit_TV_CSL(
       fold_causal_fitted = fold_causal_fitted, 
       final_model_method = final_model_method,
       test_data = test_data
     )
     
-    # Store CATE estimates for the k-th fold
     CATE_ests[, k] <- fit_TV_CSL_ret$CATE_est
+    CATE_true <- test_data$CATE 
+    MSE_this_round <- mean((CATE_true - CATE_ests[, k])^2)
+    print("MSE_this_round: ")
+    print(MSE_this_round)
   }
   
   # Average CATE estimates across folds
   CATE_est <- rowMeans(CATE_ests, na.rm = TRUE)
   CATE_true <- test_data$CATE
+  
+  # Calculate MSE of the first stage, too
   
   # Calculate mean squared error (MSE)
   MSE <- mean((CATE_true - CATE_est)^2)
@@ -1037,6 +1103,7 @@ run_TV_CSL_estimation <- function(
                                lasso_type, 
                                regressor_spec, 
                                final_model_method) 
+          end_time <- Sys.time()
           
           # CATE_ests <- matrix(NA, nrow = n, ncol = K)
           # 
@@ -1215,7 +1282,13 @@ TV_CSL_nuisance <- function(fold_train,
       regressor_spec = regressor_spec,
       CATE_spec = "linear" # we hard code this
     )
-    # fold_test$nu_X <- lasso_ret$y_pred
+    
+  }else if (lasso_type == "m-regression"){
+    lasso_ret <- m_regression(
+      train_data = fold_train,
+      test_data = fold_test,
+      regressor_spec = regressor_spec
+    )
   }
   fold_test$eta_1 <- lasso_ret$y_1_pred
   fold_test$eta_0 <- lasso_ret$y_0_pred
@@ -1225,12 +1298,7 @@ TV_CSL_nuisance <- function(fold_train,
     left_join(fold_test_split, 
               fold_test %>% select(-tstart, -tstop), 
               by = c("id", "W") )
-  # print("colnames(fold_test_split)")
-  # print(colnames(fold_test_split))
-  # print("colnames(fold_test %>% select(-tstart, -tstop))")
-  # print(colnames(fold_test %>% select(-tstart, -tstop)))
-  # 
-  # print(head(fold_test_final))
+
   print(paste("alpha_estimate: ", alpha_estimate))
   test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
   prop_scores <- calculate_eX(
@@ -1238,8 +1306,8 @@ TV_CSL_nuisance <- function(fold_train,
     X = test_X,
     t = fold_test_split$tstop
   )
-  print("head(prop_scores):")
-  print( head(prop_scores) )
+  # print("head(prop_scores):")
+  # print( head(prop_scores) )
   
   fold_test_final <- fold_test_final %>%
     mutate(a_t_X = prop_scores)
@@ -1247,7 +1315,8 @@ TV_CSL_nuisance <- function(fold_train,
   fold_test_final <- fold_test_final %>%
     mutate(nu_X = a_t_X * eta_1 + (1 - a_t_X) * eta_0)
   
-  return(fold_test_final)
+  
+  return( fold_test_final )
 }
 
 
@@ -1262,7 +1331,8 @@ fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
     n_regressors <- ncol(regressors)  # Get the number of regressors
     
     # Compute interaction terms between (W - a_t_X) and the regressors
-    interaction_terms <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) * regressors
+    interaction_terms <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) * 
+      regressors
     
     # Name the new interaction columns dynamically (interaction_X1, interaction_X2, ..., interaction_Xn)
     colnames(interaction_terms) <- paste0("interaction_X", 1:n_regressors)

@@ -1,10 +1,9 @@
 library(jsonlite)
-# library(tools)
-# library(survival)
 suppressPackageStartupMessages(library(tidyverse))
 
-source("R/data-reader.R")
+source("R/data-handler.R")
 source("scripts/TV-CSL/time-varying-estimate.R")
+
 
 #' Run a Single Iteration of the Experiment and Save Results to CSV
 #'
@@ -164,6 +163,8 @@ run_experiment_iteration <-
              i, "-seed_", 
              seed_value, ".csv")
     
+    # Todo: 51-60 in TV-CSL did not run. Guess is the job submission is
+    #  amid of a code change. Should be fine if we run the experiment again.
     TV_CSL_results <- 
       run_TV_CSL_estimation(
         train_data_original = single_data, 
@@ -204,6 +205,7 @@ run_experiment_iteration <-
   
   
   result_csv_file <- generate_output_path(
+    results_dir = RESULTS_DIR, 
     is_running_cox = is_running_cox,
     is_running_lasso = is_running_lasso,
     is_running_TV_CSL = is_running_TV_CSL,
@@ -223,50 +225,6 @@ run_experiment_iteration <-
   }
 }
 
-
-#' Generate file paths for experiment results and save data to CSV
-#'
-#' @param is_running_cox Logical, whether cox method is running
-#' @param is_running_lasso Logical, whether lasso method is running
-#' @param is_running_TV_CSL Logical, whether TV-CSL method is running
-#' @param eta_type Character, the eta type
-#' @param CATE_type Character, the CATE type
-#' @param n Integer, the sample size
-#' @param i Integer, the iteration number
-#' @param seed_value Integer, the seed value for reproducibility
-#' 
-#' @return The full path of the saved CSV file
-generate_output_path <- function(is_running_cox, 
-                                     is_running_lasso, 
-                                     is_running_TV_CSL, 
-                                     eta_type, 
-                                     CATE_type, 
-                                     n, 
-                                     i, 
-                                     seed_value) {
-  
-  method_setting <- paste0(
-    ifelse(is_running_cox, "cox_", ""),
-    ifelse(is_running_lasso, "lasso_", ""),
-    ifelse(is_running_TV_CSL, "TV-CSL_", "")
-  )
-  
-  dgp_setting <- paste0("eta-", eta_type, "_CATE-", CATE_type)
-  
-  output_folder <- paste0(
-    "scripts/TV-CSL/results/",
-    method_setting, dgp_setting, "_n-", n, "/"
-  )
-  
-  result_csv_file <- paste0(
-    output_folder, 
-    "result-iteration_", i, "-seed_", seed_value, ".csv"
-  )
-  
-  dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
-  
-  return(result_csv_file)
-}
 
 
 
