@@ -1,0 +1,350 @@
+---
+title: "DGP Parameter Signal Strength Analysis"
+author: "Analyst"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(here)
+library(survival)
+library(glmnet)
+library(knitr)
+library(kableExtra)
+
+source(here("R/data-handler.R"))
+source(here("R/datagen-helper.R"))
+source(here("scripts/TV-CSL/time-varying-estimate.R"))
+```
+
+## Overview
+
+This analysis investigates the signal strength of DGP parameters using different modeling approaches:
+1. Lasso regression with different lambda values
+2. Ridge regression
+3. Standard Cox regression with varying sample sizes (n=500 and n=2000)
+
+## Data Preparation
+
+```{r data-prep}
+intercept <- -1.5
+slope_multiplier <- -0.5
+true_coefficients <- slope_multiplier * 1/(1:10)
+seed_value <- 42
+
+file_path <- here("scripts", "datagen", "parameter-tuning", "data",
+                 "eta-type-10-dim-linear_CATE-type-zero_n-500.rds")
+
+dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
+
+if (!file.exists(file_path)) {
+  train_data <- generate_simulated_data(
+    n = 500,
+    lambda_C = 0.1,
+    eta_type = "10-dim-linear",
+    CATE_type = "zero",
+    seed_value = seed_value,
+    linear_intercept = intercept,
+    linear_slope_multiplier = slope_multiplier,
+    verbose = 0
+  )
+  
+  train_data_pseudo <- preprocess_data(
+    single_data = train_data,
+    run_time_varying = TRUE
+  )
+  
+  saveRDS(
+    list(
+      train_data = train_data,
+      train_data_pseudo = train_data_pseudo
+    ),
+    file = file_path
+  )
+} else {
+  loaded_data <- readRDS(file_path)
+  train_data <- loaded_data$train_data
+  train_data_pseudo <- loaded_data$train_data_pseudo
+}
+```
+
+## Model Fitting and Evaluation
+
+```{r model-fitting}
+regressor <- transform_X(
+  single_data = train_data_pseudo,
+  regressor_spec = "linear-only"
+)
+
+m_lasso_default <- cv.glmnet(
+  regressor,
+  Surv(train_data_pseudo$tstart, train_data_pseudo$tstop, train_data_pseudo$Delta),
+  alpha = 1,
+  family = "cox"
+)
+
+plot(m_lasso_default, main = "Lasso: Default Lambda Path")
+
+m_beta_default <- coef(m_lasso_default, s = "lambda.min")
+rmse_lasso_default <- sqrt(mean((true_coefficients - as.vector(m_beta_default))^2))
+
+m_lasso_custom <- cv.glmnet(
+  regressor,
+  Surv(train_data_pseudo$tstart, train_data_pseudo$tstop, train_data_pseudo$Delta),
+  alpha = 1,
+  family = "cox",
+  lambda = 10^seq(3, -2, by = -0.1)
+)
+
+plot(m_lasso_custom, main = "Lasso: Custom Lambda Path")
+
+m_beta_custom <- coef(m_lasso_custom, s = "lambda.min")
+rmse_lasso_custom <- sqrt(mean((true_coefficients - as.vector(m_beta_custom))^2))
+
+m_ridge <- cv.glmnet(
+  regressor,
+  Surv(train_data_pseudo$tstart, train_data_pseudo$tstop, train_data_pseudo$Delta),
+  alpha = 0,
+  family = "cox",
+  lambda = 10^seq(3, -2, by = -0.1)
+)
+
+plot(m_ridge, main = "Ridge Regression Lambda Path")
+
+m_beta_ridge <- coef(m_ridge, s = "lambda.min")
+rmse_ridge <- sqrt(mean((true_coefficients - as.vector(m_beta_ridge))^2))
+
+m_cox <- coxph(
+  Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
+  data = train_data_pseudo
+)
+
+m_beta_cox <- coef(m_cox)
+rmse_cox_n_500 <- sqrt(mean((true_coefficients - as.vector(m_beta_cox))^2))
+```
+
+```{r larger-sample}
+file_path_n_2000 <- here("scripts", "datagen", "parameter-tuning", "data",
+                        "eta-type-10-dim-linear_CATE-type-zero_n-2000.rds")
+
+if (!file.exists(file_path_n_2000)) {
+  train_data_2000 <- generate_simulated_data(
+    n = 2000,
+    lambda_C = 0.1,
+    eta_type = "10-dim-linear",
+    CATE_type = "zero",
+    seed_value = seed_value,
+    linear_intercept = intercept,
+    linear_slope_multiplier = slope_multiplier,
+    verbose = 0
+  )
+  
+  train_data_pseudo_2000 <- preprocess_data(
+    single_data = train_data_2000,
+    run_time_varying = TRUE
+  )
+  
+  saveRDS(
+    list(
+      train_data = train_data_2000,
+      train_data_pseudo = train_data_pseudo_2000
+    ),
+    file = file_path_n_2000
+  )
+} else {
+  loaded_data_2000 <- readRDS(file_path_n_2000)
+  train_data_pseudo_2000 <- loaded_data_2000$train_data_pseudo
+}
+
+m_cox_n_2000 <- coxph(
+  Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
+  data = train_data_pseudo_2000
+)
+
+m_beta_cox_n_2000 <- coef(m_cox_n_2000)
+rmse_cox_n_2000 <- sqrt(mean((true_coefficients - as.vector(m_beta_cox_n_2000))^2))
+```
+```{r coefficient-output}
+print_coef_comparison <- function(true_coef, fitted_coef, model_name) {
+  comparison_df <- data.frame(
+    True = signif(true_coef, 3),
+    Fitted = signif(as.vector(fitted_coef), 3)
+  )
+  cat("\n", model_name, "\n")
+  print(kable(comparison_df, col.names = c("True Coefficients", "Fitted Coefficients")))
+}
+
+print_coef_comparison(true_coefficients, m_beta_default, "Lasso Default Lambda")
+print_coef_comparison(true_coefficients, m_beta_custom, "Lasso Custom Lambda")
+print_coef_comparison(true_coefficients, m_beta_ridge, "Ridge Regression")
+print_coef_comparison(true_coefficients, m_beta_cox, "Cox Regression (n=500)")
+print_coef_comparison(true_coefficients, m_beta_cox_n_2000, "Cox Regression (n=2000)")
+```
+
+```{r stronger-signal}
+intercept_strong <- 3
+slope_multiplier_strong <- 2.5
+true_coefficients_strong <- slope_multiplier_strong * 1/(1:10)
+
+file_path_strong <- here("scripts", "datagen", "parameter-tuning", "data",
+                        "eta-type-10-dim-linear_CATE-type-zero_n-500_strong.rds")
+file_path_n_2000_strong <- here("scripts", "datagen", "parameter-tuning", "data",
+                               "eta-type-10-dim-linear_CATE-type-zero_n-2000_strong.rds")
+
+# Generate n=500 data with stronger signal
+if (!file.exists(file_path_strong)) {
+  train_data_strong <- generate_simulated_data(
+    n = 500,
+    lambda_C = 0.1,
+    eta_type = "10-dim-linear",
+    CATE_type = "zero",
+    seed_value = seed_value,
+    linear_intercept = intercept_strong,
+    linear_slope_multiplier = slope_multiplier_strong,
+    verbose = 0
+  )
+  
+  train_data_pseudo_strong <- preprocess_data(
+    single_data = train_data_strong,
+    run_time_varying = TRUE
+  )
+  
+  saveRDS(
+    list(
+      train_data = train_data_strong,
+      train_data_pseudo = train_data_pseudo_strong
+    ),
+    file = file_path_strong
+  )
+} else {
+  loaded_data_strong <- readRDS(file_path_strong)
+  train_data_pseudo_strong <- loaded_data_strong$train_data_pseudo
+}
+
+regressor_strong <- transform_X(
+  single_data = train_data_pseudo_strong,
+  regressor_spec = "linear-only"
+)
+
+# Fit models with stronger signal
+m_lasso_default_strong <- cv.glmnet(
+  regressor_strong,
+  Surv(train_data_pseudo_strong$tstart, train_data_pseudo_strong$tstop, train_data_pseudo_strong$Delta),
+  alpha = 1,
+  family = "cox"
+)
+
+m_beta_default_strong <- coef(m_lasso_default_strong, s = "lambda.min")
+rmse_lasso_default_strong <- sqrt(mean((true_coefficients_strong - as.vector(m_beta_default_strong))^2))
+
+m_lasso_custom_strong <- cv.glmnet(
+  regressor_strong,
+  Surv(train_data_pseudo_strong$tstart, train_data_pseudo_strong$tstop, train_data_pseudo_strong$Delta),
+  alpha = 1,
+  family = "cox",
+  lambda = 10^seq(3, -2, by = -0.1)
+)
+
+m_beta_custom_strong <- coef(m_lasso_custom_strong, s = "lambda.min")
+rmse_lasso_custom_strong <- sqrt(mean((true_coefficients_strong - as.vector(m_beta_custom_strong))^2))
+
+m_ridge_strong <- cv.glmnet(
+  regressor_strong,
+  Surv(train_data_pseudo_strong$tstart, train_data_pseudo_strong$tstop, train_data_pseudo_strong$Delta),
+  alpha = 0,
+  family = "cox",
+  lambda = 10^seq(3, -2, by = -0.1)
+)
+
+m_beta_ridge_strong <- coef(m_ridge_strong, s = "lambda.min")
+rmse_ridge_strong <- sqrt(mean((true_coefficients_strong - as.vector(m_beta_ridge_strong))^2))
+
+m_cox_strong <- coxph(
+  Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
+  data = train_data_pseudo_strong
+)
+
+m_beta_cox_strong <- coef(m_cox_strong)
+rmse_cox_n_500_strong <- sqrt(mean((true_coefficients_strong - as.vector(m_beta_cox_strong))^2))
+
+# Generate n=2000 data with stronger signal
+if (!file.exists(file_path_n_2000_strong)) {
+  train_data_2000_strong <- generate_simulated_data(
+    n = 2000,
+    lambda_C = 0.1,
+    eta_type = "10-dim-linear",
+    CATE_type = "zero",
+    seed_value = seed_value,
+    linear_intercept = intercept_strong,
+    linear_slope_multiplier = slope_multiplier_strong,
+    verbose = 0
+  )
+  
+  train_data_pseudo_2000_strong <- preprocess_data(
+    single_data = train_data_2000_strong,
+    run_time_varying = TRUE
+  )
+  
+  saveRDS(
+    list(
+      train_data = train_data_2000_strong,
+      train_data_pseudo = train_data_pseudo_2000_strong
+    ),
+    file = file_path_n_2000_strong
+  )
+} else {
+  loaded_data_2000_strong <- readRDS(file_path_n_2000_strong)
+  train_data_pseudo_2000_strong <- loaded_data_2000_strong$train_data_pseudo
+}
+
+m_cox_n_2000_strong <- coxph(
+  Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
+  data = train_data_pseudo_2000_strong
+)
+
+m_beta_cox_n_2000_strong <- coef(m_cox_n_2000_strong)
+rmse_cox_n_2000_strong <- sqrt(mean((true_coefficients_strong - as.vector(m_beta_cox_n_2000_strong))^2))
+
+print_coef_comparison(true_coefficients_strong, m_beta_default_strong, "Lasso Default Lambda (Strong Signal)")
+print_coef_comparison(true_coefficients_strong, m_beta_custom_strong, "Lasso Custom Lambda (Strong Signal)")
+print_coef_comparison(true_coefficients_strong, m_beta_ridge_strong, "Ridge Regression (Strong Signal)")
+print_coef_comparison(true_coefficients_strong, m_beta_cox_strong, "Cox Regression (n=500, Strong Signal)")
+print_coef_comparison(true_coefficients_strong, m_beta_cox_n_2000_strong, "Cox Regression (n=2000, Strong Signal)")
+```
+
+```{r combined-results-table}
+results_df <- data.frame(
+  Model = c("Lasso (Default λ)", "Lasso (Custom λ)", "Ridge", "Cox (n=500)", "Cox (n=2000)"),
+  RMSE_Weak = c(rmse_lasso_default, rmse_lasso_custom, rmse_ridge, rmse_cox_n_500, rmse_cox_n_2000),
+  RMSE_Strong = c(rmse_lasso_default_strong, rmse_lasso_custom_strong, rmse_ridge_strong, 
+                 rmse_cox_n_500_strong, rmse_cox_n_2000_strong)
+)
+
+kable(results_df, 
+      caption = "RMSE Comparison Across Models and Signal Strengths",
+      col.names = c("Model", "RMSE (Weak Signal)", "RMSE (Strong Signal)"),
+      digits = 4) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Conclusions
+
+1. Parameter strength significantly impacts model performance:
+   - Weak signal (intercept = -1.5, slope = -0.5): Models struggle to recover true coefficients
+   - Strong signal (intercept = 3, slope = 2.5): Models show markedly improved coefficient recovery
+
+2. Sample size effects:
+   - Larger sample size (n=2000) consistently improves coefficient estimation
+   - Improvement is more pronounced with stronger signal parameters
+
+3. Model comparison:
+   - Ridge regression shows better stability across both parameter settings
+   - Cox regression with n=2000 achieves the best performance with strong signals
+   - Lasso tends to be more sensitive to signal strength
+
+4. The strong parameter setting demonstrates that the DGP can effectively recover true coefficients when the signal-to-noise ratio is sufficiently high, validating the modeling approach.
+
+
+## To do next
+1. From the true vs estimated coefficient print out, we can see RMSE is not a good measure -- change it to a) differentce proportion to the true parameter; b) max component wise error 

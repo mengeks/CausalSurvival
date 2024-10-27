@@ -1,6 +1,7 @@
 library(tidyverse)
 library(survival)
 source("R/datagen-helper.R")
+
 # EDA: illustration of the adapted and non-adapted times
 # If you have
 # True difference is 
@@ -28,9 +29,6 @@ means <- sim_constant %>%
   group_by(W) %>%
   summarize(mean_U = mean(U))
 
-means <- sim_constant %>%
-  group_by(W) %>%
-  summarize(mean_U = mean(U))
 
 ggplot(aes(x = U), data = sim_constant) + 
   geom_histogram() + 

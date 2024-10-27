@@ -1,27 +1,64 @@
 source("R/data-handler.R")
 source("scripts/TV-CSL/time-varying-estimate.R")
 library(here)
+library(testthat)
+library(survival)
+
+test_that("m_regression function returns numeric m_beta", {
+  
+  data <- read_TV_CSL_nuisance_data(k = 1)
+  fold_nuisance <- data$fold_nuisance
+  fold_causal <- data$fold_causal
+  train_data_original_nuisance <- data$train_data_original_nuisance
+  
+  # Run m_regression
+  regressor_spec <- "linear-only"
+  m_ret <- m_regression(
+    train_data = fold_nuisance, 
+    test_data = fold_causal, 
+    regressor_spec = regressor_spec,
+    verbose = 0
+  )
+  
+  # Test that m_ret$m_beta is numeric
+  expect_type(as.numeric(m_ret$m_beta), "double")
+})
 
 
-# Test m_regression
-data <- read_TV_CSL_nuisance_data(k = 1)
-fold_nuisance <- data$fold_nuisance
-fold_causal <- data$fold_causal
-train_data_original_nuisance <- data$train_data_original_nuisance
 
-test_data <- 
-  read_single_simulation_data(
-    n = 500, 
-    i = 101, 
-    eta_type = "10-dim-non-linear",
-    CATE_type =  "linear")$data
-
-source("scripts/TV-CSL/time-varying-estimate.R")
-regressor_spec = "linear-only"
-m_ret <- m_regression(train_data = fold_nuisance, 
-                      test_data = fold_causal, 
-                      regressor_spec = regressor_spec,
-                      verbose = 0)
+test_that("m_regression recovers true coefficients with zero CATE and linear baseline", {
+  slope_multiplier <- 2.5
+  true_coefficients <- slope_multiplier * 1/(1:10)
+  
+  source("scripts/TV-CSL/tests/test-helper.R")
+  test_data <- load_or_generate_test_data_m_regression()
+  train_data_pseudo <- test_data$train_data_pseudo
+  
+  
+  m_ret <- m_regression(
+    train_data = train_data_pseudo, 
+    test_data = train_data_pseudo, 
+    regressor_spec = "linear-only",
+    verbose = 0
+  )
+  
+  
+  mre_results <- calculate_min_relative_error(
+    true_coef = true_coefficients,
+    est_coef = m_ret$m_beta
+  )
+  
+  
+  expect_lt(mre_results$min_relative_error, 0.01,
+            label = "Minimum relative error should be less than 1%")
+  
+  
+  expect_equal(length(m_ret$m_beta), length(true_coefficients),
+               label = "Number of coefficients should match")
+  expect_true(all(!is.na(m_ret$m_beta)),
+              label = "No coefficients should be NA")
+  
+})
 
 test_transformed_X <- transform_X(
   single_data = fold_causal,

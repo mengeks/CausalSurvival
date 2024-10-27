@@ -179,7 +179,10 @@ generate_censoring_times <-
   }
 }
 
-calculate_eta <- function(x, eta_type = "linear-interaction") {
+calculate_eta <- function(x, 
+                          eta_type = "linear-interaction",
+                          linear_intercept = 3,
+                          linear_slope_multiplier = 2.5) {
   # Hardcoded betas and delta
   betas <- rep(1, 5)
   delta <- 0.5
@@ -213,7 +216,7 @@ calculate_eta <- function(x, eta_type = "linear-interaction") {
     eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
     
   } else if (eta_type == "10-dim-linear") {
-    eta_0 <- -1.5 - 0.5 * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
+    eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
     
   } else if (eta_type == "10-dim-non-linear") {
     # 10-dimensional non-linear form
@@ -255,9 +258,14 @@ calculate_hazard <- function(t,
                              x, 
                              is_time_varying, 
                              baseline_type = "linear", 
-                             eta_type = "linear-interaction") {
+                             eta_type = "linear-interaction",
+                             linear_intercept = 3,
+                             linear_slope_multiplier = 2.5) {
   
-  eta_0 <- calculate_eta(x = x, eta_type = eta_type)
+  eta_0 <- calculate_eta(x = x, 
+                         eta_type = eta_type,
+                         linear_intercept = linear_intercept,
+                         linear_slope_multiplier = linear_slope_multiplier)
   
   baseline_hazard <- 
     calculate_baseline_hazard(
@@ -287,6 +295,8 @@ generate_simulated_data <-
            X_cov_type = "toeplitz",
            tx_difficulty = "simple",
            CATE_type = "constant",
+           linear_intercept = 3,
+           linear_slope_multiplier = 2.5,
            max_censoring_time = 20,
            seed_value = 123,
            verbose = 0) {
@@ -328,7 +338,9 @@ generate_simulated_data <-
       t, x,
       is_time_varying = is_time_varying, 
       baseline_type = baseline_type, 
-      eta_type = eta_type)  # Passing baseline_type and eta_type
+      eta_type = eta_type,
+      linear_intercept = linear_intercept,
+      linear_slope_multiplier = linear_slope_multiplier)  # Passing baseline_type and eta_type
   }
   
   # Step 4: Simulate survival data

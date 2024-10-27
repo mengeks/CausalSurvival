@@ -1,7 +1,7 @@
 library(survival)
 library(glmnet)
 library(tidyverse)
-source("R/cox-loglik.R")
+source(here::here("R/cox-loglik.R"))
 
 #' Create Pseudo Dataset for Time-Varying Cox Model
 #'
@@ -660,6 +660,7 @@ S_lasso <- function(train_data,
 m_regression <- function(train_data, 
                          test_data,
                     regressor_spec,
+                    lambda = NULL,
                     verbose = 0) {
   
   transformed_X <- transform_X(
@@ -669,12 +670,23 @@ m_regression <- function(train_data,
   
   regressor <- as.matrix(transformed_X)
   
-  m <- cv.glmnet(regressor, 
-                 Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
-                 family = "cox"
-  )
+  if (regressor_spec == "linear-only"){
+    m <- coxph(
+      Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
+      data = train_data
+    )
+    
+    m_beta <- coef(m)
+  }else if (regressor_spec == "mild-complex"){
+    m <- cv.glmnet(regressor, 
+                   Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
+                   family = "cox",
+                   lambda = lambda
+    )
+    
+    m_beta <- coef(m, s = "lambda.min")
+  }
   
-  m_beta <- coef(m, s = "lambda.min")
   
   test_transformed_X <- transform_X(
     single_data = test_data,
@@ -698,7 +710,7 @@ m_regression <- function(train_data,
   print("m_beta for m_regression: ")
   print(m_beta)
   
-  class(ret) <- "m-estimator"
+  class(ret) <- "m-regression"
   ret
 }
 
@@ -1093,6 +1105,7 @@ run_TV_CSL_estimation <- function(
         for (final_model_method in methods_TV_CSL$final_model_methods) {
           
           config_name <- paste(lasso_type, prop_score_spec, regressor_spec, final_model_method, sep = "_")
+          print(config_name)
           start_time <- Sys.time()
           
           TV_CSL_ret <- TV_CSL(train_data, 
@@ -1152,7 +1165,7 @@ run_TV_CSL_estimation <- function(
           #   MSE = MSE,
           #   time_taken = time_taken
           # )
-          
+          MSE <- TV_CSL_ret$MSE
           print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
           
           

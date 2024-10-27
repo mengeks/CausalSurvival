@@ -1,6 +1,19 @@
 library(dplyr)
 library(here)
 
+generate_m_estimation_data <- function(){
+  
+  sim_constant <- generate_simulated_data(
+    n = 200, 
+    lambda_C = 0.1,
+    eta_type = "10-dim-linear",
+    CATE_type = "constant",
+    seed_value = 123,
+    verbose = 0
+  ) %>% mutate(W = A < U)
+  
+}
+
 generate_TV_CSL_nuisance_data <- function(n = 500, i = 1, eta_type = "10-dim-non-linear", CATE_type = "linear", k = 1, save_path = here("scripts/TV-CSL/tests/data")) {
   
   source("R/data-handler.R")

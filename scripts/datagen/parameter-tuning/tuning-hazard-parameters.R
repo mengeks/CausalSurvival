@@ -184,14 +184,14 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
 })
 
 
-test_that("generate_simulated_data generates good data for eta_type  = 10-dim-non-linear", {
+test_that("generate_simulated_data generates good data for eta_type  = 10-dim-linear", {
   n <- 200
   eta_type <- "10-dim-linear"
   lambda_C = 0.1
   seed_value = 123
   
   source("R/datagen-helper.R")
-  sim_zero <- generate_simulated_data(
+  sim_df <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
@@ -201,31 +201,31 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
   )
   
   # test: the range of non-censored time should not be too small
-  hist(sim_zero$T)
+  hist(sim_df$T)
   
   # test: the proportion of treated should be 
   #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_zero %>%
+  proportion_W <- sim_df %>%
     mutate(W = A < U) %>%
     summarise(proportion_W = mean(W))
   print(proportion_W)
   expect_true(proportion_W > 0.2 & proportion_W < 0.8)
   
   # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_zero %>%
+  proportion_Delta <- sim_df %>%
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   expect_true(proportion_Delta > 0.7)
   
   # test: CATE better have a range of values
-  hist(sim_zero$CATE)
+  hist(sim_df$CATE)
   
   sim_non_linear <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
     CATE_type = "non-linear",
-    seed_value = params$seed_value,
+    seed_value = seed_value,
     verbose = 0
   )
   
