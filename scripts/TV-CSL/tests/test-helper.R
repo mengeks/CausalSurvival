@@ -54,6 +54,30 @@ load_or_generate_test_data_m_regression <- function(
 }
 
 
+#' Calculate Minimum Relative Error Between True and Estimated Coefficients
+#'
+#' @description
+#' Computes the minimum relative error between true and estimated coefficient vectors,
+#' identifying the coefficient with the smallest relative difference.
+#'
+#' @param true_coef numeric vector of true coefficient values
+#' @param est_coef numeric vector of estimated coefficient values
+#'
+#' @return A list containing:
+#'   \item{min_relative_error}{minimum relative error value}
+#'   \item{min_index}{index where minimum relative error occurs}
+#'   \item{true_value}{true coefficient value at minimum error index}
+#'   \item{estimated_value}{estimated coefficient value at minimum error index}
+#'
+#' @throws "True and estimated coefficients must have the same length"
+#'
+#' @examples
+#' true_coef <- c(1, 2, 3, 4)
+#' est_coef <- c(1.1, 2.2, 2.9, 4.1)
+#' result <- calculate_min_relative_error(true_coef, est_coef)
+#' print(result$min_relative_error)
+#'
+#' @export
 calculate_min_relative_error <- function(true_coef, est_coef) {
   if (length(true_coef) != length(est_coef)) {
     stop("True and estimated coefficients must have the same length")

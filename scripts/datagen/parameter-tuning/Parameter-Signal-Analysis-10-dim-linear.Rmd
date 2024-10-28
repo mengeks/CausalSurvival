@@ -345,6 +345,9 @@ kable(results_df,
 
 4. The strong parameter setting demonstrates that the DGP can effectively recover true coefficients when the signal-to-noise ratio is sufficiently high, validating the modeling approach.
 
+5. Don't trust other people's regression coefficient that much. We can start there, but will likely tune ours.
+
 
 ## To do next
 1. From the true vs estimated coefficient print out, we can see RMSE is not a good measure -- change it to a) differentce proportion to the true parameter; b) max component wise error 
+-- This is done in function "calculate_min_relative_error" scripts/TV-CSL/tests/test-helper.R. To do is to implement that metric here.
