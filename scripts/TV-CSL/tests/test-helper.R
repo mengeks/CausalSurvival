@@ -7,6 +7,8 @@ load_or_generate_test_data_m_regression <- function(
     slope_multiplier = 2.5,
     seed_value = 42
 ) {
+  source("R/datagen-helper.R")
+  
   file_path <- here::here(
     "scripts", "TV-CSL", "tests", "data",
     sprintf("eta-type-%s_CATE-type-%s_n-%d.rds", eta_type, CATE_type, n)

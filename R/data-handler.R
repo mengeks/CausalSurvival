@@ -31,21 +31,6 @@ read_single_simulation_data <-
 
 
 
-read_TV_CSL_nuisance_data <- function(k = 1, data_path = here("scripts/TV-CSL/tests/data")) {
-  file_path <- file.path(data_path, paste0("TV_CSL_nuisance_data_k", k, ".RData"))
-  
-  if (!file.exists(file_path)) {
-    stop("File does not exist: ", file_path)
-  }
-  
-  load(file_path)
-  
-  list(
-    fold_nuisance = fold_nuisance,
-    fold_causal = fold_causal,
-    train_data_original_nuisance = train_data_original_nuisance
-  )
-}
 
 
 
