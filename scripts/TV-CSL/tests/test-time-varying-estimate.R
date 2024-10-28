@@ -60,19 +60,15 @@ test_that("m_regression recovers true coefficients with zero CATE and linear bas
   
 })
 
-test_transformed_X <- transform_X(
-  single_data = fold_causal,
-  regressor_spec = regressor_spec)
-y_pred_expect <- as.vector(test_transformed_X %*% m_ret$m_beta)
-all.equal(y_pred_expect, m_ret$y_pred) 
-
-m_ret <- m_regression(train_data = fold_nuisance, 
-                      regressor_spec = "mild-complex",
-                      test_data = fold_causal, 
-                      verbose = 0)
-m_ret$m_beta
 
 # Test TV_CSL for m_regression
+data <- read_TV_CSL_nuisance_data(
+           n = 500,
+           eta_type = "10-dim-linear",
+           CATE_type = "linear")
+fold_nuisance <- data$fold_nuisance
+fold_causal <- data$fold_causal
+train_data_original_nuisance <- data$train_data_original_nuisance
 fold_causal_fitted <- TV_CSL_nuisance(
   fold_train = fold_nuisance, 
   fold_test = fold_causal, 
@@ -81,6 +77,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   lasso_type = "m-regression",
   regressor_spec = "linear-only"
 )
+
 source("scripts/TV-CSL/time-varying-estimate.R")
 final_model_method <- "lasso"
 fit_TV_CSL_ret <- fit_TV_CSL(
