@@ -155,38 +155,38 @@ lasso_ret <-
   S_lasso(train_data = df_time_var,
           test_data = df_original,
           regressor_spec = "mild-complex",
-          CATE_spec = "linear",
+          HTE_spec = "linear",
           verbose = 2)
 
-lasso_ret$CATE_est
-# Compare the CATE estimate with time_varying, using standardized 
+lasso_ret$HTE_est
+# Compare the HTE estimate with time_varying, using standardized 
 source("scripts/TV-CSL/time-varying-estimate.R")
 
 cox_ret <-
   S_cox(train_data = df_time_var,
           test_data = df_original,
           regressor_spec = "linear-only",
-          CATE_spec = "linear",
+          HTE_spec = "linear",
           verbose = 2)
-cox_ret$beta_CATE
-cox_ret$CATE_est
+cox_ret$beta_HTE
+cox_ret$HTE_est
 
 # Calculate Mean Absolute Differencce (MAD)
-MAD <- mean(abs(lasso_ret$CATE_est - cox_ret$CATE_est))
+MAD <- mean(abs(lasso_ret$HTE_est - cox_ret$HTE_est))
 print(MAD)
-correlation <- cor(lasso_ret$CATE_est, cox_ret$CATE_est)
+correlation <- cor(lasso_ret$HTE_est, cox_ret$HTE_est)
 print(correlation)
 
-var(lasso_ret$CATE_est)
-var(cox_ret$CATE_est)
+var(lasso_ret$HTE_est)
+var(cox_ret$HTE_est)
 
 library(ggplot2)
 
-# Create a scatter plot of CATE estimates
-ggplot(data.frame(lasso_est = lasso_ret$CATE_est, cox_est = cox_ret$CATE_est), aes(x = lasso_est, y = cox_est)) +
+# Create a scatter plot of HTE estimates
+ggplot(data.frame(lasso_est = lasso_ret$HTE_est, cox_est = cox_ret$HTE_est), aes(x = lasso_est, y = cox_est)) +
   geom_point() +
   geom_abline(slope = 1, intercept = 0, color = "red") +  # Line y=x for reference
-  labs(x = "Lasso CATE Estimate", y = "Cox CATE Estimate", title = "Comparison of CATE Estimates")
+  labs(x = "Lasso HTE Estimate", y = "Cox HTE Estimate", title = "Comparison of HTE Estimates")
 
 ## Use TV-CSL: goal is to compare the coefficient estimate with S-lasso
 source("scripts/TV-CSL/time-varying-estimate.R")
@@ -203,5 +203,5 @@ TV_CSL_ret <- TV_CSL(train_data = df_time_var,
                      final_model_method = "coxph",
                      id_var = "subject") 
 
-TV_CSL_ret$CATE_est
-lasso_ret$CATE_est
+TV_CSL_ret$HTE_est
+lasso_ret$HTE_est

@@ -41,7 +41,7 @@ for (i in 1:n_sim) {
   ps_model <- glm(W ~ X, family = binomial)
   ps <- predict(ps_model, type = "response")
   
-  # Estimate CATE for a range of X values
+  # Estimate HTE for a range of X values
   cate_gcomp_estimates <- sapply(X_vals, function(x) {
     mean(Y_hat_1_mis[abs(X - x) < 0.1]) - mean(Y_hat_0_mis[abs(X - x) < 0.1])
   })
@@ -62,17 +62,17 @@ for (i in 1:n_sim) {
 mean_gcomp <- colMeans(gcomp_results)
 mean_aipw <- colMeans(aipw_results)
 
-# Plot the average CATE estimates
+# Plot the average HTE estimates
 plot(X_vals, mean_gcomp, type = "l", col = "red", lwd = 2,
-     xlab = "X", ylab = "CATE", main = "Comparison of AIPW and g-computation for CATE Estimation")
+     xlab = "X", ylab = "HTE", main = "Comparison of AIPW and g-computation for HTE Estimation")
 lines(X_vals, mean_aipw, col = "blue", lwd = 2)
-abline(h = beta, col = "green", lty = 2)  # True CATE line
+abline(h = beta, col = "green", lty = 2)  # True HTE line
 
-legend("topright", legend = c("g-computation", "AIPW", "True CATE"),
+legend("topright", legend = c("g-computation", "AIPW", "True HTE"),
        col = c("red", "blue", "green"), lty = 1, lwd = 2)
 
 # Summary of the results
-cat("Mean CATE from g-computation across X values: \n")
+cat("Mean HTE from g-computation across X values: \n")
 print(mean(mean_gcomp))
-cat("Mean CATE from AIPW across X values: \n")
+cat("Mean HTE from AIPW across X values: \n")
 print(mean(mean_aipw))

@@ -1,8 +1,8 @@
 {
   "n_list": [200, 500, 1000],
   "R": 200,
-  "CATE_type_list": ["zero", "constant", "ReLU", "linear", "non-linear"],
-  "eta_type_list": ["10-dim-linear", "non-linear", "10-dim-non-linear"],
+  "HTE_type_list": ["zero", "constant", "ReLU", "linear", "non-linear"],
+  "eta_type_list": ["linear", "non-linear", "10-dim-non-linear"],
   "other_params": {
     "is_time_varying": true,
     "light_censoring": false,

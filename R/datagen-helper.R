@@ -26,23 +26,23 @@ generate_X <-
 }
 
 
-CATE_function <- function(x, 
-                          CATE_type = "zero",
-                          linear_CATE_multiplier = 1) {
+HTE_function <- function(x, 
+                          HTE_type = "zero",
+                          linear_HTE_multiplier = 1) {
   
-  # Handle different cases based on 'CATE_type'
-  if (CATE_type == "zero") {
+  # Handle different cases based on 'HTE_type'
+  if (HTE_type == "zero") {
     return(0)
     
-  } else if (CATE_type == "constant") {
+  } else if (HTE_type == "constant") {
     return(2)
     
-  } else if (CATE_type == "ReLU") {
+  } else if (HTE_type == "ReLU") {
     # Ensure that x has at least 5 dimensions
-    if (length(x) < 5) stop("ReLU CATE_type requires at least 5 dimensions")
+    if (length(x) < 5) stop("ReLU HTE_type requires at least 5 dimensions")
     return(max(x[1] + x[2] + x[3], 0) - max(x[4] + x[5], 0))
     
-  } else if (CATE_type == "linear") {
+  } else if (HTE_type == "linear") {
     p <- length(x)
     
     beta <- rep(0, p)
@@ -53,16 +53,16 @@ CATE_function <- function(x,
     # beta[1] <- beta[2] <- 1
     # 
     # beta <- rep(1, p)
-    return(sum(x * beta * linear_CATE_multiplier))
+    return(sum(x * beta * linear_HTE_multiplier))
     
-  } else if (CATE_type == "non-linear") {
+  } else if (HTE_type == "non-linear") {
     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
     
-    if (length(x) < 2) stop("Non-linear CATE_type requires at least 2 dimensions")
+    if (length(x) < 2) stop("Non-linear HTE_type requires at least 2 dimensions")
     return(sigma(x[1]) * sigma(x[10]))
     
   } else {
-    stop("Unsupported CATE_type")
+    stop("Unsupported HTE_type")
   }
 }
 
@@ -126,9 +126,9 @@ generate_covariates <- function(n,
                                 X_cov_type = "identity", 
                                 is_time_varying = TRUE, 
                                 tx_difficulty = "simple", 
-                                CATE_type = "constant",
-                                linear_CATE_multiplier = 1,
-                                eta_type = "10-dim-linear",
+                                HTE_type = "constant",
+                                linear_HTE_multiplier = 1,
+                                eta_type = "linear",
                                 linear_intercept = 3,
                                 linear_slope_multiplier = 2.5) {
   
@@ -140,8 +140,8 @@ generate_covariates <- function(n,
   
   # colnames(X) <- paste0("X.", 1:10)
   
-  # Step 2: Generate CATE using the CATE_function
-  CATE <- apply(X, 1, function(row) CATE_function(x = row, CATE_type = CATE_type, linear_CATE_multiplier=linear_CATE_multiplier))
+  # Step 2: Generate HTE using the HTE_function
+  HTE <- apply(X, 1, function(row) HTE_function(x = row, HTE_type = HTE_type, linear_HTE_multiplier=linear_HTE_multiplier))
   
   # Step 3: Generate eta_0
   eta_0 <- apply(X, 1, function(row) calculate_eta(x = row, 
@@ -155,13 +155,13 @@ generate_covariates <- function(n,
                             X = X, 
                             is_time_varying = TRUE, 
                             difficulty = tx_difficulty)
-    return(data.frame(id=1:n,X = X, A = A, CATE = CATE, eta_0 = eta_0))  # Return X, A, and CATE for time-varying case
+    return(data.frame(id=1:n,X = X, A = A, HTE = HTE, eta_0 = eta_0))  # Return X, A, and HTE for time-varying case
   } else {
     W <- generate_treatment(n = n, 
                             X = X, 
                             is_time_varying = FALSE, 
                             difficulty = tx_difficulty)
-    return(data.frame(id=1:n, X = X, W = W, CATE = CATE, eta_0 = eta_0))  # Return X, W, and CATE for non-time-varying case
+    return(data.frame(id=1:n, X = X, W = W, HTE = HTE, eta_0 = eta_0))  # Return X, W, and HTE for non-time-varying case
   }
 }
 
@@ -223,7 +223,7 @@ calculate_eta <- function(x,
     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
     eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
     
-  } else if (eta_type == "10-dim-linear") {
+  } else if (eta_type == "linear") {
     eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[j] / j))
     
   } else if (eta_type == "10-dim-non-linear") {
@@ -280,7 +280,7 @@ calculate_eta_old <- function(x,
     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
     eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
     
-  } else if (eta_type == "10-dim-linear") {
+  } else if (eta_type == "linear") {
     eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
     
   } else if (eta_type == "10-dim-non-linear") {
@@ -340,11 +340,11 @@ calculate_hazard <- function(t,
     )
   
   if (is_time_varying) {
-    # hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "CATE"]) * baseline_hazard
-    hazard <- exp(x[, "eta_0"] + (t >= x[, "A"]) * x[, "CATE"]) * baseline_hazard
+    # hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
+    hazard <- exp(x[, "eta_0"] + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
   } else {
-    # hazard <- exp(eta_0 + x[, "W"] * x[, "CATE"]) * baseline_hazard
-    hazard <- exp(x[, "eta_0"] + x[, "W"] * x[, "CATE"]) * baseline_hazard
+    # hazard <- exp(eta_0 + x[, "W"] * x[, "HTE"]) * baseline_hazard
+    hazard <- exp(x[, "eta_0"] + x[, "W"] * x[, "HTE"]) * baseline_hazard
   }
   
   return(hazard)
@@ -362,10 +362,10 @@ generate_simulated_data <-
            X_distribution = "normal", 
            X_cov_type = "toeplitz",
            tx_difficulty = "simple",
-           CATE_type = "constant",
+           HTE_type = "constant",
            linear_intercept = 3,
            linear_slope_multiplier = 2.5,
-           linear_CATE_multiplier = 1, 
+           linear_HTE_multiplier = 1, 
            max_censoring_time = 20,
            seed_value = 123,
            verbose = 0) {
@@ -386,8 +386,8 @@ generate_simulated_data <-
     X_cov_type = X_cov_type, 
     tx_difficulty = tx_difficulty,
     is_time_varying = is_time_varying,
-    CATE_type = CATE_type,
-    linear_CATE_multiplier = linear_CATE_multiplier,
+    HTE_type = HTE_type,
+    linear_HTE_multiplier = linear_HTE_multiplier,
     linear_intercept = linear_intercept,
     linear_slope_multiplier = linear_slope_multiplier
   )
@@ -507,7 +507,7 @@ generate_and_save_data <-
       X_distribution = params$X_distribution, 
       X_cov_type = params$X_cov_type,
       tx_difficulty = params$tx_difficulty,
-      CATE_type = params$CATE_type,
+      HTE_type = params$HTE_type,
       seed_value = params$seed_value,
       verbose = verbose
     )

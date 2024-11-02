@@ -14,7 +14,7 @@ source("scripts/TV-CSL/time-varying-estimate.R")
 #' @param json_file Path to the JSON configuration file.
 #' @param verbose The level of verbosity (0 = default, 1 = progress info, 2 = detailed info).
 run_experiment_iteration <- 
-  function(i, json_file, eta_type, CATE_type, verbose = 0) {
+  function(i, json_file, eta_type, HTE_type, verbose = 0) {
   
   if (verbose >= 1) 
     message("Running iteration ", i)
@@ -27,9 +27,9 @@ run_experiment_iteration <-
   K <- ifelse(is.null(config$K), 5, config$K)
   
   # eta_type <- config$eta_type
-  # CATE_type <- config$CATE_type
+  # HTE_type <- config$HTE_type
   
-  input_setting <- paste0(eta_type, "_", CATE_type)
+  input_setting <- paste0(eta_type, "_", HTE_type)
   
   seed_value <- 123 + 11 * i
   set.seed(seed_value)
@@ -39,7 +39,7 @@ run_experiment_iteration <-
   
   if (verbose >= 2) {
     message("Configuration Parameters:")
-    message("n: ", n, "\nR: ", R, "\neta_type: ", eta_type, "\nCATE_type: ", CATE_type)
+    message("n: ", n, "\nR: ", R, "\neta_type: ", eta_type, "\nHTE_type: ", HTE_type)
     message("Seed value for iteration ", i, ": ", seed_value)
   }
   
@@ -48,14 +48,14 @@ run_experiment_iteration <-
     n = n, 
     i = i, 
     eta_type = eta_type,  
-    CATE_type = CATE_type
+    HTE_type = HTE_type
   )
   test_data <- 
     read_single_simulation_data(
       n = n, 
       i = i + 100, 
       eta_type = eta_type,
-      CATE_type = CATE_type)$data
+      HTE_type = HTE_type)$data
   end_time <- Sys.time()
   
   if (verbose >= 1) 
@@ -74,7 +74,7 @@ run_experiment_iteration <-
       run_cox_estimation(
         single_data, 
         methods$cox,
-        CATE_type = CATE_type,
+        HTE_type = HTE_type,
         eta_type = eta_type
       )
     end_time <- Sys.time()
@@ -88,7 +88,7 @@ run_experiment_iteration <-
         calculate_mse(beta_estimates_cox[[config_name]], 
                       n,
                       i, 
-                      CATE_type,
+                      HTE_type,
                       eta_type)
       print(paste0("MSE estimate of config_name ", 
                    config_name," is")) 
@@ -120,7 +120,7 @@ run_experiment_iteration <-
         single_data = single_data,
         i = i,
         methods_lasso = methods$lasso,
-        CATE_type = CATE_type,
+        HTE_type = HTE_type,
         eta_type = eta_type
       )
     end_time <- Sys.time()
@@ -210,7 +210,7 @@ run_experiment_iteration <-
     is_running_lasso = is_running_lasso,
     is_running_TV_CSL = is_running_TV_CSL,
     eta_type = eta_type,
-    CATE_type = CATE_type,
+    HTE_type = HTE_type,
     n = n,
     i = i,
     seed_value = seed_value
@@ -228,21 +228,21 @@ run_experiment_iteration <-
 
 
 
-calculate_mse <- function(beta_estimate, n, i, CATE_type,eta_type) {
+calculate_mse <- function(beta_estimate, n, i, HTE_type,eta_type) {
   # print(paste0("test_data is from ", i + 100))
   test_data <- 
     read_single_simulation_data(
       n = n, 
       i = i + 100, 
       eta_type = eta_type,
-      CATE_type = CATE_type)$data
+      HTE_type = HTE_type)$data
   
-  if (CATE_type == "linear") {
-    CATE_est <- beta_estimate[1] * test_data$X.1 + beta_estimate[2] * test_data$X.10
-  } else if (CATE_type == "constant") {
-    CATE_est <- rep(beta_estimate, nrow(test_data))
+  if (HTE_type == "linear") {
+    HTE_est <- beta_estimate[1] * test_data$X.1 + beta_estimate[2] * test_data$X.10
+  } else if (HTE_type == "constant") {
+    HTE_est <- rep(beta_estimate, nrow(test_data))
   }
   
-  MSE <- mean((CATE_est - test_data$CATE)^2)
+  MSE <- mean((HTE_est - test_data$HTE)^2)
   return(MSE)
 }

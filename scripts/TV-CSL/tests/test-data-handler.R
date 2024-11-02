@@ -6,8 +6,8 @@ generate_m_estimation_data <- function(){
   sim_constant <- generate_simulated_data(
     n = 200, 
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "constant",
+    eta_type = "linear",
+    HTE_type = "constant",
     seed_value = 123,
     verbose = 0
   ) %>% mutate(W = A < U)
@@ -17,7 +17,7 @@ generate_m_estimation_data <- function(){
 create_TV_CSL_nuisance_filepath <- function(save_path, k, eta_type, n) {
   file.path(save_path, 
             paste0("TV_CSL_nuisance_data_k", k,
-                   ifelse(eta_type == "10-dim-linear", "_eta-type-10-dim-linear", ""),
+                   ifelse(eta_type == "linear", "_eta-type-linear", ""),
                    "_n-", n,
                    ".RData"))
 }
@@ -26,7 +26,7 @@ generate_TV_CSL_nuisance_data <-
   function(n = 500, 
            i = 1, 
            eta_type = "10-dim-non-linear", 
-           CATE_type = "linear", 
+           HTE_type = "linear", 
            k = 1, 
            save_path = here("scripts/TV-CSL/tests/data")) {
   
@@ -37,21 +37,21 @@ generate_TV_CSL_nuisance_data <-
     if (eta_type == "10-dim-non-linear") {
       train_data_original <- 
         read_single_simulation_data(
-          n = n, i = i, eta_type = eta_type, CATE_type = CATE_type)$data
+          n = n, i = i, eta_type = eta_type, HTE_type = HTE_type)$data
       test_data <- 
         read_single_simulation_data(
           n = n, 
           i = i + 100, 
           eta_type = eta_type, 
-          CATE_type = CATE_type)$data
-    } else if (eta_type == "10-dim-linear") {
+          HTE_type = HTE_type)$data
+    } else if (eta_type == "linear") {
       train_data_original <- test_data <- 
         load_or_generate_test_data_m_regression(
           n = n,
           lambda_C = 0.1,
-          eta_type = "10-dim-linear",
-          # CATE_type = "linear",
-          CATE_type = CATE_type,
+          eta_type = "linear",
+          # HTE_type = "linear",
+          HTE_type = HTE_type,
           intercept = 3,
           slope_multiplier = 2.5,
           seed_value = 42
@@ -94,7 +94,7 @@ read_TV_CSL_nuisance_data <-
           n = 500,
           i = 1,
           eta_type = "10-dim-non-linear",
-          CATE_type = "linear") {
+          HTE_type = "linear") {
    
    file_path <- create_TV_CSL_nuisance_filepath(data_path, k, eta_type, n)
    
@@ -104,7 +104,7 @@ read_TV_CSL_nuisance_data <-
        n = n,
        i = i,
        eta_type = eta_type,
-       CATE_type = CATE_type,
+       HTE_type = HTE_type,
        save_path = data_path
      )
    }
@@ -122,8 +122,8 @@ read_TV_CSL_nuisance_data <-
 load_or_generate_test_data_m_regression <- function(
     n = 2000,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "zero",
+    eta_type = "linear",
+    HTE_type = "zero",
     intercept = 3,
     slope_multiplier = 2.5,
     seed_value = 42
@@ -133,9 +133,9 @@ load_or_generate_test_data_m_regression <- function(
   file_path <- here::here(
     "scripts", "TV-CSL", "tests", "data",
     sprintf(
-      "eta-type-%s_CATE-type-%s_n-%d%s.rds",
+      "eta-type-%s_HTE-type-%s_n-%d%s.rds",
       eta_type,
-      CATE_type,
+      HTE_type,
       n,
       if (seed_value != 42) sprintf("_seed-value-%s", seed_value) else ""
     )
@@ -148,7 +148,7 @@ load_or_generate_test_data_m_regression <- function(
       n = n,
       lambda_C = lambda_C,
       eta_type = eta_type,
-      CATE_type = CATE_type,
+      HTE_type = HTE_type,
       seed_value = seed_value,
       linear_intercept = intercept,
       linear_slope_multiplier = slope_multiplier,
@@ -168,7 +168,7 @@ load_or_generate_test_data_m_regression <- function(
           n = n,
           lambda_C = lambda_C,
           eta_type = eta_type,
-          CATE_type = CATE_type,
+          HTE_type = HTE_type,
           intercept = intercept,
           slope_multiplier = slope_multiplier,
           seed_value = seed_value

@@ -6,7 +6,7 @@ library(testthat)
 
 test_that("generate_simulated_data produces correct structure for non-time-varying data", {
   n <- 200
-  CATE_type <- "non-linear"
+  HTE_type <- "non-linear"
   eta_type <- "10-dim-non-linear"
   
   other_params <- list(
@@ -18,7 +18,7 @@ test_that("generate_simulated_data produces correct structure for non-time-varyi
   )
   params <- c(list(
     n = n,
-    CATE_type = CATE_type,
+    HTE_type = HTE_type,
     eta_type = eta_type,
     seed_value = 123
   ),other_params)
@@ -32,7 +32,7 @@ test_that("generate_simulated_data produces correct structure for non-time-varyi
     X_distribution = params$X_distribution, 
     X_cov_type = params$X_cov_type,
     tx_difficulty = params$tx_difficulty,
-    CATE_type = params$CATE_type,
+    HTE_type = params$HTE_type,
     seed_value = params$seed_value,
     verbose = 0
   )

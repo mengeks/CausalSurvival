@@ -3,8 +3,8 @@ source("R/datagen-helper.R")
 
 n_list <- c(200, 500, 1000)
 R <- 200
-CATE_type_list <- c("zero", "constant", "ReLU", "linear", "non-linear")
-eta_type_list <- c("10-dim-linear", "non-linear","10-dim-non-linear")
+HTE_type_list <- c("zero", "constant", "ReLU", "linear", "non-linear")
+eta_type_list <- c("linear", "non-linear","10-dim-non-linear")
 
 other_params <- list(
   is_time_varying = T,
@@ -20,22 +20,22 @@ cores = detectCores() - 1
 
 for (n in n_list) {
   for (eta_type in eta_type_list){
-    for (CATE_type in CATE_type_list) {
+    for (HTE_type in HTE_type_list) {
       
       if (verbose==2){
-        print(paste("n:", n,"eta_type:", eta_type,"CATE_type:",CATE_type, sep="   "))
+        print(paste("n:", n,"eta_type:", eta_type,"HTE_type:",HTE_type, sep="   "))
       }
       
       params <- 
         params <- c(list(
           n = n,
-          CATE_type = CATE_type,
+          HTE_type = HTE_type,
           eta_type = eta_type
         ),other_params)
       
       folder_name <- if (params$is_time_varying) "data/simulated" else "data/simulated/non-time-varying"
       path_for_sim_data <- here::here(
-        folder_name, paste0(eta_type, "_", CATE_type)
+        folder_name, paste0(eta_type, "_", HTE_type)
       )
       
       dir.create(path_for_sim_data, 
@@ -58,7 +58,7 @@ for (n in n_list) {
         })
         print(paste("Time taken for iterations", group_start, "to", group_end, ":", time_taken[3], "seconds"))
       }
-    } # end for CATE_type_list
+    } # end for HTE_type_list
   } # end for eta_type_list
 } # end for n_list
 

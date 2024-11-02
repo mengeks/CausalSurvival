@@ -39,13 +39,13 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "non-linear",
+    HTE_type = "non-linear",
     seed_value = seed_value,
     verbose = 0
   )
   
-  # test: CATE better have a range of values
-  hist(sim_non_linear$CATE)
+  # test: HTE better have a range of values
+  hist(sim_non_linear$HTE)
   
   # test: the proportion of non-censored should be greater than 0.7
   proportion_Delta <- sim_non_linear %>%
@@ -71,7 +71,7 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "linear",
+    HTE_type = "linear",
     seed_value = seed_value,
     verbose = 0
   )
@@ -92,14 +92,14 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_linear$CATE)
+  # test: HTE better have a range of values
+  hist(sim_linear$HTE)
   
   sim_zero <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "zero",
+    HTE_type = "zero",
     seed_value = seed_value,
     verbose = 0
   )
@@ -121,14 +121,14 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_zero$CATE)
+  # test: HTE better have a range of values
+  hist(sim_zero$HTE)
   
   sim_constant <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "constant",
+    HTE_type = "constant",
     seed_value = seed_value,
     verbose = 0
   )
@@ -150,14 +150,14 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_constant$CATE)
+  # test: HTE better have a range of values
+  hist(sim_constant$HTE)
   
   sim_ReLU <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "ReLU",
+    HTE_type = "ReLU",
     seed_value = seed_value,
     verbose = 0
   )
@@ -179,14 +179,14 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_ReLU$CATE)
+  # test: HTE better have a range of values
+  hist(sim_ReLU$HTE)
 })
 
 
-test_that("generate_simulated_data generates good data for eta_type  = 10-dim-linear", {
+test_that("generate_simulated_data generates good data for eta_type  = linear", {
   n <- 200
-  eta_type <- "10-dim-linear"
+  eta_type <- "linear"
   lambda_C = 0.1
   seed_value = 123
   
@@ -195,17 +195,17 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "zero",
+    HTE_type = "zero",
     seed_value = seed_value,
     linear_intercept = 3,
     linear_slope_multiplier = 2.5,
-    linear_CATE_multiplier = 1, 
+    linear_HTE_multiplier = 1, 
     verbose = 0
   )
   
   # test: the distribution of eta_0
   hist(sim_df$eta_0)
-  hist(sim_df$CATE)
+  hist(sim_df$HTE)
   
   # test: the range of non-censored time should not be too small
   hist(sim_df$T)
@@ -224,14 +224,14 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
   print(proportion_Delta)
   expect_true(proportion_Delta > 0.7)
   
-  # test: CATE better have a range of values
-  hist(sim_df$CATE)
+  # test: HTE better have a range of values
+  hist(sim_df$HTE)
   
   sim_non_linear <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "non-linear",
+    HTE_type = "non-linear",
     seed_value = seed_value,
     verbose = 0
   )
@@ -253,15 +253,15 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_non_linear$CATE)
+  # test: HTE better have a range of values
+  hist(sim_non_linear$HTE)
   
   source("R/datagen-helper.R")
   sim_linear <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "linear",
+    HTE_type = "linear",
     seed_value = seed_value,
     verbose = 0
   )
@@ -281,8 +281,8 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_linear$CATE)
+  # test: HTE better have a range of values
+  hist(sim_linear$HTE)
   
   
   source("R/datagen-helper.R")
@@ -290,7 +290,7 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "constant",
+    HTE_type = "constant",
     seed_value = seed_value,
     verbose = 0
   )
@@ -311,15 +311,15 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_constant$CATE)
+  # test: HTE better have a range of values
+  hist(sim_constant$HTE)
   
   
   sim_ReLU <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "ReLU",
+    HTE_type = "ReLU",
     seed_value = seed_value,
     verbose = 0
   )
@@ -341,8 +341,8 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_ReLU$CATE)
+  # test: HTE better have a range of values
+  hist(sim_ReLU$HTE)
 })
 
 
@@ -357,7 +357,7 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "zero",
+    HTE_type = "zero",
     seed_value = seed_value,
     verbose = 0
   )
@@ -379,14 +379,14 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
   print(proportion_Delta)
   expect_true(proportion_Delta > 0.7)
   
-  # test: CATE better have a range of values
-  hist(sim_zero$CATE)
+  # test: HTE better have a range of values
+  hist(sim_zero$HTE)
   
   sim_non_linear <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "non-linear",
+    HTE_type = "non-linear",
     seed_value = params$seed_value,
     verbose = 0
   )
@@ -408,15 +408,15 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_non_linear$CATE)
+  # test: HTE better have a range of values
+  hist(sim_non_linear$HTE)
   
   source("R/datagen-helper.R")
   sim_linear <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "linear",
+    HTE_type = "linear",
     seed_value = seed_value,
     verbose = 0
   )
@@ -436,8 +436,8 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_linear$CATE)
+  # test: HTE better have a range of values
+  hist(sim_linear$HTE)
   
   
   source("R/datagen-helper.R")
@@ -445,7 +445,7 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "constant",
+    HTE_type = "constant",
     seed_value = seed_value,
     verbose = 0
   )
@@ -466,15 +466,15 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_constant$CATE)
+  # test: HTE better have a range of values
+  hist(sim_constant$HTE)
   
   
   sim_ReLU <- generate_simulated_data(
     n, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "ReLU",
+    HTE_type = "ReLU",
     seed_value = seed_value,
     verbose = 0
   )
@@ -496,6 +496,6 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-no
     summarise(proportion_Delta = mean(Delta))
   print(proportion_Delta)
   
-  # test: CATE better have a range of values
-  hist(sim_ReLU$CATE)
+  # test: HTE better have a range of values
+  hist(sim_ReLU$HTE)
 })

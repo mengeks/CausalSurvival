@@ -11,16 +11,16 @@ library(survival)
 ######
 data <- read_TV_CSL_nuisance_data(
   n = 1000,
-  eta_type = "10-dim-linear",
-  CATE_type = "linear")
+  eta_type = "linear",
+  HTE_type = "linear")
 fold_nuisance <- data$fold_nuisance
 source("scripts/TV-CSL/tests/test-helper.R")
 fold_causal_original <- 
   load_or_generate_test_data_m_regression(
     n = 1000,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "linear",
+    eta_type = "linear",
+    HTE_type = "linear",
     intercept = 3,
     slope_multiplier = 2.5,
     seed_value = 58
@@ -45,11 +45,11 @@ fit_TV_CSL_ret <- fit_TV_CSL(
   test_data = train_data_original_nuisance
 )
 
-fit_TV_CSL_ret$beta_CATE
-CATE_est <- fit_TV_CSL_ret$CATE_est
-CATE_true <- train_data_original_nuisance$CATE
+fit_TV_CSL_ret$beta_HTE
+HTE_est <- fit_TV_CSL_ret$HTE_est
+HTE_true <- train_data_original_nuisance$HTE
 
-MSE <- mean((CATE_true - CATE_est)^2)
+MSE <- mean((HTE_true - HTE_est)^2)
 print("MSE")
 print(MSE)
 
@@ -74,16 +74,16 @@ print(MSE)
 
 ## Try manually use 
 ## 1. Extract the first step -- this makes sense because this is consistent
-## 1.1 Let S_lasso to use coxph when both CATE_spec is "linear" and regressor_spec is "linear-only" -- done
+## 1.1 Let S_lasso to use coxph when both HTE_spec is "linear" and regressor_spec is "linear-only" -- done
 first_stage_lasso_ret <- S_lasso(
   train_data = fold_nuisance,
   test_data = fold_causal,
   regressor_spec = "linear-only",
-  CATE_spec = "linear" # we hard code this
+  HTE_spec = "linear" # we hard code this
 )
 
 
-beta_first_stage <- first_stage_lasso_ret$beta_CATE
+beta_first_stage <- first_stage_lasso_ret$beta_HTE
 
 
 
@@ -143,10 +143,10 @@ fit_TV_CSL_ret <- fit_TV_CSL(
   fold_causal_fitted = fold_causal_fitted, 
   final_model_method = final_model_method,
   test_data = train_data_original_nuisance,
-  beta_CATE_first_stage = beta_first_stage
+  beta_HTE_first_stage = beta_first_stage
 )
 
-beta_second_stage <- fit_TV_CSL_ret$beta_CATE
+beta_second_stage <- fit_TV_CSL_ret$beta_HTE
 
 loglik_tv_second_stage <- 
   cox_loglik_tv(beta = beta_second_stage, 
@@ -158,22 +158,22 @@ loglik_tv_second_stage <-
                 offset = fold_causal_fitted$nu_X)
 
 # next: verify that the beta_true give's lowest MSE over all three
-CATE_true <- train_data_original_nuisance$CATE
-test_regressor_CATE <- cbind(1, as.matrix(train_data_original_nuisance %>% select(starts_with("X."))))
+HTE_true <- train_data_original_nuisance$HTE
+test_regressor_HTE <- cbind(1, as.matrix(train_data_original_nuisance %>% select(starts_with("X."))))
 
-CATE_est_first_stage <- as.vector(test_regressor_CATE %*% beta_first_stage)
-(MSE_first_stage <- mean((CATE_true - CATE_est_first_stage)^2))
+HTE_est_first_stage <- as.vector(test_regressor_HTE %*% beta_first_stage)
+(MSE_first_stage <- mean((HTE_true - HTE_est_first_stage)^2))
 
-CATE_est_beta_true<- as.vector(test_regressor_CATE %*% beta_true)
-(MSE_beta_true <- mean((CATE_true - CATE_est_beta_true)^2))
+HTE_est_beta_true<- as.vector(test_regressor_HTE %*% beta_true)
+(MSE_beta_true <- mean((HTE_true - HTE_est_beta_true)^2))
 
-CATE_est_second_stage <- as.vector(test_regressor_CATE %*% beta_second_stage)
-(MSE_second_stage <- mean((CATE_true - CATE_est_second_stage)^2))
+HTE_est_second_stage <- as.vector(test_regressor_HTE %*% beta_second_stage)
+(MSE_second_stage <- mean((HTE_true - HTE_est_second_stage)^2))
 
 
 # L2 distances
-(RMSE_beta_first_stage <- sqrt(mean((CATE_est_first_stage - CATE_est_beta_true)^2)))
-(RMSE_beta_second_stage <- sqrt(mean((CATE_est_second_stage - CATE_est_beta_true)^2)) )
+(RMSE_beta_first_stage <- sqrt(mean((HTE_est_first_stage - HTE_est_beta_true)^2)))
+(RMSE_beta_second_stage <- sqrt(mean((HTE_est_second_stage - HTE_est_beta_true)^2)) )
 
 ## We have observed that 
 ##  1. beta_second_stage makes the loglik smaller than that of the first stage -- this is good; 
@@ -187,16 +187,16 @@ CATE_est_second_stage <- as.vector(test_regressor_CATE %*% beta_second_stage)
 # next: change effect estimate to correct estimates
 data <- read_TV_CSL_nuisance_data(
   n = 1000,
-  eta_type = "10-dim-linear",
-  CATE_type = "linear")
+  eta_type = "linear",
+  HTE_type = "linear")
 fold_nuisance <- data$fold_nuisance
 source("scripts/TV-CSL/tests/test-helper.R")
 fold_causal_original <- 
   load_or_generate_test_data_m_regression(
     n = 1000,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "linear",
+    eta_type = "linear",
+    HTE_type = "linear",
     intercept = 3,
     slope_multiplier = 2.5,
     seed_value = 58
@@ -233,8 +233,8 @@ fold_causal_fitted <- TV_CSL_nuisance(
 # Test TV_CSL for m_regression
 data <- read_TV_CSL_nuisance_data(
   n = 500,
-  eta_type = "10-dim-linear",
-  CATE_type = "linear")
+  eta_type = "linear",
+  HTE_type = "linear")
 fold_nuisance <- data$fold_nuisance
 fold_causal <- data$fold_causal
 train_data_original_nuisance <- data$train_data_original_nuisance
@@ -256,19 +256,19 @@ fit_TV_CSL_ret <- fit_TV_CSL(
   test_data = train_data_original_nuisance
 )
 
-fit_TV_CSL_ret$beta_CATE
-CATE_est <- fit_TV_CSL_ret$CATE_est
-CATE_true <- train_data_original_nuisance$CATE
+fit_TV_CSL_ret$beta_HTE
+HTE_est <- fit_TV_CSL_ret$HTE_est
+HTE_true <- train_data_original_nuisance$HTE
 
-MSE <- mean((CATE_true - CATE_est)^2)
+MSE <- mean((HTE_true - HTE_est)^2)
 print("MSE")
 print(MSE)
 
 
 data <- read_TV_CSL_nuisance_data(
   n = 500,
-  eta_type = "10-dim-linear",
-  CATE_type = "linear")
+  eta_type = "linear",
+  HTE_type = "linear")
 fold_nuisance <- data$fold_nuisance
 # fold_causal <- data$fold_causal
 source("scripts/TV-CSL/tests/test-helper.R")
@@ -276,8 +276,8 @@ fold_causal_original <-
   load_or_generate_test_data_m_regression(
     n = 500,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "linear",
+    eta_type = "linear",
+    HTE_type = "linear",
     intercept = 3,
     slope_multiplier = 2.5,
     seed_value = 58
@@ -302,11 +302,11 @@ fit_TV_CSL_ret <- fit_TV_CSL(
   test_data = train_data_original_nuisance
 )
 
-fit_TV_CSL_ret$beta_CATE
-CATE_est <- fit_TV_CSL_ret$CATE_est
-CATE_true <- train_data_original_nuisance$CATE
+fit_TV_CSL_ret$beta_HTE
+HTE_est <- fit_TV_CSL_ret$HTE_est
+HTE_true <- train_data_original_nuisance$HTE
 
-MSE <- mean((CATE_true - CATE_est)^2)
+MSE <- mean((HTE_true - HTE_est)^2)
 print("MSE")
 print(MSE)
 
@@ -317,7 +317,7 @@ print(MSE)
 #### 
 ## Try elevating 
 n <- 500
-eta_type <- "10-dim-linear"
+eta_type <- "linear"
 lambda_C = 0.1
 seed_value = 123
 
@@ -326,18 +326,18 @@ sim_df <- generate_simulated_data(
   n, 
   lambda_C = lambda_C,
   eta_type = eta_type,
-  CATE_type = "linear",
+  HTE_type = "linear",
   seed_value = seed_value,
   linear_intercept = 3,
   linear_slope_multiplier = 2.5,
-  linear_CATE_multiplier = 1, 
+  linear_HTE_multiplier = 1, 
   verbose = 0
 )
 
 # test: the distribution of eta_0
 par(mfrow=c(2,1))
 hist(sim_df$eta_0)
-hist(sim_df$CATE)
+hist(sim_df$HTE)
 par(mfrow=c(1,1))
 
 # test: the range of non-censored time should not be too small
@@ -350,18 +350,18 @@ sim_df <- generate_simulated_data(
   n, 
   lambda_C = lambda_C,
   eta_type = eta_type,
-  CATE_type = "linear",
+  HTE_type = "linear",
   seed_value = seed_value,
   linear_intercept = 3,
   linear_slope_multiplier = 2.5,
-  linear_CATE_multiplier = 3, 
+  linear_HTE_multiplier = 3, 
   verbose = 0
 )
 
 # test: the distribution of eta_0
 par(mfrow=c(2,1))
 hist(sim_df$eta_0)
-hist(sim_df$CATE)
+hist(sim_df$HTE)
 par(mfrow=c(1,1))
 
 # test: the range of non-censored time should not be too small
@@ -373,18 +373,18 @@ sim_df <- generate_simulated_data(
   n, 
   lambda_C = lambda_C,
   eta_type = eta_type,
-  CATE_type = "linear",
+  HTE_type = "linear",
   seed_value = seed_value,
   linear_intercept = -3,
   linear_slope_multiplier = 2.5,
-  linear_CATE_multiplier = 3, 
+  linear_HTE_multiplier = 3, 
   verbose = 0
 )
 
 # test: the distribution of eta_0
 par(mfrow=c(2,1))
 hist(sim_df$eta_0)
-hist(sim_df$CATE)
+hist(sim_df$HTE)
 par(mfrow=c(1,1))
 
 # test: the range of non-censored time should not be too small
@@ -412,11 +412,11 @@ fold_nuisance_original <-
     1000, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "linear",
+    HTE_type = "linear",
     seed_value = 111,
     linear_intercept = 3,
     linear_slope_multiplier = 2.5,
-    linear_CATE_multiplier = 3, 
+    linear_HTE_multiplier = 3, 
     verbose = 0
   )
 fold_nuisance_original <- fold_nuisance_original %>% 
@@ -429,11 +429,11 @@ fold_causal_original <-
     1000, 
     lambda_C = lambda_C,
     eta_type = eta_type,
-    CATE_type = "linear",
+    HTE_type = "linear",
     seed_value = 333,
     linear_intercept = 3,
     linear_slope_multiplier = 2.5,
-    linear_CATE_multiplier = 3, 
+    linear_HTE_multiplier = 3, 
     verbose = 0
   )
 fold_causal <- create_pseudo_dataset(fold_causal_original)
@@ -456,17 +456,17 @@ fit_TV_CSL_ret <- fit_TV_CSL(
   test_data = train_data_original_nuisance
 )
 
-fit_TV_CSL_ret$beta_CATE
-CATE_est <- fit_TV_CSL_ret$CATE_est
-CATE_true <- train_data_original_nuisance$CATE
+fit_TV_CSL_ret$beta_HTE
+HTE_est <- fit_TV_CSL_ret$HTE_est
+HTE_true <- train_data_original_nuisance$HTE
 
-MSE <- mean((CATE_true - CATE_est)^2)
+MSE <- mean((HTE_true - HTE_est)^2)
 print("MSE")
 print(MSE)
 
 
 
 
-# test: the T distribution for zero CATE is fine
+# test: the T distribution for zero HTE is fine
 
-# test: the T distribution for non-linear CATE is fine
+# test: the T distribution for non-linear HTE is fine

@@ -17,7 +17,7 @@ aggregated_metrics <-
 n <- config$n
 methods <- config$methods
 eta_type <- config$eta_type
-CATE_type <- config$CATE_type
+HTE_type <- config$HTE_type
 R <- config$R
 
 is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
@@ -33,7 +33,7 @@ result_csv_file <- generate_output_path(
   is_running_lasso = is_running_lasso,
   is_running_TV_CSL = is_running_TV_CSL,
   eta_type = eta_type,
-  CATE_type = CATE_type,
+  HTE_type = HTE_type,
   n = n,
   i = i,
   seed_value = seed_value
@@ -48,7 +48,7 @@ result_csv_file <- generate_output_path(
       is_running_lasso = is_running_lasso,
       is_running_TV_CSL = is_running_TV_CSL,
       eta_type = eta_type,
-      CATE_type = CATE_type,
+      HTE_type = HTE_type,
       n = n,
       i = i,
       seed_value = seed_value

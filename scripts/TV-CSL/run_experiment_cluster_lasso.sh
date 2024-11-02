@@ -20,10 +20,10 @@ verbose=${2:-0}
 # R=$(jq '.R' $json_file)
 n=$(jq '.n' "$json_file")
 
-for eta_type in "10-dim-linear" "non-linear"; do
-  for CATE_type in "zero" "constant" "ReLU" "linear" "non-linear"; do
+for eta_type in "linear" "non-linear"; do
+  for HTE_type in "zero" "constant" "ReLU" "linear" "non-linear"; do
     
-    log_dir="/n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/scripts/TV-CSL/results/lasso_eta-${eta_type}_CATE-${CATE_type}_n-${n}"
+    log_dir="/n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/scripts/TV-CSL/results/lasso_eta-${eta_type}_HTE-${HTE_type}_n-${n}"
     mkdir -p "$log_dir"
     
     export json_file verbose log_dir
@@ -31,7 +31,7 @@ for eta_type in "10-dim-linear" "non-linear"; do
     singularity_command="singularity exec --cleanenv --env R_LIBS_USER=${my_packages} ${rstudio_singularity_image}"
     
     echo "Running iteration $SLURM_ARRAY_TASK_ID with verbose level $verbose" # this goes to the .out
-    $singularity_command Rscript -e "source('scripts/TV-CSL/TV-CSL-runner.R'); run_experiment_iteration(${SLURM_ARRAY_TASK_ID}, '$json_file', '$eta_type', '$CATE_type', $verbose)" > "$log_dir/log_iteration_${SLURM_ARRAY_TASK_ID}.txt" 2>&1
+    $singularity_command Rscript -e "source('scripts/TV-CSL/TV-CSL-runner.R'); run_experiment_iteration(${SLURM_ARRAY_TASK_ID}, '$json_file', '$eta_type', '$HTE_type', $verbose)" > "$log_dir/log_iteration_${SLURM_ARRAY_TASK_ID}.txt" 2>&1
 
   done
 done

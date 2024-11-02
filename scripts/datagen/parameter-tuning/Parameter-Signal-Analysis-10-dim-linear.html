@@ -596,7 +596,7 @@ true_coefficients &lt;- slope_multiplier * 1/(1:10)
 seed_value &lt;- 42
 
 file_path &lt;- here(&quot;scripts&quot;, &quot;datagen&quot;, &quot;parameter-tuning&quot;, &quot;data&quot;,
-                 &quot;eta-type-10-dim-linear_CATE-type-zero_n-500.rds&quot;)
+                 &quot;eta-type-linear_HTE-type-zero_n-500.rds&quot;)
 
 dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
 
@@ -604,8 +604,8 @@ if (!file.exists(file_path)) {
   train_data &lt;- generate_simulated_data(
     n = 500,
     lambda_C = 0.1,
-    eta_type = &quot;10-dim-linear&quot;,
-    CATE_type = &quot;zero&quot;,
+    eta_type = &quot;linear&quot;,
+    HTE_type = &quot;zero&quot;,
     seed_value = seed_value,
     linear_intercept = intercept,
     linear_slope_multiplier = slope_multiplier,
@@ -683,14 +683,14 @@ m_cox &lt;- coxph(
 m_beta_cox &lt;- coef(m_cox)
 rmse_cox_n_500 &lt;- sqrt(mean((true_coefficients - as.vector(m_beta_cox))^2))</code></pre>
 <pre class="r"><code>file_path_n_2000 &lt;- here(&quot;scripts&quot;, &quot;datagen&quot;, &quot;parameter-tuning&quot;, &quot;data&quot;,
-                        &quot;eta-type-10-dim-linear_CATE-type-zero_n-2000.rds&quot;)
+                        &quot;eta-type-linear_HTE-type-zero_n-2000.rds&quot;)
 
 if (!file.exists(file_path_n_2000)) {
   train_data_2000 &lt;- generate_simulated_data(
     n = 2000,
     lambda_C = 0.1,
-    eta_type = &quot;10-dim-linear&quot;,
-    CATE_type = &quot;zero&quot;,
+    eta_type = &quot;linear&quot;,
+    HTE_type = &quot;zero&quot;,
     seed_value = seed_value,
     linear_intercept = intercept,
     linear_slope_multiplier = slope_multiplier,
@@ -820,17 +820,17 @@ slope_multiplier_strong &lt;- 2.5
 true_coefficients_strong &lt;- slope_multiplier_strong * 1/(1:10)
 
 file_path_strong &lt;- here(&quot;scripts&quot;, &quot;datagen&quot;, &quot;parameter-tuning&quot;, &quot;data&quot;,
-                        &quot;eta-type-10-dim-linear_CATE-type-zero_n-500_strong.rds&quot;)
+                        &quot;eta-type-linear_HTE-type-zero_n-500_strong.rds&quot;)
 file_path_n_2000_strong &lt;- here(&quot;scripts&quot;, &quot;datagen&quot;, &quot;parameter-tuning&quot;, &quot;data&quot;,
-                               &quot;eta-type-10-dim-linear_CATE-type-zero_n-2000_strong.rds&quot;)
+                               &quot;eta-type-linear_HTE-type-zero_n-2000_strong.rds&quot;)
 
 # Generate n=500 data with stronger signal
 if (!file.exists(file_path_strong)) {
   train_data_strong &lt;- generate_simulated_data(
     n = 500,
     lambda_C = 0.1,
-    eta_type = &quot;10-dim-linear&quot;,
-    CATE_type = &quot;zero&quot;,
+    eta_type = &quot;linear&quot;,
+    HTE_type = &quot;zero&quot;,
     seed_value = seed_value,
     linear_intercept = intercept_strong,
     linear_slope_multiplier = slope_multiplier_strong,
@@ -905,8 +905,8 @@ if (!file.exists(file_path_n_2000_strong)) {
   train_data_2000_strong &lt;- generate_simulated_data(
     n = 2000,
     lambda_C = 0.1,
-    eta_type = &quot;10-dim-linear&quot;,
-    CATE_type = &quot;zero&quot;,
+    eta_type = &quot;linear&quot;,
+    HTE_type = &quot;zero&quot;,
     seed_value = seed_value,
     linear_intercept = intercept_strong,
     linear_slope_multiplier = slope_multiplier_strong,

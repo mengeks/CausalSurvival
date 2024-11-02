@@ -2,7 +2,7 @@
   "n": 500,
   "R": 100,
   "eta_type": "non-linear",
-  "CATE_type": "non-linear",
+  "HTE_type": "non-linear",
   "methods": {
     "lasso": {
         "enabled": true,
@@ -13,7 +13,7 @@
         "lasso_types": [
           "S-lasso"
         ],
-        "CATE_specs": [
+        "HTE_specs": [
           "correctly-specified",
           "linear",
           "complex"

@@ -34,7 +34,7 @@ true_coefficients <- slope_multiplier * 1/(1:10)
 seed_value <- 42
 
 file_path <- here("scripts", "datagen", "parameter-tuning", "data",
-                 "eta-type-10-dim-linear_CATE-type-zero_n-500.rds")
+                 "eta-type-linear_HTE-type-zero_n-500.rds")
 
 dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
 
@@ -42,8 +42,8 @@ if (!file.exists(file_path)) {
   train_data <- generate_simulated_data(
     n = 500,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "zero",
+    eta_type = "linear",
+    HTE_type = "zero",
     seed_value = seed_value,
     linear_intercept = intercept,
     linear_slope_multiplier = slope_multiplier,
@@ -126,14 +126,14 @@ rmse_cox_n_500 <- sqrt(mean((true_coefficients - as.vector(m_beta_cox))^2))
 
 ```{r larger-sample}
 file_path_n_2000 <- here("scripts", "datagen", "parameter-tuning", "data",
-                        "eta-type-10-dim-linear_CATE-type-zero_n-2000.rds")
+                        "eta-type-linear_HTE-type-zero_n-2000.rds")
 
 if (!file.exists(file_path_n_2000)) {
   train_data_2000 <- generate_simulated_data(
     n = 2000,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "zero",
+    eta_type = "linear",
+    HTE_type = "zero",
     seed_value = seed_value,
     linear_intercept = intercept,
     linear_slope_multiplier = slope_multiplier,
@@ -188,17 +188,17 @@ slope_multiplier_strong <- 2.5
 true_coefficients_strong <- slope_multiplier_strong * 1/(1:10)
 
 file_path_strong <- here("scripts", "datagen", "parameter-tuning", "data",
-                        "eta-type-10-dim-linear_CATE-type-zero_n-500_strong.rds")
+                        "eta-type-linear_HTE-type-zero_n-500_strong.rds")
 file_path_n_2000_strong <- here("scripts", "datagen", "parameter-tuning", "data",
-                               "eta-type-10-dim-linear_CATE-type-zero_n-2000_strong.rds")
+                               "eta-type-linear_HTE-type-zero_n-2000_strong.rds")
 
 # Generate n=500 data with stronger signal
 if (!file.exists(file_path_strong)) {
   train_data_strong <- generate_simulated_data(
     n = 500,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "zero",
+    eta_type = "linear",
+    HTE_type = "zero",
     seed_value = seed_value,
     linear_intercept = intercept_strong,
     linear_slope_multiplier = slope_multiplier_strong,
@@ -273,8 +273,8 @@ if (!file.exists(file_path_n_2000_strong)) {
   train_data_2000_strong <- generate_simulated_data(
     n = 2000,
     lambda_C = 0.1,
-    eta_type = "10-dim-linear",
-    CATE_type = "zero",
+    eta_type = "linear",
+    HTE_type = "zero",
     seed_value = seed_value,
     linear_intercept = intercept_strong,
     linear_slope_multiplier = slope_multiplier_strong,

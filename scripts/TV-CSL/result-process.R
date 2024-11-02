@@ -34,7 +34,7 @@ process_all_iterations <- function(config, results_dir) {
   n <- config$n
   methods <- config$methods
   eta_type <- config$eta_type
-  CATE_type <- config$CATE_type
+  HTE_type <- config$HTE_type
   R <- config$R
   
   is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
@@ -53,7 +53,7 @@ process_all_iterations <- function(config, results_dir) {
       is_running_lasso = is_running_lasso,
       is_running_TV_CSL = is_running_TV_CSL,
       eta_type = eta_type,
-      CATE_type = CATE_type,
+      HTE_type = HTE_type,
       n = n,
       i = i,
       seed_value = seed_value
@@ -99,7 +99,7 @@ process_results_to_csv <- function(json_file) {
   output_csv_dir <- "scripts/TV-CSL/tables"
   
   eta_type_folder_name <- 
-    paste0(config$eta_type, "_", config$CATE_type)
+    paste0(config$eta_type, "_", config$HTE_type)
   
   methods <- config$methods
   is_running_cox <- !is.null(methods$cox) && methods$cox$enabled

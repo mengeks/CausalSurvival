@@ -3,12 +3,12 @@ read_single_simulation_data <-
            i = NULL, 
            eta_type = "linear-interaction", 
            baseline_type = "linear",
-           CATE_type = "constant",
+           HTE_type = "constant",
            folder_name = "data") {
   
   path_for_sim_data <- here::here(
     folder_name, 
-    paste0(eta_type, "_", CATE_type)
+    paste0(eta_type, "_", HTE_type)
   )
   
   
@@ -42,7 +42,7 @@ RESULTS_DIR <- "scripts/TV-CSL/results/"
 #' @param is_running_lasso Logical, whether lasso method is running
 #' @param is_running_TV_CSL Logical, whether TV-CSL method is running
 #' @param eta_type Character, the eta type
-#' @param CATE_type Character, the CATE type
+#' @param HTE_type Character, the HTE type
 #' @param n Integer, the sample size
 #' @param i Integer, the iteration number
 #' @param seed_value Integer, the seed value for reproducibility
@@ -53,7 +53,7 @@ generate_output_path <- function(results_dir = "scripts/TV-CSL/results/",
                                  is_running_lasso, 
                                  is_running_TV_CSL, 
                                  eta_type, 
-                                 CATE_type, 
+                                 HTE_type, 
                                  n, 
                                  i, 
                                  seed_value) {
@@ -64,7 +64,7 @@ generate_output_path <- function(results_dir = "scripts/TV-CSL/results/",
     ifelse(is_running_TV_CSL, "TV-CSL_", "")
   )
   
-  dgp_setting <- paste0("eta-", eta_type, "_CATE-", CATE_type)
+  dgp_setting <- paste0("eta-", eta_type, "_HTE-", HTE_type)
   
   
   output_folder <- paste0(

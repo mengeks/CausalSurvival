@@ -14,7 +14,7 @@ sim_constant <- generate_simulated_data(
   n, 
   lambda_C = lambda_C,
   eta_type = eta_type,
-  CATE_type = "constant",
+  HTE_type = "constant",
   seed_value = seed_value,
   linear_intercept = 2,
   linear_slope_multiplier = 0,
@@ -46,7 +46,7 @@ sim_linear_1 <- generate_simulated_data(
   n, 
   lambda_C = lambda_C,
   eta_type = eta_type,
-  CATE_type = "linear",
+  HTE_type = "linear",
   seed_value = seed_value,
   verbose = 0
 )
@@ -57,7 +57,7 @@ sim_linear_2 <- generate_simulated_data(
   n, 
   lambda_C = lambda_C,
   eta_type = eta_type,
-  CATE_type = "linear",
+  HTE_type = "linear",
   seed_value = seed_value,
   verbose = 0
 )

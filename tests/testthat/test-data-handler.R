@@ -9,7 +9,7 @@ test_that("Test generate_output_path function", {
   n <- config$n
   methods <- config$methods
   eta_type <- config$eta_type
-  CATE_type <- config$CATE_type
+  HTE_type <- config$HTE_type
   R <- config$R
   
 
@@ -26,7 +26,7 @@ test_that("Test generate_output_path function", {
     is_running_lasso = is_running_lasso,
     is_running_TV_CSL = is_running_TV_CSL,
     eta_type = eta_type,
-    CATE_type = CATE_type,
+    HTE_type = HTE_type,
     n = n,
     i = i,
     seed_value = seed_value
@@ -36,7 +36,7 @@ test_that("Test generate_output_path function", {
                             ifelse(is_running_cox, "cox_", ""),
                             ifelse(is_running_lasso, "lasso_", ""),
                             ifelse(is_running_TV_CSL, "TV-CSL_", ""),
-                            "eta-", eta_type, "_CATE-", CATE_type, "_n-", n, "/")
+                            "eta-", eta_type, "_HTE-", HTE_type, "_n-", n, "/")
   
   expected_file <- paste0(expected_folder, "result-iteration_", i, "-seed_", seed_value, ".csv")
   
@@ -55,7 +55,7 @@ test_that("read_single_simulation_data works correctly for new data", {
     R = 200, 
     i = 1, 
     eta_type = "10-dim-non-linear",
-    CATE_type = "linear"
+    HTE_type = "linear"
   )
   
   tmp <- single_data$data
