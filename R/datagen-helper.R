@@ -25,6 +25,62 @@ generate_X <-
   return(X)
 }
 
+calculate_eta <- function(x, 
+                          eta_type = "linear-interaction",
+                          linear_intercept = 3,
+                          linear_slope_multiplier = 2.5) {
+  # Hardcoded betas and delta
+  
+  
+  p <- length(x)
+  
+  if (eta_type == "non-linear") {
+    sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
+    eta_0 <- (-3/4) * sigma(x[1]) * sigma(x[2])
+  } else if (eta_type == "linear") {
+    eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:p, function(j) x[j] / j))
+  }
+  
+  
+  if (p == 5 | p == 10){
+    betas <- rep(1, 5)
+    delta <- 0.5
+    X1 <- x[1]
+    X2 <- x[2]
+    X3 <- x[3]
+    X4 <- x[4]
+    X5 <- x[5]
+    X6 <- x[6]
+    X10 <- x[10]
+    
+    if (eta_type == "linear-interaction") {
+      eta_0 <- X1 * betas[1] +
+        X2 * betas[2] + 
+        X3 * betas[3] + 
+        X4 * betas[4] + 
+        X5 * betas[5] + 
+        delta * X1 * X2
+      
+    } else if (eta_type == "10-dim-non-linear") {
+      eta_0 <- -2 + (2/3) * (
+        - 0.5 * sqrt(abs(X1 * X2)) +
+          0.5 * sqrt(abs(X10)) -
+          0.5 * cos(X5) +
+          0.5 * cos(X5) * cos(X6)
+      )
+      
+    } else if (eta_type == "log") {
+      eta_0 <- 2 * log(1 + exp(X1 + X2 + X3))
+      
+    } else {
+      stop("Unsupported eta_type")
+    }
+    
+  }# end p == 5 | p == 10
+  
+  
+  return(eta_0)
+}
 
 HTE_function <- function(x, 
                           HTE_type = "zero",
@@ -45,32 +101,67 @@ HTE_function <- function(x,
   } else if (HTE_type == "linear") {
     p <- length(x)
     
-    beta <- rep(0, p)
-    
-    beta[1] <- beta[p] <- 1
-    
+    beta <- rep(1, p)
+
     # beta <- rep(0, p)
-    # beta[1] <- beta[2] <- 1
-    # 
-    # beta <- rep(1, p)
+    # beta[1] <- beta[p] <- 1
+    
     return(sum(x * beta * linear_HTE_multiplier))
     
   } else if (HTE_type == "non-linear") {
     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
     
     if (length(x) < 2) stop("Non-linear HTE_type requires at least 2 dimensions")
-    return(sigma(x[1]) * sigma(x[10]))
+    
+    # return(sigma(x[1]) * sigma(x[10]))
+    return(sigma(x[1]) * sigma(x[2]))
     
   } else {
     stop("Unsupported HTE_type")
   }
 }
 
+calculate_baseline_hazard <- function(t, baseline_type = "cosine") {
+  if (baseline_type == "linear") {
+    baseline_hazard <- t
+  } else if (baseline_type == "constant") {
+    baseline_hazard <- 1
+  } else {  # Default is "cosine"
+    baseline_hazard <- (cos(t * 3) + 1) / 2
+  }
+  
+  return(baseline_hazard)
+}
+
+calculate_hazard <- function(t, 
+                             x, 
+                             is_time_varying, 
+                             baseline_type = "linear"
+) {
+  
+  baseline_hazard <- 
+    calculate_baseline_hazard(
+      t = t, 
+      baseline_type = baseline_type
+    )
+  
+  if (is_time_varying) {
+    # hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
+    hazard <- exp(x[, "eta_0"] + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
+  } else {
+    # hazard <- exp(eta_0 + x[, "W"] * x[, "HTE"]) * baseline_hazard
+    hazard <- exp(x[, "eta_0"] + x[, "W"] * x[, "HTE"]) * baseline_hazard
+  }
+  
+  return(hazard)
+}
+
+
 
 
 generate_treatment <- 
   function(n, X, is_time_varying, difficulty = "simple") {
-  # Define functions for each difficulty level
+
   simple_fn <- function(X) X[, 2] + X[, 3]
   
   hard_fn <- function(X) sin(pi * X[, 1] * X[, 2])
@@ -138,7 +229,6 @@ generate_covariates <- function(n,
                   distribution = X_distribution, 
                   cov_type = X_cov_type)
   
-  # colnames(X) <- paste0("X.", 1:10)
   
   # Step 2: Generate HTE using the HTE_function
   HTE <- apply(X, 1, function(row) HTE_function(x = row, HTE_type = HTE_type, linear_HTE_multiplier=linear_HTE_multiplier))
@@ -148,6 +238,7 @@ generate_covariates <- function(n,
                          eta_type = eta_type,
                          linear_intercept = linear_intercept,
                          linear_slope_multiplier = linear_slope_multiplier) )
+  
   
   # Step 3: Generate treatment based on is_time_varying
   if (is_time_varying) {
@@ -166,25 +257,6 @@ generate_covariates <- function(n,
 }
 
 
-
-# generate_covariates_old <- 
-#   function(n, p, is_time_varying) {
-#   X <- 
-#     matrix(runif(n * p, min = -1, max = 1), n, p)
-#   
-#   if (is_time_varying) {
-#     A <- rexp(n, rate = exp(X[, 2] + X[, 3]))
-#     covariates <- data.frame(id = 1:n, X = X, A = A)
-#   } else {
-#     expit <- function(x) 1 / (1 + exp(-x))
-#     W <- rbinom(n, 1, prob = expit(X[, 2] + X[, 3]))
-#     covariates <- 
-#       data.frame(id = 1:n, X = X, W = W)
-#   }
-#   
-#   return(covariates)
-# }
-
 generate_censoring_times <- 
   function(n, light_censoring, lambda_C) {
   if (light_censoring) {
@@ -194,161 +266,68 @@ generate_censoring_times <-
   }
 }
 
-calculate_eta <- function(x, 
-                              eta_type = "linear-interaction",
-                              linear_intercept = 3,
-                              linear_slope_multiplier = 2.5) {
-  # Hardcoded betas and delta
-  betas <- rep(1, 5)
-  delta <- 0.5
-  
-  # Extract values from vector
-  X1 <- x[1]
-  X2 <- x[2]
-  X3 <- x[3]
-  X4 <- x[4]
-  X5 <- x[5]
-  X6 <- x[6]
-  X10 <- x[10]
-  
-  if (eta_type == "linear-interaction") {
-    eta_0 <- X1 * betas[1] +
-      X2 * betas[2] + 
-      X3 * betas[3] + 
-      X4 * betas[4] + 
-      X5 * betas[5] + 
-      delta * X1 * X2
-    
-  } else if (eta_type == "non-linear") {
-    sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
-    eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
-    
-  } else if (eta_type == "linear") {
-    eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[j] / j))
-    
-  } else if (eta_type == "10-dim-non-linear") {
-    eta_0 <- -2 + (2/3) * (
-      - 0.5 * sqrt(abs(X1 * X2)) +
-        0.5 * sqrt(abs(X10)) -
-        0.5 * cos(X5) +
-        0.5 * cos(X5) * cos(X6)
-    )
-    
-  } else if (eta_type == "log") {
-    eta_0 <- 2 * log(1 + exp(X1 + X2 + X3))
-    
-  } else {
-    stop("Unsupported eta_type")
-  }
-  
-  return(eta_0)
-}
-
-calculate_eta_old <- function(x, 
-                          eta_type = "linear-interaction",
-                          linear_intercept = 3,
-                          linear_slope_multiplier = 2.5) {
-  # Hardcoded betas and delta
-  betas <- rep(1, 5)
-  delta <- 0.5
-  
-  # Extract relevant covariates
-  X1 <- x[, "X.1"]
-  X2 <- x[, "X.2"]
-  X3 <- x[, "X.3"]
-  X4 <- x[, "X.4"]
-  X5 <- x[, "X.5"]
-  
-  if (ncol(x) >= 10) {
-    # If 10-dimensional data is provided, extract additional covariates
-    X6 <- x[, "X.6"]
-    X10 <- x[, "X.10"]
-  }
-  
-  # Calculate eta_0 based on the type of interaction
-  if (eta_type == "linear-interaction") {
-    # Linear-Interaction form
-    eta_0 <- X1 * betas[1] +
-      X2 * betas[2] + 
-      X3 * betas[3] + 
-      X4 * betas[4] + 
-      X5 * betas[5] + 
-      delta * X1 * X2
-    
-  } else if (eta_type == "non-linear") {
-    # Non-linear form: 𝜎(x1)𝜎(x2), where 𝜎(x) = 2 / (1 + e^(-12(x - 1/2)))
-    sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
-    eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
-    
-  } else if (eta_type == "linear") {
-    eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
-    
-  } else if (eta_type == "10-dim-non-linear") {
-    # 10-dimensional non-linear form
-    eta_0 <- -2 + (2/3) * (
-      - 0.5 * sqrt(abs(X1 * X2)) +
-        0.5 * sqrt(abs(X10)) -
-        0.5 * cos(X5) +
-        0.5 * cos(X5) * cos(X6)
-    )
-    
-  } else if (eta_type == "log") {
-    # Log form
-    eta_0 <- 2 * log(1 + exp(X1 + X2 + X3))
-    
-  } else {
-    stop("Unsupported eta_type")
-  }
-  
-  return(eta_0)
-}
 
 
+# calculate_eta_old <- function(x, 
+#                           eta_type = "linear-interaction",
+#                           linear_intercept = 3,
+#                           linear_slope_multiplier = 2.5) {
+#   # Hardcoded betas and delta
+#   betas <- rep(1, 5)
+#   delta <- 0.5
+#   
+#   # Extract relevant covariates
+#   X1 <- x[, "X.1"]
+#   X2 <- x[, "X.2"]
+#   X3 <- x[, "X.3"]
+#   X4 <- x[, "X.4"]
+#   X5 <- x[, "X.5"]
+#   
+#   if (ncol(x) >= 10) {
+#     # If 10-dimensional data is provided, extract additional covariates
+#     X6 <- x[, "X.6"]
+#     X10 <- x[, "X.10"]
+#   }
+#   
+#   # Calculate eta_0 based on the type of interaction
+#   if (eta_type == "linear-interaction") {
+#     # Linear-Interaction form
+#     eta_0 <- X1 * betas[1] +
+#       X2 * betas[2] + 
+#       X3 * betas[3] + 
+#       X4 * betas[4] + 
+#       X5 * betas[5] + 
+#       delta * X1 * X2
+#     
+#   } else if (eta_type == "non-linear") {
+#     # Non-linear form: 𝜎(x1)𝜎(x2), where 𝜎(x) = 2 / (1 + e^(-12(x - 1/2)))
+#     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
+#     eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
+#     
+#   } else if (eta_type == "linear") {
+#     eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
+#     
+#   } else if (eta_type == "10-dim-non-linear") {
+#     # 10-dimensional non-linear form
+#     eta_0 <- -2 + (2/3) * (
+#       - 0.5 * sqrt(abs(X1 * X2)) +
+#         0.5 * sqrt(abs(X10)) -
+#         0.5 * cos(X5) +
+#         0.5 * cos(X5) * cos(X6)
+#     )
+#     
+#   } else if (eta_type == "log") {
+#     # Log form
+#     eta_0 <- 2 * log(1 + exp(X1 + X2 + X3))
+#     
+#   } else {
+#     stop("Unsupported eta_type")
+#   }
+#   
+#   return(eta_0)
+# }
 
 
-# Function to calculate the baseline hazard based on baseline_type
-calculate_baseline_hazard <- function(t, baseline_type = "cosine") {
-  if (baseline_type == "linear") {
-    baseline_hazard <- t
-  } else if (baseline_type == "constant") {
-    baseline_hazard <- 1
-  } else {  # Default is "cosine"
-    baseline_hazard <- (cos(t * 3) + 1) / 2
-  }
-  
-  return(baseline_hazard)
-}
-
-calculate_hazard <- function(t, 
-                             x, 
-                             is_time_varying, 
-                             baseline_type = "linear"
-                             # eta_type = "linear-interaction",
-                             # linear_intercept = 3,
-                             # linear_slope_multiplier = 2.5
-                            ) {
-  
-  # eta_0 <- calculate_eta(x = x, 
-  #                        eta_type = eta_type,
-  #                        linear_intercept = linear_intercept,
-  #                        linear_slope_multiplier = linear_slope_multiplier)
-  
-  baseline_hazard <- 
-    calculate_baseline_hazard(
-      t = t, 
-      baseline_type = baseline_type
-    )
-  
-  if (is_time_varying) {
-    # hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
-    hazard <- exp(x[, "eta_0"] + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
-  } else {
-    # hazard <- exp(eta_0 + x[, "W"] * x[, "HTE"]) * baseline_hazard
-    hazard <- exp(x[, "eta_0"] + x[, "W"] * x[, "HTE"]) * baseline_hazard
-  }
-  
-  return(hazard)
-}
 
 
 generate_simulated_data <- 
@@ -356,11 +335,11 @@ generate_simulated_data <-
            is_time_varying = TRUE, 
            light_censoring = FALSE,
            lambda_C = 0.1,
-           p = 10,  
+           p = 3,  
            baseline_type = "linear",
            eta_type = "linear-interaction",
            X_distribution = "normal", 
-           X_cov_type = "toeplitz",
+           X_cov_type = "identity",
            tx_difficulty = "simple",
            HTE_type = "constant",
            linear_intercept = 3,
@@ -418,6 +397,7 @@ generate_simulated_data <-
       is_time_varying = is_time_varying, 
       baseline_type = baseline_type)
   }
+  verbose_print(head(covariates), 1)
   
   # Step 4: Simulate survival data
   verbose_print("Step 4: Simulating survival data...", 2)

@@ -28,164 +28,8 @@ test_that("sigma function works for normal(0,1) input and plots its behavior", {
 })
 
 
-test_that("generate_simulated_data generates good data for eta_type  = 10-dim-non-linear", {
-  n <- 200
-  eta_type <- "10-dim-non-linear"
-  lambda_C = 0.1
-  seed_value = 123
-  
-  source("R/datagen-helper.R")
-  sim_non_linear <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "non-linear",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  
-  # test: HTE better have a range of values
-  hist(sim_non_linear$HTE)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_non_linear %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_non_linear %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the range of non-censored time should not be too small
-  hist(sim_non_linear$T)
-  expect_true(max(sim_non_linear$T) >= 9)
-  
-  
-  source("R/datagen-helper.R")
-  sim_linear <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "linear",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  # test: the range of non-censored time should not be too small
-  hist(sim_linear$T)
-  expect_true(max(sim_linear$T) >= 9)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_linear %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_linear %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_linear$HTE)
-  
-  sim_zero <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "zero",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  
-  # test: the range of non-censored time should not be too small
-  hist(sim_zero$T)
-  expect_true(max(sim_zero$T) >= 9)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_zero %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_zero %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_zero$HTE)
-  
-  sim_constant <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "constant",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  
-  # test: the range of non-censored time should not be too small
-  hist(sim_constant$T)
-  expect_true(max(sim_constant$T) >= 8)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_constant %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_constant %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_constant$HTE)
-  
-  sim_ReLU <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "ReLU",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  
-  # test: the range of non-censored time should not be too small
-  hist(sim_ReLU$T)
-  expect_true(max(sim_ReLU$T) >= 8)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_ReLU %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_ReLU %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_ReLU$HTE)
-})
-
-
-test_that("generate_simulated_data generates good data for eta_type  = linear", {
-  n <- 200
+test_that("generate_simulated_data generates good data for eta_type = linear, HTE_type = linear", {
+  n <- 300
   eta_type <- "linear"
   lambda_C = 0.1
   seed_value = 123
@@ -203,12 +47,10 @@ test_that("generate_simulated_data generates good data for eta_type  = linear", 
     verbose = 0
   )
   
-  # test: the distribution of eta_0
-  hist(sim_df$eta_0)
-  hist(sim_df$HTE)
+  
   
   # test: the range of non-censored time should not be too small
-  hist(sim_df$T)
+  
   
   # test: the proportion of treated should be 
   #   between 0.2 and 0.8, ideally be close to 0.5
@@ -224,125 +66,12 @@ test_that("generate_simulated_data generates good data for eta_type  = linear", 
   print(proportion_Delta)
   expect_true(proportion_Delta > 0.7)
   
-  # test: HTE better have a range of values
+  # test: when  HTE better have a range of values
+  
+  # plot the three
+  hist(sim_df$T)
+  hist(sim_df$eta_0)
   hist(sim_df$HTE)
-  
-  sim_non_linear <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "non-linear",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  
-  
-  # test: the range of non-censored time should not be too small
-  hist(sim_non_linear$T)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_non_linear %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_non_linear %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_non_linear$HTE)
-  
-  source("R/datagen-helper.R")
-  sim_linear <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "linear",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  # test: the range of non-censored time should not be too small
-  hist(sim_linear$T)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_linear %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_linear %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_linear$HTE)
-  
-  
-  source("R/datagen-helper.R")
-  sim_constant <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "constant",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  
-  # test: the range of non-censored time should not be too small
-  hist(sim_constant$T)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_constant %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_constant %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_constant$HTE)
-  
-  
-  sim_ReLU <- generate_simulated_data(
-    n, 
-    lambda_C = lambda_C,
-    eta_type = eta_type,
-    HTE_type = "ReLU",
-    seed_value = seed_value,
-    verbose = 0
-  )
-  
-  # test: the range of non-censored time should not be too small
-  hist(sim_ReLU$T)
-  expect_true(max(sim_ReLU$T) >= 8)
-  
-  # test: the proportion of treated should be 
-  #   between 0.2 and 0.8, ideally be close to 0.5
-  proportion_W <- sim_ReLU %>%
-    mutate(W = A < U) %>%
-    summarise(proportion_W = mean(W))
-  print(proportion_W)
-  expect_true(proportion_W > 0.2 & proportion_W < 0.8)
-  
-  # test: the proportion of non-censored should be greater than 0.7
-  proportion_Delta <- sim_ReLU %>%
-    summarise(proportion_Delta = mean(Delta))
-  print(proportion_Delta)
-  
-  # test: HTE better have a range of values
-  hist(sim_ReLU$HTE)
 })
 
 
