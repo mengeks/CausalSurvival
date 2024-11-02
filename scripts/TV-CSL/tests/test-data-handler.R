@@ -14,10 +14,11 @@ generate_m_estimation_data <- function(){
   
 }
 
-create_TV_CSL_nuisance_filepath <- function(save_path, k, eta_type) {
+create_TV_CSL_nuisance_filepath <- function(save_path, k, eta_type, n) {
   file.path(save_path, 
             paste0("TV_CSL_nuisance_data_k", k,
                    ifelse(eta_type == "10-dim-linear", "_eta-type-10-dim-linear", ""),
+                   "_n-", n,
                    ".RData"))
 }
 
@@ -78,7 +79,8 @@ generate_TV_CSL_nuisance_data <-
     create_TV_CSL_nuisance_filepath(
       save_path=save_path, 
       k = k, 
-      eta_type = eta_type)
+      eta_type = eta_type,
+      n = n)
   
   
   save(fold_nuisance, fold_causal, train_data_original_nuisance, file = save_file_path)
@@ -94,10 +96,10 @@ read_TV_CSL_nuisance_data <-
           eta_type = "10-dim-non-linear",
           CATE_type = "linear") {
    
-   file_path <- create_TV_CSL_nuisance_filepath(data_path, k, eta_type)
+   file_path <- create_TV_CSL_nuisance_filepath(data_path, k, eta_type, n)
    
    if (!file.exists(file_path)) {
-     data <- generate_TV_CSL_nuisance_data(
+     generate_TV_CSL_nuisance_data(
        k = k,
        n = n,
        i = i,
@@ -105,7 +107,6 @@ read_TV_CSL_nuisance_data <-
        CATE_type = CATE_type,
        save_path = data_path
      )
-     return(data)
    }
    
    load(file_path)
@@ -117,33 +118,66 @@ read_TV_CSL_nuisance_data <-
    )
  }
 
-read_TV_CSL_nuisance_data <- 
-  function(k = 1, 
-           data_path = here("scripts/TV-CSL/tests/data"),
-           n = 500,
-           i = 1,
-           eta_type = "10-dim-non-linear",
-           CATE_type = "linear") {
+
+load_or_generate_test_data_m_regression <- function(
+    n = 2000,
+    lambda_C = 0.1,
+    eta_type = "10-dim-linear",
+    CATE_type = "zero",
+    intercept = 3,
+    slope_multiplier = 2.5,
+    seed_value = 42
+) {
+  source("R/datagen-helper.R")
+  
+  file_path <- here::here(
+    "scripts", "TV-CSL", "tests", "data",
+    sprintf(
+      "eta-type-%s_CATE-type-%s_n-%d%s.rds",
+      eta_type,
+      CATE_type,
+      n,
+      if (seed_value != 42) sprintf("_seed-value-%s", seed_value) else ""
+    )
+  )
+  
+  dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
+  
+  if (!file.exists(file_path)) {
+    train_data <- generate_simulated_data(
+      n = n,
+      lambda_C = lambda_C,
+      eta_type = eta_type,
+      CATE_type = CATE_type,
+      seed_value = seed_value,
+      linear_intercept = intercept,
+      linear_slope_multiplier = slope_multiplier,
+      verbose = 0
+    )
     
-    file_path <- create_TV_CSL_nuisance_filepath(data_path, k, eta_type)
+    train_data_pseudo <- preprocess_data(
+      single_data = train_data,
+      run_time_varying = TRUE
+    )
     
-    if (!file.exists(file_path)) {
-      data <- generate_TV_CSL_nuisance_data(
-        k = k,
-        n = n,
-        i = i,
-        eta_type = eta_type,
-        CATE_type = CATE_type,
-        save_path = data_path
-      )
-      return(data)
-    }
-    
-    load(file_path)
-    
-    list(
-      fold_nuisance = fold_nuisance,
-      fold_causal = fold_causal,
-      train_data_original_nuisance = train_data_original_nuisance
+    saveRDS(
+      list(
+        train_data = train_data,
+        train_data_pseudo = train_data_pseudo,
+        parameters = list(
+          n = n,
+          lambda_C = lambda_C,
+          eta_type = eta_type,
+          CATE_type = CATE_type,
+          intercept = intercept,
+          slope_multiplier = slope_multiplier,
+          seed_value = seed_value
+        )
+      ),
+      file = file_path
     )
   }
+  
+  loaded_data <- readRDS(file_path)
+  return(loaded_data)
+}

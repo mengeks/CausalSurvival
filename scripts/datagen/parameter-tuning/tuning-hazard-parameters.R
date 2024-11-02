@@ -197,8 +197,15 @@ test_that("generate_simulated_data generates good data for eta_type  = 10-dim-li
     eta_type = eta_type,
     CATE_type = "zero",
     seed_value = seed_value,
+    linear_intercept = 3,
+    linear_slope_multiplier = 2.5,
+    linear_CATE_multiplier = 1, 
     verbose = 0
   )
+  
+  # test: the distribution of eta_0
+  hist(sim_df$eta_0)
+  hist(sim_df$CATE)
   
   # test: the range of non-censored time should not be too small
   hist(sim_df$T)

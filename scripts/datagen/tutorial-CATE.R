@@ -16,6 +16,8 @@ sim_constant <- generate_simulated_data(
   eta_type = eta_type,
   CATE_type = "constant",
   seed_value = seed_value,
+  linear_intercept = 2,
+  linear_slope_multiplier = 0,
   verbose = 0
 ) %>%
   mutate(W = A < U)

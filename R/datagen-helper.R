@@ -26,40 +26,43 @@ generate_X <-
 }
 
 
-CATE_function <- function(x, type = "zero") {
+CATE_function <- function(x, 
+                          CATE_type = "zero",
+                          linear_CATE_multiplier = 1) {
   
-  # Handle different cases based on 'type'
-  if (type == "zero") {
+  # Handle different cases based on 'CATE_type'
+  if (CATE_type == "zero") {
     return(0)
     
-  } else if (type == "constant") {
+  } else if (CATE_type == "constant") {
     return(2)
     
-  } else if (type == "ReLU") {
+  } else if (CATE_type == "ReLU") {
     # Ensure that x has at least 5 dimensions
-    if (length(x) < 5) stop("ReLU type requires at least 5 dimensions")
+    if (length(x) < 5) stop("ReLU CATE_type requires at least 5 dimensions")
     return(max(x[1] + x[2] + x[3], 0) - max(x[4] + x[5], 0))
     
-  } else if (type == "linear") {
+  } else if (CATE_type == "linear") {
     p <- length(x)
     
     beta <- rep(0, p)
+    
     beta[1] <- beta[p] <- 1
     
     # beta <- rep(0, p)
     # beta[1] <- beta[2] <- 1
     # 
     # beta <- rep(1, p)
-    return(sum(x * beta))
+    return(sum(x * beta * linear_CATE_multiplier))
     
-  } else if (type == "non-linear") {
+  } else if (CATE_type == "non-linear") {
     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
     
-    if (length(x) < 2) stop("Non-linear type requires at least 2 dimensions")
+    if (length(x) < 2) stop("Non-linear CATE_type requires at least 2 dimensions")
     return(sigma(x[1]) * sigma(x[10]))
     
   } else {
-    stop("Unsupported type")
+    stop("Unsupported CATE_type")
   }
 }
 
@@ -123,7 +126,11 @@ generate_covariates <- function(n,
                                 X_cov_type = "identity", 
                                 is_time_varying = TRUE, 
                                 tx_difficulty = "simple", 
-                                CATE_type = "constant") {
+                                CATE_type = "constant",
+                                linear_CATE_multiplier = 1,
+                                eta_type = "10-dim-linear",
+                                linear_intercept = 3,
+                                linear_slope_multiplier = 2.5) {
   
   # Step 1: Generate X using the generate_X function
   X <- generate_X(n = n, 
@@ -131,8 +138,16 @@ generate_covariates <- function(n,
                   distribution = X_distribution, 
                   cov_type = X_cov_type)
   
+  # colnames(X) <- paste0("X.", 1:10)
+  
   # Step 2: Generate CATE using the CATE_function
-  CATE <- apply(X, 1, function(row) CATE_function(x = row, type = CATE_type))
+  CATE <- apply(X, 1, function(row) CATE_function(x = row, CATE_type = CATE_type, linear_CATE_multiplier=linear_CATE_multiplier))
+  
+  # Step 3: Generate eta_0
+  eta_0 <- apply(X, 1, function(row) calculate_eta(x = row, 
+                         eta_type = eta_type,
+                         linear_intercept = linear_intercept,
+                         linear_slope_multiplier = linear_slope_multiplier) )
   
   # Step 3: Generate treatment based on is_time_varying
   if (is_time_varying) {
@@ -140,13 +155,13 @@ generate_covariates <- function(n,
                             X = X, 
                             is_time_varying = TRUE, 
                             difficulty = tx_difficulty)
-    return(data.frame(id=1:n,X = X, A = A, CATE = CATE))  # Return X, A, and CATE for time-varying case
+    return(data.frame(id=1:n,X = X, A = A, CATE = CATE, eta_0 = eta_0))  # Return X, A, and CATE for time-varying case
   } else {
     W <- generate_treatment(n = n, 
                             X = X, 
                             is_time_varying = FALSE, 
                             difficulty = tx_difficulty)
-    return(data.frame(id=1:n, X = X, W = W, CATE = CATE))  # Return X, W, and CATE for non-time-varying case
+    return(data.frame(id=1:n, X = X, W = W, CATE = CATE, eta_0 = eta_0))  # Return X, W, and CATE for non-time-varying case
   }
 }
 
@@ -180,6 +195,56 @@ generate_censoring_times <-
 }
 
 calculate_eta <- function(x, 
+                              eta_type = "linear-interaction",
+                              linear_intercept = 3,
+                              linear_slope_multiplier = 2.5) {
+  # Hardcoded betas and delta
+  betas <- rep(1, 5)
+  delta <- 0.5
+  
+  # Extract values from vector
+  X1 <- x[1]
+  X2 <- x[2]
+  X3 <- x[3]
+  X4 <- x[4]
+  X5 <- x[5]
+  X6 <- x[6]
+  X10 <- x[10]
+  
+  if (eta_type == "linear-interaction") {
+    eta_0 <- X1 * betas[1] +
+      X2 * betas[2] + 
+      X3 * betas[3] + 
+      X4 * betas[4] + 
+      X5 * betas[5] + 
+      delta * X1 * X2
+    
+  } else if (eta_type == "non-linear") {
+    sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
+    eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
+    
+  } else if (eta_type == "10-dim-linear") {
+    eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[j] / j))
+    
+  } else if (eta_type == "10-dim-non-linear") {
+    eta_0 <- -2 + (2/3) * (
+      - 0.5 * sqrt(abs(X1 * X2)) +
+        0.5 * sqrt(abs(X10)) -
+        0.5 * cos(X5) +
+        0.5 * cos(X5) * cos(X6)
+    )
+    
+  } else if (eta_type == "log") {
+    eta_0 <- 2 * log(1 + exp(X1 + X2 + X3))
+    
+  } else {
+    stop("Unsupported eta_type")
+  }
+  
+  return(eta_0)
+}
+
+calculate_eta_old <- function(x, 
                           eta_type = "linear-interaction",
                           linear_intercept = 3,
                           linear_slope_multiplier = 2.5) {
@@ -257,15 +322,16 @@ calculate_baseline_hazard <- function(t, baseline_type = "cosine") {
 calculate_hazard <- function(t, 
                              x, 
                              is_time_varying, 
-                             baseline_type = "linear", 
-                             eta_type = "linear-interaction",
-                             linear_intercept = 3,
-                             linear_slope_multiplier = 2.5) {
+                             baseline_type = "linear"
+                             # eta_type = "linear-interaction",
+                             # linear_intercept = 3,
+                             # linear_slope_multiplier = 2.5
+                            ) {
   
-  eta_0 <- calculate_eta(x = x, 
-                         eta_type = eta_type,
-                         linear_intercept = linear_intercept,
-                         linear_slope_multiplier = linear_slope_multiplier)
+  # eta_0 <- calculate_eta(x = x, 
+  #                        eta_type = eta_type,
+  #                        linear_intercept = linear_intercept,
+  #                        linear_slope_multiplier = linear_slope_multiplier)
   
   baseline_hazard <- 
     calculate_baseline_hazard(
@@ -274,9 +340,11 @@ calculate_hazard <- function(t,
     )
   
   if (is_time_varying) {
-    hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "CATE"]) * baseline_hazard
+    # hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "CATE"]) * baseline_hazard
+    hazard <- exp(x[, "eta_0"] + (t >= x[, "A"]) * x[, "CATE"]) * baseline_hazard
   } else {
-    hazard <- exp(eta_0 + x[, "W"] * x[, "CATE"]) * baseline_hazard
+    # hazard <- exp(eta_0 + x[, "W"] * x[, "CATE"]) * baseline_hazard
+    hazard <- exp(x[, "eta_0"] + x[, "W"] * x[, "CATE"]) * baseline_hazard
   }
   
   return(hazard)
@@ -297,6 +365,7 @@ generate_simulated_data <-
            CATE_type = "constant",
            linear_intercept = 3,
            linear_slope_multiplier = 2.5,
+           linear_CATE_multiplier = 1, 
            max_censoring_time = 20,
            seed_value = 123,
            verbose = 0) {
@@ -317,7 +386,10 @@ generate_simulated_data <-
     X_cov_type = X_cov_type, 
     tx_difficulty = tx_difficulty,
     is_time_varying = is_time_varying,
-    CATE_type = CATE_type
+    CATE_type = CATE_type,
+    linear_CATE_multiplier = linear_CATE_multiplier,
+    linear_intercept = linear_intercept,
+    linear_slope_multiplier = linear_slope_multiplier
   )
   
   verbose_print("Step 2: Generating censoring times...", 2)
@@ -334,13 +406,17 @@ generate_simulated_data <-
   verbose_print("Step 3: Defining the baseline hazard function...", 2)
   hazard_function <- function(t, x, betas, ...) {
     verbose_print(paste0("baseline_type passed to hazard_function is:    ", baseline_type), 2) 
+    # calculate_hazard(
+    #   t, x,
+    #   is_time_varying = is_time_varying, 
+    #   baseline_type = baseline_type, 
+    #   eta_type = eta_type,
+    #   linear_intercept = linear_intercept,
+    #   linear_slope_multiplier = linear_slope_multiplier)  # Passing baseline_type and eta_type
     calculate_hazard(
       t, x,
       is_time_varying = is_time_varying, 
-      baseline_type = baseline_type, 
-      eta_type = eta_type,
-      linear_intercept = linear_intercept,
-      linear_slope_multiplier = linear_slope_multiplier)  # Passing baseline_type and eta_type
+      baseline_type = baseline_type)
   }
   
   # Step 4: Simulate survival data

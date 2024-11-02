@@ -562,12 +562,23 @@ S_lasso <- function(train_data,
   regressor <- cbind(transformed_X, regressor_CATE)
   regressor <- as.matrix(regressor)
   
-  m <- cv.glmnet(regressor, Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
-                  # lambda = 10^seq(-4, 1, length = 100),
-                 family = "cox"
-                 )
+  if (CATE_spec == "linear" & regressor_spec == "linear-only"){
+    m <- coxph(
+      Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10 + 
+        W * (1 + X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10),
+      data = train_data
+    )
+    
+    m_beta <- coef(m)
+  }else{
+    m <- cv.glmnet(regressor, Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
+                   # lambda = 10^seq(-4, 1, length = 100),
+                   family = "cox"
+    )
+    
+    m_beta <- coef(m, s = "lambda.min")
+  }
   
-  m_beta <- coef(m, s = "lambda.min")
 
   n_transformed_X <- ncol(transformed_X)
   beta_CATE <- m_beta[(n_transformed_X + 1):length(m_beta)] 
@@ -1333,43 +1344,44 @@ TV_CSL_nuisance <- function(fold_train,
 }
 
 
-fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
+fit_TV_CSL <- function(fold_causal_fitted, 
+                       final_model_method, 
+                       test_data, 
+                       beta_CATE_first_stage = NULL) {
   
   beta_CATE <- NULL
+  if (is.null(beta_CATE_first_stage)){
+    n_regressors <- ncol(fold_causal_fitted %>% select(starts_with("X."))) ## we hand assume CATE type is linear
+    beta_CATE_first_stage <- rep(0, n_regressors+1)
+  }
   
+  # The regressors differentiates because coxph needs data frame type with explicit column names
+  #   but lasso needs 
   if (final_model_method == "coxph") {
+    regressors <- cbind(1, fold_causal_fitted %>% select(starts_with("X.")) )
+    n_regressors <- ncol(regressors) - 1
     
-    # Select regressors that start with "X."
-    regressors <- fold_causal_fitted %>% select(starts_with("X."))
-    n_regressors <- ncol(regressors)  # Get the number of regressors
+    interaction_terms <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) * regressors
+    colnames(interaction_terms) <- c("intercept", paste0("interaction_X", 1:n_regressors)) 
     
-    # Compute interaction terms between (W - a_t_X) and the regressors
-    interaction_terms <- (fold_causal_fitted$W - fold_causal_fitted$a_t_X) * 
-      regressors
     
-    # Name the new interaction columns dynamically (interaction_X1, interaction_X2, ..., interaction_Xn)
-    colnames(interaction_terms) <- paste0("interaction_X", 1:n_regressors)
-    
-    # Add interaction terms to the data frame
     fold_causal_fitted <- cbind(fold_causal_fitted, interaction_terms)
     
-    # Create the formula dynamically using paste()
-    interaction_formula <- paste(paste0("interaction_X", 1:n_regressors), collapse = " + ")
+    interaction_formula <- paste(colnames(interaction_terms), collapse = " + ")
     final_formula <- as.formula(paste("Surv(tstart, tstop, Delta) ~", interaction_formula, "+ offset(nu_X)"))
     
-    # Fit the Cox proportional hazards model using the dynamic formula
     final_model <- coxph(
       final_formula, 
       data = fold_causal_fitted, 
-      ties = "breslow"
+      ties = "breslow",
+      init = beta_CATE_first_stage
     )
     
-    # Extract the coefficients
     beta_CATE <- coef(final_model)
   } else if (final_model_method == "lasso") {
     
     regressor_TV_CSL <- (fold_causal_fitted$W - as.vector(fold_causal_fitted$a_t_X)) *
-      as.matrix(fold_causal_fitted[, paste0("X.", 1:10)])
+      cbind(1, as.matrix(fold_causal_fitted[, paste0("X.", 1:10)]))
     
     final_model <- cv.glmnet(
       regressor_TV_CSL, 
@@ -1383,7 +1395,7 @@ fit_TV_CSL <- function(fold_causal_fitted, final_model_method, test_data) {
   }
   print("beta_CATE")
   print(beta_CATE)
-  test_regressor_CATE <- as.matrix(test_data %>% select(starts_with("X.")))
+  test_regressor_CATE <- cbind(1, as.matrix(test_data %>% select(starts_with("X.")) ) )
   CATE_est <- as.vector(test_regressor_CATE %*% beta_CATE)
   
   ret <- list(
