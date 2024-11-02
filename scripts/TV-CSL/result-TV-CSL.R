@@ -5,7 +5,11 @@ source("scripts/TV-CSL/result-process.R")
 
 
 process_results_to_csv(
-  "scripts/TV-CSL/params.json"
+  "scripts/TV-CSL/params-lasso.json"
+)
+
+process_results_to_csv(
+  "scripts/TV-CSL/params-TV-CSL.json"
 )
 
 

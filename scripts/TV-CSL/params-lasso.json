@@ -1,5 +1,8 @@
 {
   "n": 500,
+  "R": 100,
+  "eta_type": "non-linear",
+  "CATE_type": "non-linear",
   "methods": {
     "lasso": {
         "enabled": true,

@@ -100,9 +100,21 @@ process_results_to_csv <- function(json_file) {
   
   eta_type_folder_name <- 
     paste0(config$eta_type, "_", config$CATE_type)
+  
+  methods <- config$methods
+  is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
+  is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
+  is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
+  method_setting <- paste0(
+    ifelse(is_running_cox, "cox_", ""),
+    ifelse(is_running_lasso, "lasso_", ""),
+    ifelse(is_running_TV_CSL, "TV-CSL_", "")
+  )
+  
   metrics_csv_file <- 
     file.path(output_csv_dir, 
-              paste0(eta_type_folder_name,"_n_", n, "_est_quality.csv") )
+              paste0(method_setting, eta_type_folder_name,"_n_", n, "_est_quality.csv") )
+  
   write.csv(
     aggregated_metrics, 
     metrics_csv_file, 

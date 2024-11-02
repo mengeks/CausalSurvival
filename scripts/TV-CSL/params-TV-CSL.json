@@ -2,7 +2,7 @@
   "n": 500,
   "R": 100,
   "eta_type": "non-linear",
-  "CATE_type": "linear",
+  "CATE_type": "non-linear",
   "methods": {
     "TV_CSL": {
         "enabled": true,
