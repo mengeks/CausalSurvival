@@ -52,8 +52,8 @@ compare_with_coxph <- function(time, status, covar, offset = NULL) {
 
 
 # Step 4: Test Function to Run Everything and Output the Results
-test_cox_loglik <- function(n, p, true_beta, init_beta, offset = NULL) {
-  # Generate the data with or without offset
+test_cox_loglik <- function(n, p, true_beta, init_beta, offset = NULL, seed_value = 123) {
+  
   data <- generate_cox_data(n = n, p = p, true_beta = true_beta, offset = offset)
   
   # Fit the model using custom Cox log-likelihood

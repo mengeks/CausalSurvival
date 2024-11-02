@@ -1,6 +1,10 @@
+library(here)
+library(survival)
+source(here("R/cox-loglik.R"))
+source(here::here("tests/test-helper-cox-loglik.R"))
 
 
-# Step 5: Run the Test
+#### Test on DGPs
 set.seed(123)
 # Test 1: p = 1
 n1 <- 1000  # Number of observations
@@ -35,8 +39,10 @@ p <- 3
 true_beta <- c(0.5, -0.3, 0.2)
 init_beta <- rep(0, p)
 
+source(here::here("tests/test-helper-cox-loglik.R"))
 cat("\nRunning test for p = 3 with no offset\n")
 test_cox_loglik(n = n, p = p, true_beta = true_beta, init_beta = init_beta)
+
 
 # Test with offset
 set.seed(123)
@@ -44,4 +50,7 @@ offset_vector <- rnorm(n, mean = 2, sd = 1)
 
 cat("\nRunning test for p = 3 with offset\n")
 test_cox_loglik(n = n, p = p, true_beta = true_beta, init_beta = init_beta, offset = offset_vector)
+
+test_cox_loglik(n = n, p = p, true_beta = true_beta, 
+                init_beta = true_beta, offset = offset_vector)
 
