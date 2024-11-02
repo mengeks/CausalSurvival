@@ -2,26 +2,31 @@ library(here)
 library(survival)
 source(here("R/cox-loglik.R"))
 
-generate_cox_data <- function(n, p, true_beta, baseline_hazard = 0.1, event_prob = 0.7, offset = NULL) {
-  # Simulate covariates
+generate_linear_predictor <- function(n, p, true_beta) {
   covar <- matrix(rnorm(n * p), nrow = n, ncol = p)
-  
-  # Generate column names for covariates
   colnames(covar) <- paste0("covar.", 1:p)
-  
-  # Simulate survival times and censoring
   linear_predictor <- covar %*% true_beta
-  if (is.null(offset)) {
-    offset <- rep(0, n)  # Default offset is 0 if none provided
-  }
-  time <- rexp(n, rate = baseline_hazard * exp(linear_predictor + offset))
-  status <- rbinom(n, 1, event_prob)  # event_prob events (deaths), remainder censored
+  return(list(linear_predictor = linear_predictor, covar = covar))
+}
+
+generate_cox_data <- function(n, p, true_beta, baseline_hazard = 0.1, event_prob = 0.7, offset = NULL) {
+  pred_data <- generate_linear_predictor(n, p, true_beta)
   
-  # No strata for simplicity
+  if (is.null(offset)) {
+    offset <- rep(0, n)
+  }
+  
+  time <- rexp(n, rate = baseline_hazard * exp(pred_data$linear_predictor + offset))
+  status <- rbinom(n, 1, event_prob)
   strata <- rep(1, n)
   
-  # Return data as a list
-  return(list(time = time, status = status, covar = covar, strata = strata, offset = offset))
+  return(list(
+    time = time,
+    status = status,
+    covar = pred_data$covar,
+    strata = strata,
+    offset = offset
+  ))
 }
 
 # Step 3: Perform Comparison with coxph
