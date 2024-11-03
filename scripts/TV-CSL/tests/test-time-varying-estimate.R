@@ -22,7 +22,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 final_model_method <- "coxph"
@@ -68,7 +68,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 final_model_method <- "coxph"
@@ -114,7 +114,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 final_model_method <- "coxph"
@@ -154,7 +154,7 @@ fold_nuisance <- data$fold_nuisance
 fold_causal <- data$fold_causal
 train_data_original_nuisance <- data$train_data_original_nuisance
 
-regressor_spec <- "linear-only"
+regressor_spec <- "linear"
 prop_score_spec <- "cox-linear-all-data"
 lasso_type <- "S-lasso"
 source("scripts/TV-CSL/time-varying-estimate.R")
@@ -190,7 +190,7 @@ test_that("m_regression function returns numeric m_beta", {
   train_data_original_nuisance <- data$train_data_original_nuisance
   
   # Run m_regression
-  regressor_spec <- "linear-only"
+  regressor_spec <- "linear"
   m_ret <- m_regression(
     train_data = fold_nuisance, 
     test_data = fold_causal, 
@@ -216,7 +216,7 @@ test_that("m_regression recovers true coefficients with zero HTE and linear base
   m_ret <- m_regression(
     train_data = train_data_pseudo, 
     test_data = train_data_pseudo, 
-    regressor_spec = "linear-only",
+    regressor_spec = "linear",
     verbose = 0
   )
   
@@ -238,39 +238,6 @@ test_that("m_regression recovers true coefficients with zero HTE and linear base
   
 })
 
-######
-#### Test Lasso
-n = 500; i <- 1
-eta_type <- "10-dim-non-linear"
-HTE_type <- "linear"
-train_data_origin <- 
-  read_single_simulation_data(
-    n = n, 
-    i = i, 
-    eta_type = eta_type,
-    HTE_type = HTE_type)$data
-
-train_data <- 
-  preprocess_data(single_data = train_data_origin, 
-                  run_time_varying = T)
-test_data <- 
-  read_single_simulation_data(
-    n = n, 
-    i = i + 100, 
-    eta_type = eta_type,
-    HTE_type = HTE_type)$data
-
-
-regressor_spec <- "linear-only"
-HTE_spec <- "correctly-specified"
-source("scripts/TV-CSL/time-varying-estimate.R")
-
-## Test S_lasso <- function(train_data, test_data, regressor_spec, HTE_spec)
-lasso_ret <-
-  S_lasso(train_data = train_data,
-          test_data = test_data,
-          regressor_spec = regressor_spec,
-          HTE_spec = HTE_spec)
 
 
 
@@ -292,15 +259,15 @@ source("scripts/TV-CSL/time-varying-estimate.R")
 
 # Tests for transform_X
 
-test_that("linear-only transformation returns correct number of columns", {
-  transformed <- transform_X(df_sample, regressor_spec = "linear-only")
+test_that("linear transformation returns correct number of columns", {
+  transformed <- transform_X(df_sample, regressor_spec = "linear")
   
   expect_equal(ncol(transformed), 3)
   expect_equal(colnames(transformed), c("X.1", "X.2", "X.3"))
 })
 
-test_that("mild-complex transformation includes splines, square, and interaction terms", {
-  transformed <- transform_X(df_sample, regressor_spec = "mild-complex")
+test_that("complex transformation includes splines, square, and interaction terms", {
+  transformed <- transform_X(df_sample, regressor_spec = "complex")
   
   expect_true(any(grepl("X.1_spline", colnames(transformed))))
   expect_true(any(grepl("X.3_spline", colnames(transformed))))
@@ -315,22 +282,60 @@ test_that("mild-complex transformation includes splines, square, and interaction
 
 
 
-library(testthat)
+######
+#### Test Lasso
+### 
+source("R/data-handler.R")
+n = 500; i <- 1
+eta_type <- "non-linear"
+HTE_type <- "linear"
+train_data_origin <- 
+  read_single_simulation_data(
+    n = n, 
+    i = i, 
+    eta_type = eta_type,
+    HTE_type = HTE_type)$data
+
+train_data <- 
+  preprocess_data(single_data = train_data_origin, 
+                  run_time_varying = T)
+test_data <- 
+  read_single_simulation_data(
+    n = n, 
+    i = i + 100, 
+    eta_type = eta_type,
+    HTE_type = HTE_type)$data
 
 
+# regressor_spec <- "linear"
+regressor_spec <- "complex"
+HTE_spec <- "linear"
+source("scripts/TV-CSL/time-varying-estimate.R")
+
+## Test S_lasso <- function(train_data, test_data, regressor_spec, HTE_spec)
+lasso_ret <-
+  S_lasso(train_data = train_data,
+          test_data = test_data,
+          regressor_spec = regressor_spec,
+          HTE_spec = HTE_spec)
+lasso_ret$beta_eta_0
+lasso_ret$beta_HTE
+
+
+source("scripts/TV-CSL/time-varying-estimate.R")
 test_that("Check correct file paths for lasso", {
   csv_file <- generate_output_path(
     is_running_cox = FALSE,
     is_running_lasso = TRUE,
     is_running_TV_CSL = FALSE,
     eta_type = "linear",
-    HTE_type = "ReLU",
+    HTE_type = "linear",
     n = 500,
     i = 1,
     seed_value = 12345
   )
   
-  expected_path <- "scripts/TV-CSL/results/lasso_eta-linear_HTE-ReLU_n-500/lasso_eta-linear_HTE-ReLU_n-500-result-iteration_1-seed_12345.csv"
+  expected_path <- "scripts/TV-CSL/results/lasso_eta-linear_HTE-linear_n-500/result-iteration_1-seed_12345.csv"
   expect_equal(csv_file, expected_path)
 })
 

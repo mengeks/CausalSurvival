@@ -35,7 +35,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 source("scripts/TV-CSL/time-varying-estimate.R")
 final_model_method <- "coxph"
@@ -74,11 +74,11 @@ print(MSE)
 
 ## Try manually use 
 ## 1. Extract the first step -- this makes sense because this is consistent
-## 1.1 Let S_lasso to use coxph when both HTE_spec is "linear" and regressor_spec is "linear-only" -- done
+## 1.1 Let S_lasso to use coxph when both HTE_spec is "linear" and regressor_spec is "linear" -- done
 first_stage_lasso_ret <- S_lasso(
   train_data = fold_nuisance,
   test_data = fold_causal,
-  regressor_spec = "linear-only",
+  regressor_spec = "linear",
   HTE_spec = "linear" # we hard code this
 )
 
@@ -211,7 +211,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 # the hope here is when we restrict to two dimensional parameters, we could see 
@@ -246,7 +246,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 final_model_method <- "coxph"
@@ -292,7 +292,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 final_model_method <- "coxph"
@@ -446,7 +446,7 @@ fold_causal_fitted <- TV_CSL_nuisance(
   train_data_original = train_data_original_nuisance,
   prop_score_spec = "cox-linear-all-data",
   lasso_type = "m-regression",
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 final_model_method <- "coxph"

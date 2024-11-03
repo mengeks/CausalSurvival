@@ -14,11 +14,10 @@ rstudio_singularity_image="/n/singularity_images/informatics/ifxrstudio/ifxrstud
 json_file=$1
 verbose=${2:-0}
 
-# R=$(jq '.R' $json_file)
 n=$(jq '.n' "$json_file")
 
 for eta_type in "linear" "non-linear"; do
-  for HTE_type in "zero" "constant" "ReLU" "linear" "non-linear"; do
+  for HTE_type in "zero" "constant" "linear" "non-linear"; do
     
     log_dir="/n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/scripts/TV-CSL/results/lasso_eta-${eta_type}_HTE-${HTE_type}_n-${n}"
     mkdir -p "$log_dir"

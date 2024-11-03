@@ -36,6 +36,14 @@ read_single_simulation_data <-
 
 RESULTS_DIR <- "scripts/TV-CSL/results/"
 
+generate_output_folder <- function(results_dir, method_setting, eta_type, HTE_type, n) {
+  dgp_setting <- paste0("eta-", eta_type, "_HTE-", HTE_type)
+  output_folder <- paste0(results_dir, method_setting, dgp_setting, "_n-", n, "/")
+  dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
+  return(output_folder)
+}
+
+
 #' Generate file paths for experiment results and save data to CSV
 #'
 #' @param is_running_cox Logical, whether cox method is running
@@ -63,14 +71,13 @@ generate_output_path <- function(results_dir = "scripts/TV-CSL/results/",
     ifelse(is_running_lasso, "lasso_", ""),
     ifelse(is_running_TV_CSL, "TV-CSL_", "")
   )
-  
-  dgp_setting <- paste0("eta-", eta_type, "_HTE-", HTE_type)
-  
-  
-  output_folder <- paste0(
-    results_dir,
-    method_setting, 
-    dgp_setting, "_n-", n, "/"
+
+  output_folder <- generate_output_folder(
+    results_dir = results_dir,
+    method_setting = method_setting, 
+    eta_type = eta_type, 
+    HTE_type = HTE_type, 
+    n = n
   )
   
   result_csv_file <- paste0(
@@ -78,9 +85,37 @@ generate_output_path <- function(results_dir = "scripts/TV-CSL/results/",
     "result-iteration_", i, "-seed_", seed_value, ".csv"
   )
   
-  dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
   
   return(result_csv_file)
 }
 
+
+library(readr)
+save_res_to_csv<-
+  function(curr_res,
+           FNAME){
+    curr_res_df <- as.data.frame(curr_res, stringsAsFactors = FALSE)
+    
+    if (file.exists(FNAME)) {
+      write_csv(curr_res_df, FNAME, append=TRUE)
+    } else {
+      write_csv(curr_res_df, FNAME)
+    }
+    print(paste("Result for config_name:", curr_res_df$config_name, "saved to", FNAME))
+  } 
+
+
+save_lasso_beta <- function(lasso_ret, output_folder, i, config_name) {
+  fname_HTE <- paste0(output_folder, "/beta-HTE.csv")
+  fname_eta_0 <- paste0(output_folder, "/beta-eta-0.csv")
+  
+  curr_res_HTE <- c(iteration = i, config_name = config_name, lasso_ret$beta_HTE)
+  curr_res_eta_0 <- c(iteration = i, config_name = config_name, lasso_ret$beta_eta_0)
+  
+  curr_res_HTE_df <- as.data.frame(t(curr_res_HTE), stringsAsFactors = FALSE)
+  curr_res_eta_0_df <- as.data.frame(t(curr_res_eta_0), stringsAsFactors = FALSE)
+  
+  save_res_to_csv(curr_res_HTE_df, fname_HTE)
+  save_res_to_csv(curr_res_eta_0_df, fname_eta_0)
+}
 

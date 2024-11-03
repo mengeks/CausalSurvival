@@ -154,7 +154,7 @@ source("scripts/TV-CSL/time-varying-estimate.R")
 lasso_ret <-
   S_lasso(train_data = df_time_var,
           test_data = df_original,
-          regressor_spec = "mild-complex",
+          regressor_spec = "complex",
           HTE_spec = "linear",
           verbose = 2)
 
@@ -165,7 +165,7 @@ source("scripts/TV-CSL/time-varying-estimate.R")
 cox_ret <-
   S_cox(train_data = df_time_var,
           test_data = df_original,
-          regressor_spec = "linear-only",
+          regressor_spec = "linear",
           HTE_spec = "linear",
           verbose = 2)
 cox_ret$beta_HTE
@@ -199,7 +199,7 @@ TV_CSL_ret <- TV_CSL(train_data = df_time_var,
                      K = 5, 
                      prop_score_spec = "cox-linear-all-data", 
                      lasso_type = "S-lasso", 
-                     regressor_spec = "linear-only", 
+                     regressor_spec = "linear", 
                      final_model_method = "coxph",
                      id_var = "subject") 
 

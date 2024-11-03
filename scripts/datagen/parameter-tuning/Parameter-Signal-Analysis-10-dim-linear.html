@@ -634,7 +634,7 @@ if (!file.exists(file_path)) {
 <h2>Model Fitting and Evaluation</h2>
 <pre class="r"><code>regressor &lt;- transform_X(
   single_data = train_data_pseudo,
-  regressor_spec = &quot;linear-only&quot;
+  regressor_spec = &quot;linear&quot;
 )
 
 m_lasso_default &lt;- cv.glmnet(
@@ -856,7 +856,7 @@ if (!file.exists(file_path_strong)) {
 
 regressor_strong &lt;- transform_X(
   single_data = train_data_pseudo_strong,
-  regressor_spec = &quot;linear-only&quot;
+  regressor_spec = &quot;linear&quot;
 )
 
 # Fit models with stronger signal

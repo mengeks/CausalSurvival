@@ -74,7 +74,7 @@ if (!file.exists(file_path)) {
 ```{r model-fitting}
 regressor <- transform_X(
   single_data = train_data_pseudo,
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 m_lasso_default <- cv.glmnet(
@@ -224,7 +224,7 @@ if (!file.exists(file_path_strong)) {
 
 regressor_strong <- transform_X(
   single_data = train_data_pseudo_strong,
-  regressor_spec = "linear-only"
+  regressor_spec = "linear"
 )
 
 # Fit models with stronger signal

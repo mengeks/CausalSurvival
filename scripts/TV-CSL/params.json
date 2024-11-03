@@ -16,8 +16,8 @@
     "lasso": {
         "enabled": false,
         "regressor_specs": [
-          "linear-only",
-          "mild-complex"
+          "linear",
+          "complex"
         ],
         "lasso_types": [
           "S-lasso"
@@ -35,8 +35,8 @@
           "cox-linear-all-data"
         ],
         "regressor_specs": [
-          "linear-only",
-          "mild-complex"
+          "linear",
+          "complex"
         ],
         "lasso_types": [
           "T-lasso",

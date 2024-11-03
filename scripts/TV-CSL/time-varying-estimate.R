@@ -311,8 +311,8 @@ extract_W_coefficients <- function(fit, HTE_type = "constant") {
 #' @param test_data A data frame containing the test data for evaluating the model. Must include columns 
 #'   for HTE and survival-related variables.
 #' @param regressor_spec A character string specifying the type of regressor transformation:
-#'   - "linear-only": Uses linear terms only.
-#'   - "mild-complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
+#'   - "linear": Uses linear terms only.
+#'   - "complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
 #' @param HTE_spec A character string specifying the specification for HTE estimation:
 #'   - "correctly-specified": Uses true variables (`X.1` and `X.10`) for HTE estimation.
 #'   - "linear": Uses all variables starting with `X.` for HTE estimation with linear terms.
@@ -331,8 +331,8 @@ extract_W_coefficients <- function(fit, HTE_type = "constant") {
 #'   - `MSE`: Mean squared error of HTE estimation.
 #'
 #' @examples
-#' # Fit the model with "linear-only" regressor and "correctly-specified" HTE
-#' result <- S_cox(train_data = df_train, test_data = df_test, regressor_spec = "linear-only", HTE_spec = "correctly-specified")
+#' # Fit the model with "linear" regressor and "correctly-specified" HTE
+#' result <- S_cox(train_data = df_train, test_data = df_test, regressor_spec = "linear", HTE_spec = "correctly-specified")
 #'
 #' @export
 S_cox <- function(train_data, 
@@ -432,7 +432,7 @@ S_cox <- function(train_data,
 
 T_lasso <- function(train_data, 
                     test_data, 
-                    regressor_spec = "mild-complex") {
+                    regressor_spec = "complex") {
 
   
   # Get row indexes for control and treatment groups
@@ -510,8 +510,8 @@ T_lasso <- function(train_data,
 #' @param test_data A data frame containing the test data for evaluating the model. Must include columns 
 #'   for HTE and survival-related variables.
 #' @param regressor_spec A character string specifying the type of regressor transformation:
-#'   - "linear-only": Uses linear terms only.
-#'   - "mild-complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
+#'   - "linear": Uses linear terms only.
+#'   - "complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
 #' @param HTE_spec A character string specifying the specification for HTE estimation:
 #'   - "correctly-specified": Uses true variables (`X.1` and `X.10`) for HTE estimation.
 #'   - "linear": Uses all variables starting with `X.` for HTE estimation with linear terms.
@@ -529,8 +529,8 @@ T_lasso <- function(train_data,
 #'   - `MSE`: Mean squared error of HTE estimation.
 #'
 #' @examples
-#' # Fit the model with "linear-only" regressor and "correctly-specified" HTE
-#' result <- S_lasso(train_data = df_train, test_data = df_test, regressor_spec = "linear-only", HTE_spec = "correctly-specified")
+#' # Fit the model with "linear" regressor and "correctly-specified" HTE
+#' result <- S_lasso(train_data = df_train, test_data = df_test, regressor_spec = "linear", HTE_spec = "correctly-specified")
 #'
 #' @export
 S_lasso <- function(train_data, 
@@ -546,7 +546,7 @@ S_lasso <- function(train_data,
   
   complex_X <- transform_X(
     single_data = train_data, 
-    regressor_spec = "mild-complex"
+    regressor_spec = "complex"
   )
   
   if (HTE_spec == "correctly-specified") {
@@ -562,10 +562,15 @@ S_lasso <- function(train_data,
   regressor <- cbind(transformed_X, regressor_HTE)
   regressor <- as.matrix(regressor)
   
-  if (HTE_spec == "linear" & regressor_spec == "linear-only"){
+  if (HTE_spec == "linear" & regressor_spec == "linear"){
+    # m <- coxph(
+    #   Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10 + 
+    #     W * (1 + X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10),
+    #   data = train_data
+    # )
     m <- coxph(
-      Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10 + 
-        W * (1 + X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10),
+      Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + 
+        W * (1 + X.1 + X.2 + X.3),
       data = train_data
     )
     
@@ -594,7 +599,7 @@ S_lasso <- function(train_data,
     regressor_spec = regressor_spec)
   test_complex_X <- transform_X(
     single_data = test_data,
-    regressor_spec = "mild-complex")
+    regressor_spec = "complex")
   
   
   if (verbose >= 1){
@@ -605,7 +610,6 @@ S_lasso <- function(train_data,
     test_regressor_HTE <- cbind(test_data$X.1, test_data$X.10)
   } else if (HTE_spec == "linear") {
     test_regressor_HTE <- cbind(1, as.matrix(test_data %>% select(starts_with("X.")) ) )
-    # test_regressor_HTE <- cbind(1, as.matrix(test_data[, paste0("X.", 1:10)]))
   } else if (HTE_spec == "flexible") {
     test_regressor_HTE <- cbind(1, as.matrix(test_transformed_X))
   } else if (HTE_spec == "complex") {
@@ -659,13 +663,13 @@ S_lasso <- function(train_data,
 #' @param train_data A data frame containing the training data. Must include columns for treatment (`W`), 
 #'   time-varying covariates (`X.`), and survival times (`tstart`, `tstop`, `Delta`).
 #' @param regressor_spec A character string specifying the type of regressor transformation:
-#'   - "linear-only": Uses linear terms only.
-#'   - "mild-complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
+#'   - "linear": Uses linear terms only.
+#'   - "complex": Includes natural splines, square terms, and pairwise interactions for continuous variables.
 #'
 #'
 #' @examples
-#' # Fit the model with "linear-only" regressor and "correctly-specified" HTE
-#' result <- S_lasso(train_data = df_train, test_data = df_test, regressor_spec = "linear-only", HTE_spec = "correctly-specified")
+#' # Fit the model with "linear" regressor and "correctly-specified" HTE
+#' result <- S_lasso(train_data = df_train, test_data = df_test, regressor_spec = "linear", HTE_spec = "correctly-specified")
 #'
 #' @export
 m_regression <- function(train_data, 
@@ -681,14 +685,14 @@ m_regression <- function(train_data,
   
   regressor <- as.matrix(transformed_X)
   
-  if (regressor_spec == "linear-only"){
+  if (regressor_spec == "linear"){
     m <- coxph(
       Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
       data = train_data
     )
     
     m_beta <- coef(m)
-  }else if (regressor_spec == "mild-complex"){
+  }else if (regressor_spec == "complex"){
     m <- cv.glmnet(regressor, 
                    Surv(train_data$tstart, train_data$tstop, train_data$Delta), 
                    family = "cox",
@@ -737,8 +741,8 @@ m_regression <- function(train_data,
 #' @param folds A vector or factor specifying the fold assignment for each observation in `train_data`.
 #' @param K An integer specifying the number of folds for cross-fitting.
 #' @param prop_score_spec A character string specifying the type of propensity score specification to use in the nuisance model.
-#' @param lasso_type A character string specifying the type of Lasso to use in the model (e.g., "linear", "mild-complex").
-#' @param regressor_spec A character string specifying the regressor transformation ("linear-only" or "mild-complex").
+#' @param lasso_type A character string specifying the type of Lasso to use in the model (e.g., "linear", "complex").
+#' @param regressor_spec A character string specifying the regressor transformation ("linear" or "complex").
 #' @param final_model_method A character string specifying the final model method (e.g., "cox", "lasso").
 #'
 #' @return A list containing the following components:
@@ -756,8 +760,8 @@ m_regression <- function(train_data,
 #'   folds = folds_vector,
 #'   K = 5, 
 #'   prop_score_spec = "logit",
-#'   lasso_type = "mild-complex",
-#'   regressor_spec = "linear-only",
+#'   lasso_type = "complex",
+#'   regressor_spec = "linear",
 #'   final_model_method = "cox"
 #' )
 #'
@@ -858,12 +862,12 @@ TV_CSL <- function(train_data,
 #'
 #' @param single_data A data frame that contains the regressors, with column names starting with "X.".
 #' @param regressor_spec A character string specifying the type of transformation. 
-#'   - "linear-only": Generates linear terms only.
-#'   - "mild-complex": Generates linear terms, 3 natural splines for continuous variables, square terms, and pairwise interaction terms for both continuous and binary variables.
+#'   - "linear": Generates linear terms only.
+#'   - "complex": Generates linear terms, 3 natural splines for continuous variables, square terms, and pairwise interaction terms for both continuous and binary variables.
 #'
 #' @details
-#' - If `regressor_spec` is "linear-only", the function will return a matrix of linear terms from all variables starting with "X.".
-#' - If `regressor_spec` is "mild-complex", the function applies the following transformations:
+#' - If `regressor_spec` is "linear", the function will return a matrix of linear terms from all variables starting with "X.".
+#' - If `regressor_spec` is "complex", the function applies the following transformations:
 #'   - Linear terms for all variables.
 #'   - 3 natural spline terms for continuous variables.
 #'   - Square terms for continuous variables.
@@ -872,14 +876,14 @@ TV_CSL <- function(train_data,
 #' @return A matrix of transformed regressors, including linear terms, splines, square terms, and interactions depending on the specified transformation type.
 #' 
 #' @examples
-#' # Using linear-only transformation
-#' transformed_X_linear <- transform_X(single_data = df_time_var, regressor_spec = "linear-only")
+#' # Using linear transformation
+#' transformed_X_linear <- transform_X(single_data = df_time_var, regressor_spec = "linear")
 #'
-#' # Using mild-complex transformation
-#' transformed_X_complex <- transform_X(single_data = df_time_var, regressor_spec = "mild-complex")
+#' # Using complex transformation
+#' transformed_X_complex <- transform_X(single_data = df_time_var, regressor_spec = "complex")
 #'
 #' @export
-transform_X <- function(single_data, regressor_spec = "linear-only") {
+transform_X <- function(single_data, regressor_spec = "linear") {
   library(splines)
   library(dplyr)
   
@@ -888,7 +892,7 @@ transform_X <- function(single_data, regressor_spec = "linear-only") {
   
   transformed_X <- matrix(nrow = nrow(X_vars), ncol = 0)
   
-  if (regressor_spec == "mild-complex") {
+  if (regressor_spec == "complex") {
     
     # transformed_X <- as.matrix(X_vars)
     continuous_vars <- names(X_vars)[sapply(X_vars, function(x) length(unique(x)) > 2)]
@@ -917,7 +921,7 @@ transform_X <- function(single_data, regressor_spec = "linear-only") {
       }
     }
     
-  } else if (regressor_spec == "linear-only") {
+  } else if (regressor_spec == "linear") {
     
     transformed_X <- as.matrix(X_vars)
     
@@ -1006,19 +1010,14 @@ run_lasso_estimation <- function(
     for (regressor_spec in methods_lasso$regressor_specs) {
       for (lasso_type in methods_lasso$lasso_types) {
         
-        
-        
         if (lasso_type == "T-lasso"){
-          config_name <- paste(lasso_type, regressor_spec, sep = "_")
+          # config_name <- paste(lasso_type, regressor_spec, sep = "_")
+          config_name <- paste("lasso-type-",lasso_type, "_regressor-spec_", regressor_spec)
           start_time <- Sys.time()
           lasso_ret <-
             T_lasso(train_data = train_data,
                     test_data = test_data,
                     regressor_spec = regressor_spec)
-          ## Test output
-          # lasso_ret <- list(MSE = 1, 
-          #                   HTE_est = 1,
-          #                   HTE_true = 1)
           
           end_time <- Sys.time()
           
@@ -1038,21 +1037,33 @@ run_lasso_estimation <- function(
             print(paste0("HTE_spec: ", HTE_spec))
             
             start_time <- Sys.time()
-            config_name <- paste(lasso_type, HTE_spec, regressor_spec, sep = "_")
+            # config_name <- paste(lasso_type, HTE_spec, regressor_spec, sep = "_")
+            config_name <- paste("lasso-type-",lasso_type, "_regressor-spec_", regressor_spec)
             lasso_ret <-
               S_lasso(train_data = train_data,
                       test_data = test_data,
                       regressor_spec = regressor_spec,
                       HTE_spec = HTE_spec)
-            ## Test output
-            # lasso_ret <- list(MSE = 1, 
-            #                   HTE_est = 1,
-            #                   HTE_true = 1)
             
             end_time <- Sys.time()
             
             time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
             print(paste0("config_name: ", config_name, "; MSE: ", lasso_ret$MSE, "; time_taken: ", time_taken))
+            
+            ## save lasso_ret$beta_HTE and lasso_ret$beta_eta_0
+            output_folder <- generate_output_folder(
+              results_dir = RESULTS_DIR,
+              method_setting = "lasso_", 
+              eta_type = eta_type, 
+              HTE_type = HTE_type, 
+              n = n
+            )
+            
+            save_lasso_beta(lasso_ret = lasso_ret, 
+                            output_folder = output_folder, 
+                            i = i, 
+                            config_name = config_name) 
+            
             
             results[[config_name]] <- list(
               HTE_est = lasso_ret$HTE_est,
@@ -1170,29 +1181,11 @@ run_TV_CSL_estimation <- function(
           time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
           
           results[[config_name]] <- TV_CSL_ret 
-          # results[[config_name]] <- list(
-          #   HTE_est = HTE_est,
-          #   HTE_true = HTE_true,
-          #   MSE = MSE,
-          #   time_taken = time_taken
-          # )
           MSE <- TV_CSL_ret$MSE
           print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
           
           
-          library(readr)
-          save_res_to_csv<-
-            function(curr_res,
-                     FNAME){
-              curr_res_df <- as.data.frame(curr_res, stringsAsFactors = FALSE)
-              
-              if (file.exists(FNAME)) {
-                write_csv(curr_res_df, FNAME, append=TRUE)
-              } else {
-                write_csv(curr_res_df, FNAME)
-              }
-              print(paste("Result for config_name:", curr_res_df$config_name, "saved to", FNAME))
-            } 
+          
           curr_res <- list(
             Method = "TV_CSL",
             config_name = config_name,

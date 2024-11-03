@@ -10,8 +10,8 @@
           "cox-linear-censored-only"
         ],
         "regressor_specs": [
-          "linear-only",
-          "mild-complex"
+          "linear",
+          "complex"
         ],
         "lasso_types": [
           "S-lasso",
