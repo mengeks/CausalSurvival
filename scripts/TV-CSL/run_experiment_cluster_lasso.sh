@@ -7,9 +7,6 @@
 #SBATCH --mem=1G          # Memory in GB
 #SBATCH -t 02:30:00         # Runtime (hours:minutes:seconds)
 
-# module load R/4.2.2-fasrc01
-# export R_LIBS_USER=/n/home01/xmeng1/R/ifxrstudio/RELEASE_3_18
-
 # Using singularity
 my_packages=${HOME}/R/ifxrstudio/RELEASE_3_18
 rstudio_singularity_image="/n/singularity_images/informatics/ifxrstudio/ifxrstudio:RELEASE_3_18.sif"

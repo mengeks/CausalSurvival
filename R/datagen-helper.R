@@ -27,7 +27,7 @@ generate_X <-
 
 calculate_eta <- function(x, 
                           eta_type = "linear-interaction",
-                          linear_intercept = 3,
+                          linear_intercept = 0,
                           linear_slope_multiplier = 2.5) {
   # Hardcoded betas and delta
   
@@ -220,7 +220,7 @@ generate_covariates <- function(n,
                                 HTE_type = "constant",
                                 linear_HTE_multiplier = 1,
                                 eta_type = "linear",
-                                linear_intercept = 3,
+                                linear_intercept = 0,
                                 linear_slope_multiplier = 2.5) {
   
   # Step 1: Generate X using the generate_X function
@@ -270,7 +270,7 @@ generate_censoring_times <-
 
 # calculate_eta_old <- function(x, 
 #                           eta_type = "linear-interaction",
-#                           linear_intercept = 3,
+#                           linear_intercept = 0,
 #                           linear_slope_multiplier = 2.5) {
 #   # Hardcoded betas and delta
 #   betas <- rep(1, 5)
@@ -342,7 +342,7 @@ generate_simulated_data <-
            X_cov_type = "identity",
            tx_difficulty = "simple",
            HTE_type = "constant",
-           linear_intercept = 3,
+           linear_intercept = 0,
            linear_slope_multiplier = 2.5,
            linear_HTE_multiplier = 1, 
            max_censoring_time = 20,
@@ -463,48 +463,98 @@ post_process <- function(simulated_data,
 }
 
 
-
-
-# Function to generate and save datasets with params
 generate_and_save_data <- 
   function(i, 
            n, 
            path_for_sim_data, 
            params,
            verbose = 0) {
-  print(paste("Generating dataset", i, "for n =", n, "and time_varying =", is_time_varying))
-  
-  seed_value <- 123 + 11 * i
-  params$seed <- seed_value
-  
-  simulated_data_i_n <- 
-    generate_simulated_data(
-      n, 
-      is_time_varying = params$is_time_varying, 
-      light_censoring = params$light_censoring,
-      lambda_C = params$lambda_C,
-      p = params$p,
-      eta_type = params$eta_type,
-      X_distribution = params$X_distribution, 
-      X_cov_type = params$X_cov_type,
-      tx_difficulty = params$tx_difficulty,
-      HTE_type = params$HTE_type,
-      seed_value = params$seed_value,
-      verbose = verbose
+    
+    start_time <- Sys.time()  # Start timing
+    
+    seed_value <- 123 + 11 * i
+    params$seed <- seed_value
+    
+    # Print iteration details
+    cat("Iteration:", i, 
+        "Data size (n):", n, 
+        "eta_type:", params$eta_type, 
+        "HTE_type:", params$HTE_type, "\n")
+    
+    simulated_data_i_n <- 
+      generate_simulated_data(
+        n, 
+        is_time_varying = params$is_time_varying, 
+        light_censoring = params$light_censoring,
+        lambda_C = params$lambda_C,
+        p = params$p,
+        eta_type = params$eta_type,
+        X_distribution = params$X_distribution, 
+        X_cov_type = params$X_cov_type,
+        tx_difficulty = params$tx_difficulty,
+        HTE_type = params$HTE_type,
+        seed_value = params$seed_value,
+        verbose = verbose
+      )
+    
+    dataset_with_params <- list(
+      data = simulated_data_i_n,
+      params = params
     )
-  
-  
-  dataset_with_params <- list(
-    data = simulated_data_i_n,
-    params = params
-  )
-  
-  file_name <- paste0("sim_data_", i, "_n_",n, ".rds")
-  file_path <- file.path(path_for_sim_data, file_name)
-
-  saveRDS(dataset_with_params, file_path)
-  
-  cat("Saved dataset", i, "to", file_path, "\n")
-}
+    
+    file_name <- paste0("sim_data_", i, "_n_", n, ".rds")
+    file_path <- file.path(path_for_sim_data, file_name)
+    saveRDS(dataset_with_params, file_path)
+    
+    end_time <- Sys.time()  # End timing
+    time_used <- end_time - start_time  # Calculate time used
+    
+    # Print time taken
+    cat("Saved dataset", i, "to", file_path, "\n")
+    cat("Time used:", time_used, "\n")
+  }
 
 
+
+# generate_and_save_data_old <- 
+#   function(i, 
+#            n, 
+#            path_for_sim_data, 
+#            params,
+#            verbose = 0) {
+#   print(paste("Generating dataset", i, "for n =", n, "and time_varying =", is_time_varying))
+#   
+#   seed_value <- 123 + 11 * i
+#   params$seed <- seed_value
+#   
+#   simulated_data_i_n <- 
+#     generate_simulated_data(
+#       n, 
+#       is_time_varying = params$is_time_varying, 
+#       light_censoring = params$light_censoring,
+#       lambda_C = params$lambda_C,
+#       p = params$p,
+#       eta_type = params$eta_type,
+#       X_distribution = params$X_distribution, 
+#       X_cov_type = params$X_cov_type,
+#       tx_difficulty = params$tx_difficulty,
+#       HTE_type = params$HTE_type,
+#       seed_value = params$seed_value,
+#       verbose = verbose
+#     )
+#   
+#   
+#   dataset_with_params <- list(
+#     data = simulated_data_i_n,
+#     params = params
+#   )
+#   
+#   file_name <- paste0("sim_data_", i, "_n_",n, ".rds")
+#   file_path <- file.path(path_for_sim_data, file_name)
+# 
+#   saveRDS(dataset_with_params, file_path)
+#   
+#   cat("Saved dataset", i, "to", file_path, "\n")
+# }
+# 
+# 

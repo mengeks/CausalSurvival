@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Read in the JSON parameters file
 PARAMS_FILE=$1
 VERBOSE=$(jq -r '.verbose' $PARAMS_FILE)
 
