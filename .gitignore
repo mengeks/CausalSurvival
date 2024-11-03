@@ -4,6 +4,8 @@
 
 # Log files
 logs/
+R-code-logs/
+slurm-logs/
 
 # Data
 data/
