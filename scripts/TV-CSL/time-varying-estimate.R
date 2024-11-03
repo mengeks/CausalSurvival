@@ -516,7 +516,7 @@ T_lasso <- function(train_data,
 #'   - "correctly-specified": Uses true variables (`X.1` and `X.10`) for HTE estimation.
 #'   - "linear": Uses all variables starting with `X.` for HTE estimation with linear terms.
 #'   - "flexible": Uses all transformed variables (splines, interactions, etc.) for flexible HTE estimation.
-#'
+#' (TODO) change the S_lasso code to specify the names of the covariates. If covariates names is NULL, then we assumerain_data has columns named X.1, X.2, ..., X.n as covariates
 #' @return A list containing the following components:
 #'   - `m`: The fitted Lasso Cox model.
 #'   - `m_beta`: The estimated coefficients from the model.
@@ -568,11 +568,20 @@ S_lasso <- function(train_data,
     #     W * (1 + X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10),
     #   data = train_data
     # )
-    m <- coxph(
-      Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + 
-        W * (1 + X.1 + X.2 + X.3),
-      data = train_data
-    )
+    # m <- coxph(
+    #   Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + 
+    #     W * (1 + X.1 + X.2 + X.3),
+    #   data = train_data
+    # )
+    num_covariates <- ncol(train_data %>% select(starts_with("X.")))
+    
+    covariate_terms <- paste("X.", 1:num_covariates, sep = "", collapse = " + ")
+    interaction_terms <- paste("X.", 1:num_covariates, sep = "", collapse = " + ")
+    interaction_formula <- paste("W * (1 +", interaction_terms, ")")
+    
+    full_formula <- paste("Surv(tstart, tstop, Delta) ~", covariate_terms, "+", interaction_formula)
+    
+    m <- coxph(as.formula(full_formula), data = train_data)
     
     m_beta <- coef(m)
   }else{
@@ -615,7 +624,7 @@ S_lasso <- function(train_data,
   } else if (HTE_spec == "complex") {
     test_regressor_HTE <- cbind(1, as.matrix(test_complex_X))
   }
-  
+
   HTE_est <- as.vector(test_regressor_HTE %*% beta_HTE)
   HTE_true <- test_data$HTE
   
@@ -646,10 +655,12 @@ S_lasso <- function(train_data,
     MSE = MSE
   )
   
-  print("m_beta for S-lasso: ")
-  print(m_beta)
-  print("beta_HTE for S-lasso: ")
-  print(beta_HTE)
+  if (verbose >= 1){
+    print("m_beta for S-lasso: ")
+    print(m_beta)
+    print("beta_HTE for S-lasso: ")
+    print(beta_HTE)
+  }
   
   class(ret) <- "slasso"
   ret
