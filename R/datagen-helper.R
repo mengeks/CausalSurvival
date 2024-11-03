@@ -366,6 +366,7 @@ generate_simulated_data <-
     tx_difficulty = tx_difficulty,
     is_time_varying = is_time_varying,
     HTE_type = HTE_type,
+    eta_type = eta_type,
     linear_HTE_multiplier = linear_HTE_multiplier,
     linear_intercept = linear_intercept,
     linear_slope_multiplier = linear_slope_multiplier
