@@ -1045,11 +1045,10 @@ run_lasso_estimation <- function(
           
         }else if (lasso_type == "S-lasso"){
           for (HTE_spec in methods_lasso$HTE_specs){
-            print(paste0("HTE_spec: ", HTE_spec))
             
             start_time <- Sys.time()
             # config_name <- paste(lasso_type, HTE_spec, regressor_spec, sep = "_")
-            config_name <- paste("lasso-type-",lasso_type, "_regressor-spec_", regressor_spec)
+            config_name <- paste0("lasso-type-",lasso_type, "_regressor-spec-", regressor_spec, "_HTE-spec-", HTE_spec)
             lasso_ret <-
               S_lasso(train_data = train_data,
                       test_data = test_data,

@@ -3,10 +3,12 @@ library(here)
 library(dplyr)
 source("scripts/TV-CSL/result-process.R")
 
-
+# TODO: loop eta_type and HTE_type after process_results_to_csv explicitly takes into them
 process_results_to_csv(
   "scripts/TV-CSL/params-lasso.json"
 )
+
+
 
 process_results_to_csv(
   "scripts/TV-CSL/params-TV-CSL.json"

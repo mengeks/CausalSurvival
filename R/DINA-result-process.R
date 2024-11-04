@@ -159,6 +159,7 @@ save_metrics_to_csv <- function(metrics_df, time_metrics_df, output_csv_dir) {
 }
 
 # Main function to process results and write metrics to CSV
+# TODO: make process_results_to_csv explicitly takes into eta_type and HTE_type
 process_results_to_csv <- function(json_file) {
   # Load experiment configuration
   config <- load_experiment_config(json_file)
@@ -175,7 +176,6 @@ process_results_to_csv <- function(json_file) {
   # Calculate metrics for Cox, S-Lasso, and DINA methods
   metrics <- 
     calculate_metrics(results, tau_true)
-  # print(metrics$DINA_metrics)
   
   # Prepare data for saving to CSV
   metrics_df <- 

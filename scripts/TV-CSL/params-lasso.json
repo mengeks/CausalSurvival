@@ -1,8 +1,8 @@
 {
   "n": 500,
   "R": 100,
-  "eta_type": "non-linear",
-  "HTE_type": "non-linear",
+  "eta_type": "linear",
+  "HTE_type": "linear",
   "methods": {
     "lasso": {
         "enabled": true,
@@ -14,7 +14,6 @@
           "S-lasso"
         ],
         "HTE_specs": [
-          "correctly-specified",
           "linear",
           "complex"
         ]

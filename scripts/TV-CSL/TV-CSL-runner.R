@@ -14,20 +14,17 @@ source("scripts/TV-CSL/time-varying-estimate.R")
 #' @param json_file Path to the JSON configuration file.
 #' @param verbose The level of verbosity (0 = default, 1 = progress info, 2 = detailed info).
 run_experiment_iteration <- 
-  function(i, json_file, eta_type, HTE_type, verbose = 0) {
+  function(i, json_file, eta_type, HTE_type, n,  verbose = 0) {
   
   if (verbose >= 1) 
     message("Running iteration ", i)
   
   config <- fromJSON(json_file)
   
-  n <- config$n
+  # n <- config$n
   R <- config$R
   methods <- config$methods
   K <- ifelse(is.null(config$K), 5, config$K)
-  
-  # eta_type <- config$eta_type
-  # HTE_type <- config$HTE_type
   
   input_setting <- paste0(eta_type, "_", HTE_type)
   

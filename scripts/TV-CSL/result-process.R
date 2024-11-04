@@ -30,8 +30,7 @@ read_single_iteration_result <- function(csv_file) {
 # }
 
 # Function to aggregate all CSV files and calculate final metrics
-process_all_iterations <- function(config, results_dir) {
-  n <- config$n
+process_all_iterations <- function(config, results_dir, n) {
   methods <- config$methods
   eta_type <- config$eta_type
   HTE_type <- config$HTE_type
@@ -84,16 +83,60 @@ process_all_iterations <- function(config, results_dir) {
   return(aggregated_metrics)
 }
 
-process_results_to_csv <- function(json_file) {
+process_results_to_csv <- function(json_file, n_list = c(200, 500, 1000, 2000)) {
   
   config <- load_experiment_config(json_file)
-  n <- config$n
+  
+  for (n in n_list){
+    aggregated_metrics_n <- 
+      process_all_iterations(
+        config=config, 
+        results_dir=RESULTS_DIR,
+        n = n
+      )
+    aggregated_metrics_n$n <- n
+  }
+  
+  
+  output_csv_dir <- "scripts/TV-CSL/tables"
+  
+  eta_type_folder_name <- 
+    paste0(config$eta_type, "_", config$HTE_type)
+  
+  methods <- config$methods
+  is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
+  is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
+  is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
+  method_setting <- paste0(
+    ifelse(is_running_cox, "cox_", ""),
+    ifelse(is_running_lasso, "lasso_", ""),
+    ifelse(is_running_TV_CSL, "TV-CSL_", "")
+  )
+  
+  metrics_csv_file <- 
+    file.path(output_csv_dir, 
+              paste0(method_setting, eta_type_folder_name, "_est_quality.csv") )
+  
+  write.csv(
+    aggregated_metrics, 
+    metrics_csv_file, 
+    row.names = FALSE)
+  
+  cat("Aggregated results saved to", metrics_csv_file, "\n")
+}
+
+
+# TODO: make process_results_to_csv explicitly takes into eta_type and HTE_type
+process_results_to_csv_single_n <- function(json_file, n = 500) {
+  
+  config <- load_experiment_config(json_file)
   
   
   aggregated_metrics <- 
     process_all_iterations(
       config=config, 
-      results_dir=RESULTS_DIR
+      results_dir=RESULTS_DIR,
+      n = n
     )
   
   output_csv_dir <- "scripts/TV-CSL/tables"
