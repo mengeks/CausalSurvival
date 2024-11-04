@@ -105,17 +105,51 @@ save_res_to_csv<-
   } 
 
 
-save_lasso_beta <- function(lasso_ret, output_folder, i, config_name) {
-  fname_HTE <- paste0(output_folder, "/beta-HTE.csv")
-  fname_eta_0 <- paste0(output_folder, "/beta-eta-0.csv")
+save_lasso_beta <- function(lasso_ret, 
+                            output_folder, 
+                            i, 
+                            lasso_type,
+                            eta_type, 
+                            HTE_type, 
+                            stage = "final",
+                            k = 0) {
+  fname_HTE <- paste0(output_folder, "/", "eta-type-", eta_type,"_HTE-type-",HTE_type, "_beta-HTE.csv")
+  fname_eta_0 <- paste0(output_folder,"/", "eta-type-", eta_type,"_HTE-type-",HTE_type, "_beta-HTE.csv")
   
-  curr_res_HTE <- c(iteration = i, config_name = config_name, lasso_ret$beta_HTE)
-  curr_res_eta_0 <- c(iteration = i, config_name = config_name, lasso_ret$beta_eta_0)
+  curr_res_beta_HTE <- c(iteration = i, lasso_type = lasso_type, eta_type = eta_type, HTE_type = HTE_type, stage = stage, k = k,  lasso_ret$beta_HTE)
+  curr_res_beta_eta_0 <- c(iteration = i, lasso_type = lasso_type, eta_type = eta_type, HTE_type = HTE_type, stage = stage, k = k, lasso_ret$beta_eta_0)
   
-  curr_res_HTE_df <- as.data.frame(t(curr_res_HTE), stringsAsFactors = FALSE)
-  curr_res_eta_0_df <- as.data.frame(t(curr_res_eta_0), stringsAsFactors = FALSE)
+  curr_res_beta_HTE_df <- as.data.frame(t(curr_res_beta_HTE), stringsAsFactors = FALSE)
+  curr_res_beta_eta_0_df <- as.data.frame(t(curr_res_beta_eta_0), stringsAsFactors = FALSE)
   
-  save_res_to_csv(curr_res_HTE_df, fname_HTE)
-  save_res_to_csv(curr_res_eta_0_df, fname_eta_0)
+  save_res_to_csv(curr_res_beta_HTE_df, fname_HTE)
+  save_res_to_csv(curr_res_beta_eta_0_df, fname_eta_0)
 }
 
+save_lasso_MSE <- function(lasso_ret, 
+                           HTE_true, 
+                           output_folder, 
+                           i, 
+                           lasso_type,
+                           eta_type, 
+                           HTE_type, 
+                           stage = "final",
+                           k = 0) {
+  HTE_est <- lasso_ret$HTE_est
+  MSE <- mean((HTE_true - HTE_est)^2)
+  
+  fname_MSE <- paste0(output_folder, "/", "eta-type-", eta_type, "_HTE-type-", HTE_type, "_MSE.csv")
+  
+  curr_res_MSE <- data.frame(
+    iteration = i,
+    eta_type = eta_type,
+    HTE_type = HTE_type,
+    lasso_type = lasso_type,
+    stage = stage,
+    k = k,
+    MSE = MSE,
+    stringsAsFactors = FALSE
+  )
+  
+  save_res_to_csv(curr_res_MSE, fname_MSE)
+}

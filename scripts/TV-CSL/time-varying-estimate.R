@@ -740,129 +740,6 @@ m_regression <- function(train_data,
   ret
 }
 
-#' Time-Varying Conditional Survival Learning (TV-CSL) with K-Fold Cross-Fitting
-#'
-#' This function performs K-fold cross-fitting to estimate the Conditional Average Treatment Effect (HTE) using 
-#' Time-Varying Conditional Survival Learning (TV-CSL). The procedure includes fitting nuisance parameters 
-#' and the final model on different folds of the data.
-#'
-#' @param train_data A data frame containing the training data. Must include variables needed for model training and cross-fitting, including an `id` column.
-#' @param test_data A data frame containing the test data. Must include the true HTE values (`HTE`).
-#' @param train_data_original A data frame with the original training data used for model fitting.
-#' @param folds A vector or factor specifying the fold assignment for each observation in `train_data`.
-#' @param K An integer specifying the number of folds for cross-fitting.
-#' @param prop_score_spec A character string specifying the type of propensity score specification to use in the nuisance model.
-#' @param lasso_type A character string specifying the type of Lasso to use in the model (e.g., "linear", "complex").
-#' @param regressor_spec A character string specifying the regressor transformation ("linear" or "complex").
-#' @param final_model_method A character string specifying the final model method (e.g., "cox", "lasso").
-#'
-#' @return A list containing the following components:
-#'   - `HTE_est`: Estimated HTE values for the test data.
-#'   - `HTE_true`: True HTE values from the test data.
-#'   - `MSE`: Mean squared error between the estimated and true HTE.
-#'   - `time_taken`: Time taken to run the K-fold cross-fitting procedure.
-#'
-#' @examples
-#' # Example usage of TV_CSL function
-#' result <- TV_CSL(
-#'   train_data = df_train, 
-#'   test_data = df_test, 
-#'   train_data_original = df_train_original,
-#'   folds = folds_vector,
-#'   K = 5, 
-#'   prop_score_spec = "logit",
-#'   lasso_type = "complex",
-#'   regressor_spec = "linear",
-#'   final_model_method = "cox"
-#' )
-#'
-#' @export
-TV_CSL <- function(train_data, 
-                   test_data, 
-                   train_data_original, 
-                   K, 
-                   prop_score_spec, 
-                   lasso_type, 
-                   regressor_spec, 
-                   final_model_method,
-                   id_var = "id") {
-  
-  n <- nrow(test_data)
-  folds <- cut(seq(1, nrow(train_data_original)), breaks = K, labels = FALSE)
-  HTE_ests <- matrix(NA, nrow = n, ncol = K)
-  
-  # Measure time taken for the procedure
-  start_time <- Sys.time()
-  
-  {
-    train_data <- train_data %>% mutate(id = !!sym(id_var))
-    test_data <- test_data %>% mutate(id = !!sym(id_var))
-    train_data_original <- train_data_original %>% mutate(id = !!sym(id_var))
-  }
-  
-  
-  
-  # Perform K-fold cross-fitting
-  for (k in 1:K) {
-    
-    # Get IDs for nuisance and causal splits
-    nuisance_ids <- train_data_original[folds != k, id_var]
-    causal_ids <- train_data_original[folds == k, id_var]
-    
-    # Split the training data
-    fold_nuisance <- train_data[train_data[[id_var]] %in% nuisance_ids, ]
-    fold_causal <- train_data[train_data[[id_var]] %in% causal_ids, ]
-    train_data_original_nuisance <- 
-      train_data_original[train_data_original[[id_var]] %in% nuisance_ids, ]
-    
-    
-    fold_causal_fitted <- TV_CSL_nuisance(
-      fold_train = fold_nuisance, 
-      fold_test = fold_causal, 
-      train_data_original = train_data_original_nuisance,
-      prop_score_spec = prop_score_spec,
-      lasso_type = lasso_type,
-      regressor_spec = regressor_spec
-    )
-    
-    # # To add: get the first stage HTE_est
-    # if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){
-    #   # Make a MSE estimate using lasso_ret$y_1_pred through HTE prediction 
-    # }
-    
-    fit_TV_CSL_ret <- fit_TV_CSL(
-      fold_causal_fitted = fold_causal_fitted, 
-      final_model_method = final_model_method,
-      test_data = test_data
-    )
-    
-    HTE_ests[, k] <- fit_TV_CSL_ret$HTE_est
-    HTE_true <- test_data$HTE 
-    MSE_this_round <- mean((HTE_true - HTE_ests[, k])^2)
-    print("MSE_this_round: ")
-    print(MSE_this_round)
-  }
-  
-  # Average HTE estimates across folds
-  HTE_est <- rowMeans(HTE_ests, na.rm = TRUE)
-  HTE_true <- test_data$HTE
-  
-  # Calculate MSE of the first stage, too
-  
-  # Calculate mean squared error (MSE)
-  MSE <- mean((HTE_true - HTE_est)^2)
-  
-  # Time taken for the cross-fitting process
-  time_taken <- Sys.time() - start_time
-  
-  # Return results as a list
-  return(list(
-    HTE_est = HTE_est,
-    HTE_true = HTE_true,
-    MSE = MSE,
-    time_taken = time_taken
-  ))
-}
 
 
 
@@ -1119,6 +996,7 @@ run_TV_CSL_estimation <- function(
     train_data_original, 
     test_data,
     methods_TV_CSL,
+    i, 
     K,
     temp_result_csv_file
 ) {
@@ -1135,8 +1013,10 @@ run_TV_CSL_estimation <- function(
     for (regressor_spec in methods_TV_CSL$regressor_specs) {
       for (lasso_type in methods_TV_CSL$lasso_types) {
         for (final_model_method in methods_TV_CSL$final_model_methods) {
+          for (HTE_spec in methods_TV_CSL$HTE_specs){
           
-          config_name <- paste(lasso_type, prop_score_spec, regressor_spec, final_model_method, sep = "_")
+          # config_name <- paste(lasso_type, regressor_spec, sep = "_")
+            config_name <- paste0("lasso-type-",lasso_type, "_regressor-spec-", regressor_spec, "_HTE-spec-", HTE_spec)
           print(config_name)
           start_time <- Sys.time()
           
@@ -1150,61 +1030,21 @@ run_TV_CSL_estimation <- function(
                                final_model_method) 
           end_time <- Sys.time()
           
-          # HTE_ests <- matrix(NA, nrow = n, ncol = K)
-          # 
-          # # Perform K-fold cross-fitting
-          # for (k in 1:K) {
-          #   
-          #   nuisance_ids <- train_data_original[folds != k, "id"]
-          #   causal_ids <- train_data_original[folds == k, "id"]
-          #   
-          #   fold_nuisance <- train_data[train_data$id %in% nuisance_ids, ]
-          #   fold_causal <- train_data[train_data$id %in% causal_ids, ]
-          #   train_data_original_nuisance <- 
-          #     train_data_original[train_data_original$id %in% nuisance_ids, ]
-          #   
-          #   fold_causal_fitted <- TV_CSL_nuisance(
-          #     fold_train = fold_nuisance, 
-          #     fold_test = fold_causal, 
-          #     train_data_original = train_data_original_nuisance,
-          #     prop_score_spec = prop_score_spec,
-          #     lasso_type = lasso_type,
-          #     regressor_spec = regressor_spec
-          #   )
-          #   
-          #   fit_TV_CSL_ret <- fit_TV_CSL(
-          #     fold_causal_fitted = fold_causal_fitted, 
-          #     final_model_method = final_model_method,
-          #     test_data = test_data
-          #   )
-          #   
-          #   HTE_ests[, k] <- fit_TV_CSL_ret$HTE_est
-          # }
-          # 
-          # end_time <- Sys.time()
-          # 
-          # HTE_est <- rowMeans(HTE_ests, na.rm = TRUE)
-          # HTE_true <- test_data$HTE
-          # 
-          # MSE <- mean((HTE_true - HTE_est)^2)
-          
           time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
           
           results[[config_name]] <- TV_CSL_ret 
-          MSE <- TV_CSL_ret$MSE
+          MSE <- TV_CSL_ret$MSE ## this is 5-fold result
           print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
           
+          # curr_res <- list(
+          #   Method = "TV_CSL",
+          #   config_name = config_name,
+          #   MSE = MSE,
+          #   time_taken = time_taken
+          # )
+          # save_res_to_csv(curr_res, FNAME = temp_result_csv_file)
           
-          
-          curr_res <- list(
-            Method = "TV_CSL",
-            config_name = config_name,
-            MSE = MSE,
-            time_taken = time_taken
-          )
-          save_res_to_csv(curr_res, FNAME = temp_result_csv_file)
-          
-          
+          } # End looping over HTE_specs
         } # End looping over final_model_methods
       } # End looping over lasso_types
     } # End looping over regressor_specs
@@ -1251,6 +1091,7 @@ TV_CSL_nuisance <- function(fold_train,
                             prop_score_spec,
                             lasso_type,
                             regressor_spec,
+                            HTE_spec, 
                             id_var = "id") {
   
   # 1. Estimate the propensity score
@@ -1307,9 +1148,9 @@ TV_CSL_nuisance <- function(fold_train,
       train_data = fold_train,
       test_data = fold_test,
       regressor_spec = regressor_spec,
-      HTE_spec = "linear" # we hard code this
+      # HTE_spec = "linear" # we hard code this
+      HTE_spec = HTE_spec
     )
-    
   }else if (lasso_type == "m-regression"){
     lasso_ret <- m_regression(
       train_data = fold_train,
@@ -1319,6 +1160,7 @@ TV_CSL_nuisance <- function(fold_train,
   }
   fold_test$eta_1 <- lasso_ret$y_1_pred
   fold_test$eta_0 <- lasso_ret$y_0_pred
+  
   
   # 3.2 Join the data
   fold_test_final <- 
@@ -1333,8 +1175,7 @@ TV_CSL_nuisance <- function(fold_train,
     X = test_X,
     t = fold_test_split$tstop
   )
-  # print("head(prop_scores):")
-  # print( head(prop_scores) )
+
   
   fold_test_final <- fold_test_final %>%
     mutate(a_t_X = prop_scores)
@@ -1343,14 +1184,16 @@ TV_CSL_nuisance <- function(fold_train,
     mutate(nu_X = a_t_X * eta_1 + (1 - a_t_X) * eta_0)
   
   
-  return( fold_test_final )
+  return( list(fold_test_final = fold_test_final,
+               lasso_ret = lasso_ret) )
 }
 
 
 fit_TV_CSL <- function(fold_causal_fitted, 
                        final_model_method, 
                        test_data, 
-                       beta_HTE_first_stage = NULL) {
+                       beta_HTE_first_stage = NULL,
+                       HTE_spec = "linear") {
   
   beta_HTE <- NULL
   if (is.null(beta_HTE_first_stage)){
@@ -1358,9 +1201,7 @@ fit_TV_CSL <- function(fold_causal_fitted,
     beta_HTE_first_stage <- rep(0, n_regressors+1)
   }
   
-  # The regressors differentiates because coxph needs data frame type with explicit column names
-  #   but lasso needs 
-  if (final_model_method == "coxph") {
+  if (HTE_spec == "linear") {
     regressors <- cbind(1, fold_causal_fitted %>% select(starts_with("X.")) )
     n_regressors <- ncol(regressors) - 1
     
@@ -1381,10 +1222,15 @@ fit_TV_CSL <- function(fold_causal_fitted,
     )
     
     beta_HTE <- coef(final_model)
-  } else if (final_model_method == "lasso") {
+  } else if (HTE_spec == "complex") {
+    
+    complex_X <- transform_X(
+      single_data = train_data, 
+      regressor_spec = "complex"
+    )
     
     regressor_TV_CSL <- (fold_causal_fitted$W - as.vector(fold_causal_fitted$a_t_X)) *
-      cbind(1, as.matrix(fold_causal_fitted[, paste0("X.", 1:10)]))
+      cbind(1, complex_X)
     
     final_model <- cv.glmnet(
       regressor_TV_CSL, 
@@ -1394,11 +1240,20 @@ fit_TV_CSL <- function(fold_causal_fitted,
     )
 
     beta_HTE <- as.vector(coef(final_model, s = "lambda.min"))  
-    
   }
+  
   print("beta_HTE")
   print(beta_HTE)
-  test_regressor_HTE <- cbind(1, as.matrix(test_data %>% select(starts_with("X.")) ) )
+  
+  if (HTE_spec == "linear") {
+    test_regressor_HTE <- cbind(1, as.matrix(test_data %>% select(starts_with("X.")) ) )
+  } else if (HTE_spec == "complex") {
+    test_complex_X <- transform_X(
+      single_data = test_data,
+      regressor_spec = "complex")
+    test_regressor_HTE <- cbind(1, as.matrix(test_complex_X))
+  }
+  
   HTE_est <- as.vector(test_regressor_HTE %*% beta_HTE)
   
   ret <- list(
@@ -1409,3 +1264,189 @@ fit_TV_CSL <- function(fold_causal_fitted,
   
   return(ret)
 }
+
+#' Time-Varying Conditional Survival Learning (TV-CSL) with K-Fold Cross-Fitting
+#'
+#' This function performs K-fold cross-fitting to estimate the Conditional Average Treatment Effect (HTE) using 
+#' Time-Varying Conditional Survival Learning (TV-CSL). The procedure includes fitting nuisance parameters 
+#' and the final model on different folds of the data.
+#'
+#' @param train_data A data frame containing the training data. Must include variables needed for model training and cross-fitting, including an `id` column.
+#' @param test_data A data frame containing the test data. Must include the true HTE values (`HTE`).
+#' @param train_data_original A data frame with the original training data used for model fitting.
+#' @param folds A vector or factor specifying the fold assignment for each observation in `train_data`.
+#' @param K An integer specifying the number of folds for cross-fitting.
+#' @param prop_score_spec A character string specifying the type of propensity score specification to use in the nuisance model.
+#' @param lasso_type A character string specifying the type of Lasso to use in the model (e.g., "linear", "complex").
+#' @param regressor_spec A character string specifying the regressor transformation ("linear" or "complex").
+#' @param final_model_method A character string specifying the final model method (e.g., "cox", "lasso").
+#'
+#' @return A list containing the following components:
+#'   - `HTE_est`: Estimated HTE values for the test data.
+#'   - `HTE_true`: True HTE values from the test data.
+#'   - `MSE`: Mean squared error between the estimated and true HTE.
+#'   - `time_taken`: Time taken to run the K-fold cross-fitting procedure.
+#'
+#' @examples
+#' # Example usage of TV_CSL function
+#' result <- TV_CSL(
+#'   train_data = df_train, 
+#'   test_data = df_test, 
+#'   train_data_original = df_train_original,
+#'   folds = folds_vector,
+#'   K = 5, 
+#'   prop_score_spec = "logit",
+#'   lasso_type = "complex",
+#'   regressor_spec = "linear",
+#'   final_model_method = "cox"
+#' )
+#'
+#' @export
+TV_CSL <- function(train_data, 
+                   test_data, 
+                   train_data_original, 
+                   K, 
+                   prop_score_spec, 
+                   lasso_type, 
+                   regressor_spec, 
+                   final_model_method,
+                   HTE_spec,
+                   id_var = "id") {
+  
+  n <- nrow(test_data)
+  folds <- cut(seq(1, nrow(train_data_original)), breaks = K, labels = FALSE)
+  HTE_ests <- matrix(NA, nrow = n, ncol = K)
+  
+  # Measure time taken for the procedure
+  start_time <- Sys.time()
+  
+  {
+    train_data <- train_data %>% mutate(id = !!sym(id_var))
+    test_data <- test_data %>% mutate(id = !!sym(id_var))
+    train_data_original <- train_data_original %>% mutate(id = !!sym(id_var))
+  }
+  
+  
+  
+  # Perform K-fold cross-fitting
+  for (k in 1:K) {
+    
+    # Get IDs for nuisance and causal splits
+    nuisance_ids <- train_data_original[folds != k, id_var]
+    causal_ids <- train_data_original[folds == k, id_var]
+    
+    # Split the training data
+    fold_nuisance <- train_data[train_data[[id_var]] %in% nuisance_ids, ]
+    fold_causal <- train_data[train_data[[id_var]] %in% causal_ids, ]
+    train_data_original_nuisance <- 
+      train_data_original[train_data_original[[id_var]] %in% nuisance_ids, ]
+    
+    
+    object_causal_fitted <- TV_CSL_nuisance(
+      fold_train = fold_nuisance, 
+      fold_test = fold_causal, 
+      train_data_original = train_data_original_nuisance,
+      prop_score_spec = prop_score_spec,
+      lasso_type = lasso_type,
+      regressor_spec = regressor_spec,
+      HTE_spec = HTE_spec
+    )
+    fold_causal_fitted <- object_causal_fitted$fold_test_final
+    first_stage_lasso <- object_causal_fitted$lasso_ret
+    
+    if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){
+      output_folder <- generate_output_folder(
+        results_dir = RESULTS_DIR,
+        method_setting = "TV-CSL_", 
+        eta_type = eta_type, 
+        HTE_type = HTE_type, 
+        n = n
+      )
+      
+      save_lasso_beta(lasso_ret = lasso_ret, 
+                      output_folder = output_folder, 
+                      i = i, 
+                      k = k,
+                      lasso_type = lasso_type,
+                      eta_type = eta_type, 
+                      HTE_type = HTE_type, 
+                      stage = "first") 
+      
+      save_lasso_MSE(lasso_ret = lasso_ret, 
+                     HTE_true = test_data$HTE , 
+                     output_folder = output_folder, 
+                     i = i,
+                     k = k,
+                     lasso_type = lasso_type,
+                     eta_type = eta_type , 
+                     HTE_type = HTE_type, 
+                     stage = "first")
+    }
+    
+    # # To add: get the first stage MSE and the regression coefficients
+    # if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){
+    #   # Make a MSE estimate using lasso_ret$y_1_pred through HTE prediction 
+    # }
+    
+    fit_TV_CSL_ret <- fit_TV_CSL(
+      fold_causal_fitted = fold_causal_fitted, 
+      final_model_method = final_model_method,
+      test_data = test_data,
+      HTE_spec = HTE_spec,
+      beta_HTE_first_stage = ifelse( lasso_type == "T-lasso" | lasso_type == "S-lasso",
+                                     lasso_ret$beta_HTE, 
+                                     NULL)
+    )
+    fit_TV_CSL_ret$beta_eta_0 <- ifelse( lasso_type == "T-lasso" | lasso_type == "S-lasso",
+                                         lasso_ret$beta_eta_0, 
+                                         NA)
+    
+    HTE_ests[, k] <- fit_TV_CSL_ret$HTE_est
+    HTE_true <- test_data$HTE 
+    MSE_this_round <- mean((HTE_true - HTE_ests[, k])^2)
+    
+    
+    # Save beta_HTE from second stage to the file 
+    save_lasso_beta(lasso_ret = fit_TV_CSL_ret, 
+                    output_folder = output_folder, 
+                    i = i, 
+                    k = k,
+                    lasso_type = lasso_type, 
+                    eta_type = eta_type, 
+                    HTE_type = HTE_type, 
+                    stage = "final") 
+    
+    save_lasso_MSE(lasso_ret = lasso_ret, 
+                   HTE_true = test_data$HTE , 
+                   output_folder = output_folder, 
+                   i = i,
+                   k = k,
+                   lasso_type = lasso_type, 
+                   eta_type = eta_type , 
+                   HTE_type = HTE_type, 
+                   stage = "final")
+    print("MSE_this_round: ")
+    print(MSE_this_round)
+  }
+  
+  # Average HTE estimates across folds
+  HTE_est <- rowMeans(HTE_ests, na.rm = TRUE)
+  HTE_true <- test_data$HTE
+  
+  # Calculate MSE of the first stage, too
+  
+  # Calculate mean squared error (MSE)
+  MSE <- mean((HTE_true - HTE_est)^2)
+  
+  # Time taken for the cross-fitting process
+  time_taken <- Sys.time() - start_time
+  
+  # Return results as a list
+  return(list(
+    HTE_est = HTE_est,
+    HTE_true = HTE_true,
+    MSE = MSE,
+    time_taken = time_taken
+  ))
+}
+
