@@ -17,6 +17,10 @@
           "S-lasso",
           "m-regression"
         ],
+        "HTE_specs": [
+          "linear",
+          "complex"
+        ],
         "final_model_methods": [
           "coxph"
         ]

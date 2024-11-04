@@ -4,18 +4,22 @@ library(dplyr)
 source("scripts/TV-CSL/result-process.R")
 
 # TODO: loop eta_type and HTE_type after process_results_to_csv explicitly takes into them
+json_file <- "scripts/TV-CSL/params-lasso.json"
 process_results_to_csv(
-  "scripts/TV-CSL/params-lasso.json"
+  json_file
 )
 
 
+make_plots_from_json(
+  json_file = json_file
+)
+
+source("scripts/TV-CSL/result-process.R")
+make_beta_HTEs_table(json_file= json_file) 
 
 process_results_to_csv(
   "scripts/TV-CSL/params-TV-CSL.json"
 )
-
-
-
 
 
 # # ## Run a test
