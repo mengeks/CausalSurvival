@@ -998,6 +998,8 @@ run_TV_CSL_estimation <- function(
     methods_TV_CSL,
     i, 
     K,
+    HTE_type,
+    eta_type, 
     temp_result_csv_file
 ) {
   
@@ -1020,14 +1022,18 @@ run_TV_CSL_estimation <- function(
           print(config_name)
           start_time <- Sys.time()
           
-          TV_CSL_ret <- TV_CSL(train_data, 
-                               test_data, 
-                               train_data_original, 
-                               K, 
-                               prop_score_spec, 
-                               lasso_type, 
-                               regressor_spec, 
-                               final_model_method) 
+          TV_CSL_ret <- TV_CSL(train_data = train_data, 
+                               test_data = test_data, 
+                               train_data_original = train_data_original, 
+                               HTE_type = HTE_type,
+                               eta_type = eta_type,
+                               K = K, 
+                               prop_score_spec = prop_score_spec, 
+                               lasso_type = lasso_type, 
+                               regressor_spec = regressor_spec, 
+                               final_model_method = final_model_method,
+                               HTE_spec = HTE_spec,
+                               i = i)
           end_time <- Sys.time()
           
           time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
@@ -1201,6 +1207,7 @@ fit_TV_CSL <- function(fold_causal_fitted,
     beta_HTE_first_stage <- rep(0, n_regressors+1)
   }
   
+  
   if (HTE_spec == "linear") {
     regressors <- cbind(1, fold_causal_fitted %>% select(starts_with("X.")) )
     n_regressors <- ncol(regressors) - 1
@@ -1225,7 +1232,7 @@ fit_TV_CSL <- function(fold_causal_fitted,
   } else if (HTE_spec == "complex") {
     
     complex_X <- transform_X(
-      single_data = train_data, 
+      single_data = fold_causal_fitted, 
       regressor_spec = "complex"
     )
     
@@ -1305,12 +1312,15 @@ fit_TV_CSL <- function(fold_causal_fitted,
 TV_CSL <- function(train_data, 
                    test_data, 
                    train_data_original, 
+                   HTE_type,
+                   eta_type,
                    K, 
                    prop_score_spec, 
                    lasso_type, 
                    regressor_spec, 
                    final_model_method,
                    HTE_spec,
+                   i = 0,
                    id_var = "id") {
   
   n <- nrow(test_data)
@@ -1363,43 +1373,37 @@ TV_CSL <- function(train_data,
         n = n
       )
       
-      save_lasso_beta(lasso_ret = lasso_ret, 
+      save_lasso_beta(lasso_ret = first_stage_lasso, 
                       output_folder = output_folder, 
                       i = i, 
                       k = k,
                       lasso_type = lasso_type,
-                      eta_type = eta_type, 
-                      HTE_type = HTE_type, 
+                      eta_type = regressor_spec, 
+                      HTE_type = HTE_spec, 
                       stage = "first") 
       
-      save_lasso_MSE(lasso_ret = lasso_ret, 
+      save_lasso_MSE(lasso_ret = first_stage_lasso, 
                      HTE_true = test_data$HTE , 
                      output_folder = output_folder, 
                      i = i,
                      k = k,
                      lasso_type = lasso_type,
-                     eta_type = eta_type , 
-                     HTE_type = HTE_type, 
+                     eta_type = regressor_spec, 
+                     HTE_type = HTE_spec, 
                      stage = "first")
     }
     
-    # # To add: get the first stage MSE and the regression coefficients
-    # if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){
-    #   # Make a MSE estimate using lasso_ret$y_1_pred through HTE prediction 
-    # }
-    
+    # get the first stage MSE and the regression coefficients
+    beta_HTE_first_stage <- if ( lasso_type == "T-lasso" | lasso_type == "S-lasso") first_stage_lasso$beta_HTE else NULL
     fit_TV_CSL_ret <- fit_TV_CSL(
       fold_causal_fitted = fold_causal_fitted, 
       final_model_method = final_model_method,
       test_data = test_data,
       HTE_spec = HTE_spec,
-      beta_HTE_first_stage = ifelse( lasso_type == "T-lasso" | lasso_type == "S-lasso",
-                                     lasso_ret$beta_HTE, 
-                                     NULL)
+      beta_HTE_first_stage = beta_HTE_first_stage
     )
-    fit_TV_CSL_ret$beta_eta_0 <- ifelse( lasso_type == "T-lasso" | lasso_type == "S-lasso",
-                                         lasso_ret$beta_eta_0, 
-                                         NA)
+    
+    fit_TV_CSL_ret$beta_eta_0 <- if ( lasso_type == "T-lasso" | lasso_type == "S-lasso") first_stage_lasso$beta_eta_0 else NA
     
     HTE_ests[, k] <- fit_TV_CSL_ret$HTE_est
     HTE_true <- test_data$HTE 
@@ -1412,18 +1416,18 @@ TV_CSL <- function(train_data,
                     i = i, 
                     k = k,
                     lasso_type = lasso_type, 
-                    eta_type = eta_type, 
-                    HTE_type = HTE_type, 
+                    eta_type = regressor_spec, 
+                    HTE_type = HTE_spec, 
                     stage = "final") 
     
-    save_lasso_MSE(lasso_ret = lasso_ret, 
+    save_lasso_MSE(lasso_ret = fit_TV_CSL_ret, 
                    HTE_true = test_data$HTE , 
                    output_folder = output_folder, 
                    i = i,
                    k = k,
                    lasso_type = lasso_type, 
-                   eta_type = eta_type , 
-                   HTE_type = HTE_type, 
+                   eta_type = regressor_spec, 
+                   HTE_type = HTE_spec, 
                    stage = "final")
     print("MSE_this_round: ")
     print(MSE_this_round)

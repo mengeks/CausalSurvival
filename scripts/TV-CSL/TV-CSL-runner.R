@@ -160,15 +160,17 @@ run_experiment_iteration <-
              i, "-seed_", 
              seed_value, ".csv")
     
-    # Todo: 51-60 in TV-CSL did not run. Guess is the job submission is
-    #  amid of a code change. Should be fine if we run the experiment again.
+    
     TV_CSL_results <- 
       run_TV_CSL_estimation(
         train_data_original = single_data, 
         test_data = test_data,
         methods_TV_CSL = methods$TV_CSL,
         i = i,
-        K = 5,
+        # K = 5,
+        K = 2,
+        HTE_type = HTE_type,
+        eta_type = eta_type,
         temp_result_csv_file = temp_result_csv_file
       )
     
