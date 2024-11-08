@@ -91,22 +91,27 @@ test_that("sigma function works for normal(0,1) input and plots its behavior", {
   sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
   # Step 1: Generate 1000 samples from a normal(0,1) distribution
   set.seed(123)  # For reproducibility
-  x <- rnorm(1000, mean = 0, sd = 1)
-  
-  # Step 2: Apply the sigma function to the samples
-  sigma_values <- sigma(x)
-  hist(sigma_values)
   
   x_vals <- seq(-3, 3, length.out = 100)  # Values from -3 to 3
   y_vals <- sigma(x_vals)
   
-  # Create the plot using ggplot2
   plot_data <- data.frame(x = x_vals, sigma = y_vals)
   
+  library(ggplot2)
   p <- ggplot(plot_data, aes(x = x, y = sigma)) +
     geom_line(color = "blue", size = 1) +
-    labs(title = "Plot of Sigma Function", x = "x", y = "sigma(x)") +
+    labs(title = "Plot of the non-linear Function", x = "x", y = "sigma(x)") +
     theme_minimal()
   
   print(p)
+  ggsave(filename = here::here("figures", "xi-plot.png"), plot = p)
+  
+  x1 <- rnorm(1000, mean = 0, sd = 1)
+  x2 <- rnorm(1000, mean = 0, sd = 1)
+  
+  # Step 2: Apply the sigma function to the samples
+  sigma_values <- - 1 / 2 * sigma(x1) * sigma(x2)
+  png(filename = here::here("figures", "xi-hist.png"))
+  hist(sigma_values)
+  dev.off()
 })
