@@ -2,12 +2,7 @@
 
 
 ## Introduction
-
-The Cox proportional hazards model is widely used in survival analysis, but its stability can be compromised when dealing with extreme values in the hazard function. This analysis investigates how the model's performance degrades when the linear predictor (β'X) becomes large, particularly comparing a standard implementation (coxph) with a custom likelihood optimizer designed to handle extreme values.
-
-Of particular interest is the stability of coefficient estimation when:
-1. The true coefficients are scaled to larger magnitudes
-2. Additional offset terms are introduced in the hazard function
+We are now interested in whether a large offset distribution matters or not by varying
 
 ## Setup
 
@@ -37,7 +32,7 @@ We simulate survival data under two scenarios to systematically evaluate model s
    - Censoring: $\delta_i \sim \text{Bernoulli}(p_{\text{event}})$
 
 2. **With Offset**:
-   - Additional offset term: $O_i \sim \mathcal{N}(2, 1)$
+   - Additional offset term: $O_i \sim \mathcal{N}(offsetMean, offsetSD^2)$
    - Survival times: $T_i \sim \text{Exp}(h_0 \cdot \exp(X_i \beta + O_i))$
 
 Where:
@@ -45,9 +40,9 @@ Where:
 - $p_{\text{event}} = 0.7$ (event probability)
 - $n = 1000$ observations
 - $p = 3$ covariates
-- True coefficients: β = (0.5, -0.3, 0.2) × multiplier
+- True coefficients: β = (0.5, -0.3, 0.2)
 
-We examine two coefficient magnitudes by setting multiplier = 1 or 8.
+We keep offsetMean = 2, vary offsetSD between 1 and 10
 
 
 
@@ -56,7 +51,7 @@ We examine two coefficient magnitudes by setting multiplier = 1 or 8.
 ## Analysis Function
 
 ```{r}
-run_analysis <- function(seed_value, beta_multiplier = 1, offset_mean = 2) {
+run_analysis <- function(seed_value, beta_multiplier = 1, offset_mean = 2, offset_sd = 1) {
   set.seed(seed_value)
   n <- 1000
   p <- 3
@@ -90,7 +85,7 @@ run_analysis <- function(seed_value, beta_multiplier = 1, offset_mean = 2) {
   )
   
   # With offset
-  offset_vector <- rnorm(n, mean = offset_mean, sd = 1)
+  offset_vector <- rnorm(n, mean = offset_mean, sd = offset_sd)
   data_w <- generate_cox_data(n = n, p = p, true_beta = true_beta, offset = offset_vector)
   result_w <- fit_custom_cox_model(init_beta, data_w$time, data_w$status, 
                                  data_w$covar, data_w$strata, data_w$offset)
@@ -135,9 +130,9 @@ run_analysis <- function(seed_value, beta_multiplier = 1, offset_mean = 2) {
 ```{r message=FALSE, warning=FALSE, results='hide'}
 # Run analysis for different seeds and multipliers
 results <- list()
-for (mult in c(1, 8)) {
+for (offset_sd in c(1, 10)) {
   for (seed in seed_values) {
-    results[[paste(seed, mult)]] <- run_analysis(seed, mult)
+    results[[paste(seed, offset_sd)]] <- run_analysis(seed_value = seed, offset_sd = offset_sd)
   }
 }
 ```
@@ -172,7 +167,7 @@ create_comparison_table <- function(results) {
     
     rows[[name]] <- data.frame(
       Seed = seed_mult[1],
-      Multiplier = seed_mult[2],
+      offset_sd = seed_mult[2],
       RMSE_custom_wo = rmse_wo,
       RMSE_custom_w = rmse_w,
       RMSE_coxph_wo = rmse_cox_wo,
@@ -193,7 +188,7 @@ create_comparison_table <- function(results) {
 comparison_table_full <- create_comparison_table(results)
 
 comparison_table <- comparison_table_full %>%
-  select(Seed, Multiplier, ends_with("_w"))
+  select(Seed, offset_sd, ends_with("_w"))
 library(kableExtra)
 kable(comparison_table, 
       digits = 4,
@@ -210,7 +205,7 @@ create_comparison_plots <- function(comparison_table) {
   # Reshape data for plotting
   plot_data_rmse <- data.frame(
     Seed = comparison_table$Seed,
-    Multiplier = as.numeric(comparison_table$Multiplier),
+    offset_sd = as.numeric(comparison_table$offset_sd),
     Custom = comparison_table$RMSE_custom_w,
     Coxph = comparison_table$RMSE_coxph_w
   ) %>%
@@ -220,7 +215,7 @@ create_comparison_plots <- function(comparison_table) {
 
   plot_data_maxrel <- data.frame(
     Seed = comparison_table$Seed,
-    Multiplier = as.numeric(comparison_table$Multiplier),
+    offset_sd = as.numeric(comparison_table$offset_sd),
     Custom = comparison_table$max_rel_err_custom_w,
     Coxph = comparison_table$max_rel_err_coxph_w
   ) %>%
@@ -230,7 +225,7 @@ create_comparison_plots <- function(comparison_table) {
 
   plot_data_loglik <- data.frame(
     Seed = comparison_table$Seed,
-    Multiplier = as.numeric(comparison_table$Multiplier),
+    offset_sd = as.numeric(comparison_table$offset_sd),
     Custom = comparison_table$LogLik_custom_w,
     Coxph = comparison_table$LogLik_coxph_w
   ) %>%
@@ -242,8 +237,8 @@ create_comparison_plots <- function(comparison_table) {
   p1 <- ggplot(plot_data_rmse, 
                aes(x = factor(Seed), y = RMSE, fill = Method)) +
     geom_bar(stat = "identity", position = "dodge") +
-    facet_wrap(~Multiplier, scales = "free_y", 
-               labeller = labeller(Multiplier = function(x) paste("Multiplier:", x))) +
+    facet_wrap(~offset_sd, scales = "free_y", 
+               labeller = labeller(offset_sd = function(x) paste("offset_sd:", x))) +
     labs(title = "RMSE Comparison",
          x = "Seed",
          y = "RMSE") +
@@ -253,8 +248,8 @@ create_comparison_plots <- function(comparison_table) {
   p2 <- ggplot(plot_data_maxrel, 
                aes(x = factor(Seed), y = MaxRelError, fill = Method)) +
     geom_bar(stat = "identity", position = "dodge") +
-    facet_wrap(~Multiplier, scales = "free_y",
-               labeller = labeller(Multiplier = function(x) paste("Multiplier:", x))) +
+    facet_wrap(~offset_sd, scales = "free_y",
+               labeller = labeller(offset_sd = function(x) paste("offset_sd:", x))) +
     labs(title = "Maximum Relative Error Comparison",
          x = "Seed",
          y = "Max Relative Error") +
@@ -264,8 +259,8 @@ create_comparison_plots <- function(comparison_table) {
   p3 <- ggplot(plot_data_loglik, 
                aes(x = factor(Seed), y = LogLik, fill = Method)) +
     geom_bar(stat = "identity", position = "dodge") +
-    facet_wrap(~Multiplier, scales = "free_y",
-               labeller = labeller(Multiplier = function(x) paste("Multiplier:", x))) +
+    facet_wrap(~offset_sd, scales = "free_y",
+               labeller = labeller(offset_sd = function(x) paste("offset_sd:", x))) +
     labs(title = "Log-Likelihood Comparison",
          x = "Seed",
          y = "Log-Likelihood") +
@@ -293,71 +288,9 @@ combined_plots
 
 ## Results and Discussion
 
-### Impact of Coefficient Magnitude
-
-When analyzing the estimation accuracy with multiplier = 1, the true coefficient vector is (0.5, -0.3, 0.2). Both the custom likelihood optimizer and coxph perform similarly well:
-```r
-# Example from one seed
-summary(data_small$time)  # Add actual summary statistics
-```
-
-However, with multiplier = 8, the true coefficient vector becomes (4.0, -2.4, 1.6), leading to much larger survival times:
-```r
-summary(data_large$time)  # Add actual summary statistics
-```
-
-
-### Comparison of Estimation Methods
-
-1. **Root Mean Square Error (RMSE)**:
-   - The RMSE represents the Euclidean distance between estimated and true coefficients
-   - For multiplier = 1: Both methods achieve similar RMSE (≈ 0.04)
-   - For multiplier = 8: Custom likelihood shows 5-15 times smaller RMSE than coxph
-   - Note: RMSE interpretation depends on coefficient scale; for multiplier = 8, same absolute error represents smaller relative error
-
-2. **Maximum Relative Error**:
-   - This metric identifies the worst-performing coefficient estimate
-   - For multiplier = 8, the custom likelihood approach shows 3-10 times smaller maximum relative error compared to coxph
-   - This suggests better stability in the most challenging estimation scenarios
-
-### Understanding the Performance Difference
-
-The superior performance of the custom likelihood optimizer can be attributed to its handling of extreme values:
-
-1. **Standard coxph Implementation**:
-   - Large coefficients → Large β'X terms
-   - Results in extreme values in the hazard function
-   - Leads to numerical instability in gradient calculations
-
-2. **Custom Likelihood Approach**:
-   - Identifies entries that would lead to extreme risk sums
-   - Excludes these terms from the likelihood calculation
-   - Effectively prevents gradient explosion
-   - Maintains stability even with large coefficients
-
-
-
-
-
-## Conclusions
-
-1. **Coefficient Magnitude Matters**:
-   - Small coefficients (multiplier = 1): Both methods perform well
-   - Large coefficients (multiplier = 8): Standard coxph shows significant instability
-
-2. **Custom Likelihood Advantage**:
-   - More robust to large coefficients
-   - Maintains estimation accuracy through careful handling of extreme values
-   - Provides a practical solution for challenging survival analysis scenarios
-
-3. **Practical Implications**:
-   - Standard implementations may need careful monitoring when coefficients are large
-   - Custom likelihood approaches offer a more robust alternative
-   - Important consideration for survival analysis with extreme hazard values
-
-These findings suggest that practitioners should be cautious when using standard Cox model implementations with large coefficients and consider robust alternatives when dealing with extreme values in the hazard function.
+### Impact of offset_sd
+Large offset_sd causes coxph to fail, too. Custom lik generally handle it well, but sometimes (when seed == "231"), it failed to work at all (it stop at the first stage). Generally coxph could have problem when offset_sd is large and custom lik works well.
 
 
 ## TODO
-1. Compare results and show offsets does not matter.
-2. Get clearer why ignoring large risk_sum could work. One way is to see when encountering large risk_sum, how many data it ignores and what is the next beta it run to. 
+1. Get clearer why ignoring large risk_sum could work. One way is to see when encountering large risk_sum, how many data it ignores and what is the next beta it run to. 
