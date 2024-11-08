@@ -1118,7 +1118,7 @@ TV_CSL_nuisance <- function(fold_train,
   }
   
   # 2. Obtain the propensity score at each interval
-  granular_cut_points <- unique(fold_test$tstop)
+
   
   split_within_intervals <- function(row, cut_points) {
     original_tstart <- row[["tstart"]]
@@ -1136,6 +1136,7 @@ TV_CSL_nuisance <- function(fold_train,
     return(new_intervals)
   }
   
+  granular_cut_points <- unique(fold_test$tstop)
   fold_test_split <- map_dfr(seq_len(nrow(fold_test)), function(i) {
     split_within_intervals(fold_test[i, ], granular_cut_points)
   })
@@ -1173,6 +1174,14 @@ TV_CSL_nuisance <- function(fold_train,
     left_join(fold_test_split, 
               fold_test %>% select(-tstart, -tstop), 
               by = c("id", "W") )
+  
+  fold_test_final <- fold_test_final %>%
+    arrange(id, tstop)
+  
+  fold_test_final <- fold_test_final %>%
+    group_by(id) %>%
+    mutate(Delta = if_else(tstop < max(tstop), 0, Delta)) %>%
+    ungroup()
 
   print(paste("alpha_estimate: ", alpha_estimate))
   test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)

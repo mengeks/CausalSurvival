@@ -175,9 +175,9 @@ cox_loglik_new <- function(beta, time, status, covar, strata, offset = 0) {
 cox_loglik_tv <- function(
     beta, start_time, stop_time, status, covar, strata, 
     offset = 0, 
-    # unique_stop_time = 0,
-    weights = NULL, method = 0) {
-  # n <- length(stop_time)
+    weights = NULL, 
+    method = 0) {
+
   unique_stop_time <- unique(stop_time)
   n <- length(unique_stop_time)
   
@@ -194,10 +194,8 @@ cox_loglik_tv <- function(
   
   for (i in 1:n) {
     if (strata[i] == 1) {
-      # stop_time_i <- stop_time[i]
       stop_time_i <- unique_stop_time[i]
       event_set <- which(stop_time == stop_time_i & status == 1)
-      # risk_set <- which(stop_time >= stop_time_i & start_time <= stop_time_i)
       risk_set <- which(stop_time == stop_time_i)
       
       
