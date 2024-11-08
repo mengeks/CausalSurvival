@@ -4,8 +4,8 @@
 #SBATCH -p sapphire           # Partition (queue) name
 #SBATCH -c 1              # Number of cores
 #SBATCH --array=1-100  # Size of the array
-#SBATCH --mem=1G          # Memory in GB
-#SBATCH -t 08:30:00         # Runtime (hours:minutes:seconds)
+#SBATCH --mem=8G          # Memory in GB
+#SBATCH -t 16:00:00         # Runtime (hours:minutes:seconds)
 
 
 my_packages=${HOME}/R/ifxrstudio/RELEASE_3_18
@@ -17,7 +17,7 @@ verbose=${2:-0}
 
 for n in 200 500 1000 2000; do
   for eta_type in "linear" "non-linear"; do
-    for HTE_type in "linear" "non-linear"; do
+    for HTE_type in "linear"; do
 
       log_dir="/n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/scripts/TV-CSL/results/TV-CSL_eta-${eta_type}_HTE-${HTE_type}_n-${n}"
       mkdir -p "$log_dir"

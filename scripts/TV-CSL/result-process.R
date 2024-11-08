@@ -21,26 +21,12 @@ read_single_iteration_result <- function(csv_file) {
   return(df)
 }
 
-# generate_result_csv_file <- function(results_dir, eta_type_folder_name, n, i, seed_value) {
-#   result_csv_file <- paste0(
-#     results_dir, 
-#     "/", eta_type_folder_name, 
-#     "-n_", n, 
-#     "-iteration_", i, 
-#     "-seed_", seed_value, ".csv"
-#   )
-#   return(result_csv_file)
-# }
-
-
-
-
 
 # Function to aggregate all CSV files and calculate final metrics
-process_all_iterations <- function(config, results_dir, n) {
+process_all_iterations <- function(config,eta_type, HTE_type, results_dir, n) {
   methods <- config$methods
-  eta_type <- config$eta_type
-  HTE_type <- config$HTE_type
+  # eta_type <- config$eta_type
+  # HTE_type <- config$HTE_type
   R <- config$R
   
   is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
@@ -105,10 +91,12 @@ get_method_setting <- function(config){
 }
 
 get_table_csv_file <- function(config, 
+                               eta_type,
+                               HTE_type, 
                                output_csv_dir = "scripts/TV-CSL/tables-and-plots",
                                file_suffix = "_est_quality.csv" ){
   eta_type_folder_name <- 
-    paste0(config$eta_type, "_", config$HTE_type)
+    paste0(eta_type, "_", HTE_type)
   
   
   method_setting <- get_method_setting(config)
@@ -121,7 +109,43 @@ get_table_csv_file <- function(config,
   return(table_csv_file)
 }
 
-process_results_to_csv <- function(json_file, 
+#' Combine Individual MSE Results to a table by method averages
+#' 
+#' @description 
+#' Takes DGP configuration a JSON configuration file, loop over
+#' different sample sizes, gather the estimation results and saves the aggregated metrics to a CSV file.
+#' 
+#' @param json_file character, Path to the JSON configuration file containing 
+#'   experiment parameters
+#' @param n_list numeric vector, Sample sizes to process (default: c(200, 500, 1000, 2000))
+#' @param output_csv_dir character, Directory path where the output CSV will be saved
+#'   (default: "scripts/TV-CSL/tables-and-plots")
+#' 
+#' @return None (invisible). Writes results to a CSV file and prints confirmation message.
+#' 
+#' @details 
+#' The function performs the following steps:
+#' 1. Loads experiment configuration from JSON
+#' 2. Processes results for each sample size in n_list
+#' 3. Combines results into a single data frame
+#' 4. Saves aggregated results to CSV
+#' 
+#' @dependencies 
+#' Requires load_experiment_config(), process_all_iterations(), and get_table_csv_file()
+#' 
+#' @examples 
+#' \dontrun{
+#' process_results_to_csv(
+#'   json_file = "path/to/config.json",
+#'   n_list = c(100, 300, 500),
+#'   output_csv_dir = "output/directory"
+#' )
+#' }
+#' 
+#' @export
+process_results_to_csv <- function(json_file,
+                                   eta_type,
+                                   HTE_type,
                                    n_list = c(200, 500, 1000, 2000),
                                    output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
   
@@ -133,6 +157,8 @@ process_results_to_csv <- function(json_file,
     aggregated_metrics_n <- 
       process_all_iterations(
         config=config, 
+        eta_type = eta_type,
+        HTE_type = HTE_type,
         results_dir=RESULTS_DIR,
         n = n
       )
@@ -146,6 +172,8 @@ process_results_to_csv <- function(json_file,
   
   
   table_csv_file <- get_table_csv_file(config = config,
+                                       eta_type = eta_type,
+                                       HTE_type = HTE_type,
                                        output_csv_dir = output_csv_dir)
   
   write.csv(
@@ -172,11 +200,84 @@ get_plot_file <- function(config,
   return(plot_file)
 }
 
+
+load_and_process_table_data <- function(json_file,
+                                        eta_type,
+                                        HTE_type,
+                                        output_csv_dir) {
+  config <- load_experiment_config(json_file)
+  table_csv_file <- get_table_csv_file(config,eta_type, HTE_type, output_csv_dir)
+  data <- read.csv(table_csv_file)
+  data <- data %>%
+    mutate(Specification = as.character(Specification),
+           Model = sapply(strsplit(Specification, "_"), `[`, 1),
+           eta_model = sapply(strsplit(Specification, "_"), `[`, 2),
+           HTE_model = sapply(strsplit(Specification, "_"), `[`, 3))
+  return(data)
+}
+
+
 ### TODO: 
-### 0. Make the file name 
+### 0. Make the file name better
 ### 1. Remove "regressor-spec" from eta_model label
 ### 2. Remove "HTE-spec" from eta_model label
-make_plots_from_json <- function(json_file, output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
+### input: the table
+make_plots_from_json <- function(json_file_lasso,
+                                 json_file_TV_CSL, 
+                                 eta_type,
+                                 HTE_type,
+                                 output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
+  
+  data_lasso <- load_and_process_table_data(json_file_lasso,eta_type,HTE_type, output_csv_dir)
+  data_TV_CSL <- load_and_process_table_data(json_file_TV_CSL,eta_type,HTE_type, output_csv_dir)
+  
+  combined_data <- bind_rows(data_lasso, data_TV_CSL, .id = "source")
+  
+  # Create custom labeling functions for each factor
+  hte_labels <- c(
+    "HTE-spec-complex" = "Treatment effect: overly complex",
+    "HTE-spec-linear" = "Treatment effect: correctly specified"
+  )
+  
+  eta_labels <- c(
+    "regressor-spec-complex" = "Baseline: Mildly mis-specified",
+    "regressor-spec-linear" = "Baseline: Quite mis-specified"
+  )
+  
+  p <- ggplot(combined_data, aes(x = as.factor(n), y = MSE, color = Method)) +
+    geom_point() +
+    geom_line() +
+    # facet_grid(HTE_model ~ eta_model, labeller = label_both) +
+    facet_grid(
+      HTE_model ~ eta_model,
+      labeller = labeller(
+        HTE_model = hte_labels,
+        eta_model = eta_labels
+      )
+    ) + 
+    labs(x = "n", y = "MSE", title = "MSE by Method and Model Specifications") +
+    theme_minimal() +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_line(size = 0.1),
+          strip.text = element_text(face = "bold"))
+  
+  output_plot_path <- 
+    file.path(output_csv_dir, 
+              paste0("both-methods_", 
+                       paste0(eta_type, "_", HTE_type), 
+                     "_MSE_plots.png") )
+  ggsave(output_plot_path, plot = p, width = 8, height = 6)
+  
+  return(output_plot_path)
+}
+
+### TODO: 
+### 0. Make the file name better
+### 1. Remove "regressor-spec" from eta_model label
+### 2. Remove "HTE-spec" from eta_model label
+### input: the table
+make_plots_from_json_single_method <- function(json_file, 
+                                 output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
   
   config <- load_experiment_config(json_file)
   table_csv_file <- get_table_csv_file(config, output_csv_dir)
@@ -257,6 +358,8 @@ make_beta_HTEs_table <- function(json_file,
   
   beta_HTEs_table_csv_file <- get_table_csv_file(
     config = config, 
+    eta_type = eta_type, 
+    HTE_type = HTE_type, 
     output_csv_dir = output_csv_dir,
     file_suffix = "_beta_HTEs.csv"
   )
