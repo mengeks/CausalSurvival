@@ -4,8 +4,9 @@ library(tidyr)
 library(psych)
 library(xtable)
 library(ggplot2)
+library(here)
 source("scripts/TV-CSL/time-varying-estimate.R")
-load(file=here::here("scripts/data-application/data/stanford-RHC-processed.rds"))
+load(file=here("scripts/data-application/data/stanford-RHC-processed.rds"))
 
 ## EDA
 # 1. summary stats of the regressors
@@ -125,9 +126,8 @@ print(xtable(df_summary, caption = "Comparison of Cox Models: Fixed vs. Time-var
 
 
 ### TV-CSL:
-# Implement T-lasso. 
-#   Let's train and predict on the original data itself.
-#   Let's obtain the HTE coefficients
+# Implement S-lasso. 
+#   Let's obtain the HTE coefficients and use them as the outcome of interest
 source("scripts/TV-CSL/time-varying-estimate.R")
 
 # Regressors are age, surgery, year
@@ -157,36 +157,42 @@ lasso_ret <-
           regressor_spec = "complex",
           HTE_spec = "linear",
           verbose = 2)
-
+lasso_ret$beta_HTE
 lasso_ret$HTE_est
+# 1 min to get the 
+
 # Compare the HTE estimate with time_varying, using standardized 
 source("scripts/TV-CSL/time-varying-estimate.R")
-
 cox_ret <-
-  S_cox(train_data = df_time_var,
+  S_lasso(train_data = df_time_var,
           test_data = df_original,
           regressor_spec = "linear",
           HTE_spec = "linear",
           verbose = 2)
+  # S_cox(train_data = df_time_var,
+  #         test_data = df_original,
+  #         regressor_spec = "linear",
+  #         HTE_spec = "linear",
+  #         verbose = 2)
 cox_ret$beta_HTE
 cox_ret$HTE_est
 
-# Calculate Mean Absolute Differencce (MAD)
-MAD <- mean(abs(lasso_ret$HTE_est - cox_ret$HTE_est))
-print(MAD)
-correlation <- cor(lasso_ret$HTE_est, cox_ret$HTE_est)
-print(correlation)
+# # Calculate Mean Absolute Differencce (MAD)
+# MAD <- mean(abs(lasso_ret$HTE_est - cox_ret$HTE_est))
+# print(MAD)
+# correlation <- cor(lasso_ret$HTE_est, cox_ret$HTE_est)
+# print(correlation)
+# 
+# var(lasso_ret$HTE_est)
+# var(cox_ret$HTE_est)
 
-var(lasso_ret$HTE_est)
-var(cox_ret$HTE_est)
-
-library(ggplot2)
-
-# Create a scatter plot of HTE estimates
-ggplot(data.frame(lasso_est = lasso_ret$HTE_est, cox_est = cox_ret$HTE_est), aes(x = lasso_est, y = cox_est)) +
-  geom_point() +
-  geom_abline(slope = 1, intercept = 0, color = "red") +  # Line y=x for reference
-  labs(x = "Lasso HTE Estimate", y = "Cox HTE Estimate", title = "Comparison of HTE Estimates")
+# library(ggplot2)
+# 
+# # Create a scatter plot of HTE estimates
+# ggplot(data.frame(lasso_est = lasso_ret$HTE_est, cox_est = cox_ret$HTE_est), aes(x = lasso_est, y = cox_est)) +
+#   geom_point() +
+#   geom_abline(slope = 1, intercept = 0, color = "red") +  # Line y=x for reference
+#   labs(x = "Lasso HTE Estimate", y = "Cox HTE Estimate", title = "Comparison of HTE Estimates")
 
 ## Use TV-CSL: goal is to compare the coefficient estimate with S-lasso
 source("scripts/TV-CSL/time-varying-estimate.R")
@@ -196,12 +202,71 @@ df_original <- df_original %>%
 TV_CSL_ret <- TV_CSL(train_data = df_time_var, 
                      test_data = df_original, 
                      train_data_original = df_original, 
-                     K = 5, 
+                     K = 2, 
                      prop_score_spec = "cox-linear-all-data", 
                      lasso_type = "S-lasso", 
-                     regressor_spec = "linear", 
+                     regressor_spec = "complex",
+                     HTE_spec = "linear",
                      final_model_method = "coxph",
-                     id_var = "subject") 
+                     id_var = "subject",
+                     verbose = 1) 
 
-TV_CSL_ret$HTE_est
-lasso_ret$HTE_est
+TV_CSL_ret$beta_HTE_first_stages
+TV_CSL_ret$beta_HTE
+cox_ret$beta_HTE
+lasso_ret$beta_HTE
+
+
+
+TV_CSL_ret_no_warmstart <- TV_CSL(train_data = df_time_var, 
+                     test_data = df_original, 
+                     train_data_original = df_original, 
+                     K = 2, 
+                     prop_score_spec = "cox-linear-all-data", 
+                     lasso_type = "S-lasso", 
+                     regressor_spec = "complex",
+                     HTE_spec = "linear",
+                     final_model_method = "coxph",
+                     id_var = "subject",
+                     lasso_warmstart = F,
+                     verbose = 1) 
+TV_CSL_ret_no_warmstart$beta_HTEs
+TV_CSL_ret$beta_HTEs
+TV_CSL_ret$beta_HTE_first_stages
+
+
+
+
+TV_CSL_ret_K_3 <- TV_CSL(train_data = df_time_var, 
+                                  test_data = df_original, 
+                                  train_data_original = df_original, 
+                                  K = 3, 
+                                  prop_score_spec = "cox-linear-all-data", 
+                                  lasso_type = "S-lasso", 
+                                  regressor_spec = "complex",
+                                  HTE_spec = "linear",
+                                  final_model_method = "coxph",
+                                  id_var = "subject",
+                                  lasso_warmstart = F,
+                                  verbose = 1) 
+TV_CSL_ret_K_3$beta_HTEs
+TV_CSL_ret$beta_HTEs
+
+
+source("scripts/TV-CSL/time-varying-estimate.R")
+TV_CSL_ret_linear_eta <- TV_CSL(train_data = df_time_var, 
+                     test_data = df_original, 
+                     train_data_original = df_original, 
+                     K = 2, 
+                     prop_score_spec = "cox-linear-all-data", 
+                     lasso_type = "S-lasso", 
+                     regressor_spec = "linear",
+                     HTE_spec = "linear",
+                     final_model_method = "coxph",
+                     id_var = "subject",
+                     lasso_warmstart = F,
+                     verbose = 1) 
+
+TV_CSL_ret_linear_eta$beta_HTE
+cox_ret$beta_HTE
+
