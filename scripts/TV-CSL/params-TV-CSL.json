@@ -13,8 +13,8 @@
           "complex"
         ],
         "lasso_types": [
-          "S-lasso",
-          "m-regression"
+          "m-regression",
+          "S-lasso"
         ],
         "HTE_specs": [
           "linear"

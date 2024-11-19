@@ -713,10 +713,17 @@ m_regression <- function(train_data,
   regressor <- as.matrix(transformed_X)
   
   if (regressor_spec == "linear"){
-    m <- coxph(
-      Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
-      data = train_data
-    )
+    num_covariates <- ncol(train_data %>% select(starts_with("X.")))
+    
+    covariate_terms <- paste("X.", 1:num_covariates, sep = "", collapse = " + ")
+    
+    full_formula <- paste("Surv(tstart, tstop, Delta) ~", covariate_terms)
+    
+    m <- coxph(as.formula(full_formula), data = train_data)
+    # m <- coxph(
+    #   Surv(tstart, tstop, Delta) ~ X.1 + X.2 + X.3 + X.4 + X.5 + X.6 + X.7 + X.8 + X.9 + X.10,
+    #   data = train_data
+    # )
     
     m_beta <- coef(m)
   }else if (regressor_spec == "complex"){
@@ -1033,38 +1040,61 @@ run_TV_CSL_estimation <- function(
         # for (final_model_method in methods_TV_CSL$final_model_methods) {
           for (HTE_spec in methods_TV_CSL$HTE_specs){
           
-          # config_name <- paste(lasso_type, regressor_spec, sep = "_")
-            config_name <- paste0("lasso-type-",lasso_type, "_regressor-spec-", regressor_spec, "_HTE-spec-", HTE_spec)
-          print(config_name)
-          start_time <- Sys.time()
+            # config_name <- paste0("lasso-type-",lasso_type, "_regressor-spec-", regressor_spec, "_HTE-spec-", HTE_spec)
+            config_name <- paste0("lasso-type-",lasso_type, "_regressor-spec-", regressor_spec, "_HTE-spec-", HTE_spec, "_prop-score-spec-", prop_score_spec)
+            print(config_name)
+            start_time <- Sys.time()
+            
+            TV_CSL_ret <- TV_CSL(train_data = train_data, 
+                                 test_data = test_data, 
+                                 train_data_original = train_data_original, 
+                                 HTE_type = HTE_type,
+                                 eta_type = eta_type,
+                                 K = K, 
+                                 prop_score_spec = prop_score_spec, 
+                                 lasso_type = lasso_type, 
+                                 regressor_spec = regressor_spec, 
+                                 # final_model_method = final_model_method,
+                                 HTE_spec = HTE_spec,
+                                 i = i)
+            end_time <- Sys.time()
+            
+            time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
           
-          TV_CSL_ret <- TV_CSL(train_data = train_data, 
-                               test_data = test_data, 
-                               train_data_original = train_data_original, 
-                               HTE_type = HTE_type,
-                               eta_type = eta_type,
-                               K = K, 
-                               prop_score_spec = prop_score_spec, 
-                               lasso_type = lasso_type, 
-                               regressor_spec = regressor_spec, 
-                               # final_model_method = final_model_method,
-                               HTE_spec = HTE_spec,
-                               i = i)
-          end_time <- Sys.time()
+            print("Saving K = 0 results to beta and MSE csv.")
+            output_folder <- generate_output_folder(
+              results_dir = RESULTS_DIR,
+              method_setting = "TV-CSL_", 
+              eta_type = eta_type, 
+              HTE_type = HTE_type, 
+              n = n
+            )
+            save_lasso_beta(lasso_ret = TV_CSL_ret, 
+                            output_folder = output_folder, 
+                            i = i, 
+                            k = 0,
+                            lasso_type = lasso_type, 
+                            eta_spec = regressor_spec, 
+                            HTE_spec = HTE_spec,
+                            prop_score_spec = prop_score_spec,
+                            stage = "final") 
+            
+            save_lasso_MSE(lasso_ret = TV_CSL_ret, 
+                           HTE_true = test_data$HTE , 
+                           output_folder = output_folder, 
+                           i = i,
+                           k = 0,
+                           lasso_type = lasso_type, 
+                           eta_spec = regressor_spec, 
+                           HTE_spec = HTE_spec,
+                           prop_score_spec = prop_score_spec,
+                           stage = "final")
+            print("Finished K = 0 results to beta and MSE csvs.")
+            
+            results[[config_name]] <- TV_CSL_ret 
+            MSE <- TV_CSL_ret$MSE ## this is 5-fold result
+            print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
           
-          time_taken <- as.numeric(difftime(end_time, start_time, units = "secs"))
-          
-          results[[config_name]] <- TV_CSL_ret 
-          MSE <- TV_CSL_ret$MSE ## this is 5-fold result
-          print(paste0("config_name: ", config_name, ". MSE: ", MSE, ". time_taken: ", time_taken))
-          
-          # curr_res <- list(
-          #   Method = "TV_CSL",
-          #   config_name = config_name,
-          #   MSE = MSE,
-          #   time_taken = time_taken
-          # )
-          # save_res_to_csv(curr_res, FNAME = temp_result_csv_file)
           
           } # End looping over HTE_specs
         # } # End looping over final_model_methods
@@ -1126,10 +1156,8 @@ TV_CSL_nuisance <- function(fold_train,
     
     if (prop_score_spec == "cox-mis-specificaiton") {
       formula <- as.formula("Surv(U_A, Delta_A) ~ X.1")
-      test_X <- cbind(fold_test_final$X.1)
     } else {
       formula <- as.formula("Surv(U_A, Delta_A) ~ X.1 + X.2 + X.3")
-      test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
     }
     
     treatment_model <- coxph(formula, 
@@ -1213,6 +1241,11 @@ TV_CSL_nuisance <- function(fold_train,
 
   print(paste("alpha_estimate: ", alpha_estimate))
   # test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
+  if (prop_score_spec == "cox-mis-specificaiton") {
+    test_X <- cbind(fold_test_final$X.1)
+  } else {
+    test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
+  }
   prop_scores <- calculate_eX(
     alpha_estimate = alpha_estimate, 
     X = test_X,
@@ -1428,25 +1461,28 @@ TV_CSL <- function(train_data,
     fold_causal_fitted <- object_causal_fitted$fold_test_final
     first_stage_lasso <- object_causal_fitted$lasso_ret
     
+    output_folder <- generate_output_folder(
+      results_dir = RESULTS_DIR,
+      method_setting = "TV-CSL_", 
+      eta_type = eta_type, 
+      HTE_type = HTE_type, 
+      n = n
+    )
     
     if (verbose == 2){
       
-      if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){
-        output_folder <- generate_output_folder(
-          results_dir = RESULTS_DIR,
-          method_setting = "TV-CSL_", 
-          eta_type = eta_type, 
-          HTE_type = HTE_type, 
-          n = n
-        )
+      if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){ # this rules out m-regression
         
         save_lasso_beta(lasso_ret = first_stage_lasso, 
                         output_folder = output_folder, 
                         i = i, 
                         k = k,
                         lasso_type = lasso_type,
-                        eta_type = regressor_spec, 
-                        HTE_type = HTE_spec, 
+                        # eta_type = regressor_spec, 
+                        # HTE_type = HTE_spec, 
+                        eta_spec = regressor_spec, 
+                        HTE_spec = HTE_spec,
+                        prop_score_spec = prop_score_spec,
                         stage = "first") 
         
         save_lasso_MSE(lasso_ret = first_stage_lasso, 
@@ -1455,8 +1491,11 @@ TV_CSL <- function(train_data,
                        i = i,
                        k = k,
                        lasso_type = lasso_type,
-                       eta_type = regressor_spec, 
-                       HTE_type = HTE_spec, 
+                       # eta_type = regressor_spec, 
+                       # HTE_type = HTE_spec, 
+                       eta_spec = regressor_spec, 
+                       HTE_spec = HTE_spec,
+                       prop_score_spec = prop_score_spec,
                        stage = "first")
       }
     }
@@ -1485,8 +1524,6 @@ TV_CSL <- function(train_data,
     )
     
     
-    
-    
     fit_TV_CSL_ret$beta_eta_0 <- 
       if ( lasso_type == "T-lasso" | lasso_type == "S-lasso") 
         first_stage_lasso$beta_eta_0 else NA
@@ -1508,8 +1545,11 @@ TV_CSL <- function(train_data,
                       i = i, 
                       k = k,
                       lasso_type = lasso_type, 
-                      eta_type = regressor_spec, 
-                      HTE_type = HTE_spec, 
+                      # eta_type = regressor_spec, 
+                      # HTE_type = HTE_spec, 
+                      eta_spec = regressor_spec, 
+                      HTE_spec = HTE_spec,
+                      prop_score_spec = prop_score_spec,
                       stage = "final") 
       
       save_lasso_MSE(lasso_ret = fit_TV_CSL_ret, 
@@ -1518,8 +1558,11 @@ TV_CSL <- function(train_data,
                      i = i,
                      k = k,
                      lasso_type = lasso_type, 
-                     eta_type = regressor_spec, 
-                     HTE_type = HTE_spec, 
+                     # eta_type = regressor_spec, 
+                     # HTE_type = HTE_spec, 
+                     eta_spec = regressor_spec, 
+                     HTE_spec = HTE_spec,
+                     prop_score_spec = prop_score_spec,
                      stage = "final")
       
     }
