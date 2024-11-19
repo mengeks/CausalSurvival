@@ -1,27 +1,23 @@
 {
   "n": 500,
   "R": 100,
-  "eta_type": "linear",
-  "HTE_type": "linear",
   "methods": {
     "TV_CSL": {
         "enabled": true,
         "prop_score_specs": [
-          "cox-linear-censored-only"
+          "cox-linear-censored-only",
+          "cox-linear-mis-specificaiton"
         ],
         "regressor_specs": [
           "linear",
           "complex"
         ],
         "lasso_types": [
-          "S-lasso"
+          "S-lasso",
+          "m-regression"
         ],
         "HTE_specs": [
-          "linear",
-          "complex"
-        ],
-        "final_model_methods": [
-          "coxph"
+          "linear"
         ]
       }
     },

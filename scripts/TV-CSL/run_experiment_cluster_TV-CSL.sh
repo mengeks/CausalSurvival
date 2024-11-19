@@ -5,7 +5,7 @@
 #SBATCH -c 1              # Number of cores
 #SBATCH --array=1-100  # Size of the array
 #SBATCH --mem=8G          # Memory in GB
-#SBATCH -t 16:00:00         # Runtime (hours:minutes:seconds)
+#SBATCH -t 24:00:00         # Runtime (hours:minutes:seconds)
 
 
 my_packages=${HOME}/R/ifxrstudio/RELEASE_3_18

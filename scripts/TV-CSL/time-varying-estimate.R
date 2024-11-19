@@ -343,7 +343,7 @@ S_cox <- function(train_data,
   
   transformed_X <- transform_X(
     single_data = train_data, 
-    regressor_spec = regressor_spec
+    transform_spec = regressor_spec
   )
   
   if (HTE_spec == "correctly-specified") {
@@ -370,9 +370,9 @@ S_cox <- function(train_data,
     print("Finished fitting the Cox model.")
   }
   
-  test_transformed_X <- transform_X(
+  X_HTE_test <- transform_X(
     single_data = test_data,
-    regressor_spec = regressor_spec
+    transform_spec = regressor_spec
   )
   
   if (verbose >= 1){
@@ -384,14 +384,14 @@ S_cox <- function(train_data,
   } else if (HTE_spec == "linear") {
     test_regressor_HTE <- cbind(1, as.matrix(test_data %>% select(starts_with("X."))))
   } else if (HTE_spec == "flexible") {
-    test_regressor_HTE <- cbind(1, as.matrix(test_transformed_X))
+    test_regressor_HTE <- cbind(1, as.matrix(X_HTE_test))
   }
   
   HTE_est <- as.vector(test_regressor_HTE %*% beta_HTE)
   HTE_true <- test_data$HTE
   
   # Added y_0_pred
-  y_0_pred <- as.vector(test_transformed_X %*% beta_eta_0)
+  y_0_pred <- as.vector(X_HTE_test %*% beta_eta_0)
   y_1_pred <- y_0_pred + HTE_est
   
   if (verbose >= 1){
@@ -442,7 +442,7 @@ T_lasso <- function(train_data,
   
   transformed_X <- transform_X(
     single_data = train_data, 
-    regressor_spec = regressor_spec
+    transform_spec = regressor_spec
   )
   # Separate transformed_X for control and treatment groups
   transformed_X_co <- transformed_X[index_co, ]
@@ -464,14 +464,14 @@ T_lasso <- function(train_data,
   
   
   # Transform the test data
-  test_transformed_X <- transform_X(
+  X_HTE_test <- transform_X(
     single_data = test_data, 
-    regressor_spec = regressor_spec
+    transform_spec = regressor_spec
   )
   
   # Predict on test data using both models
-  y_1_pred <- predict(eta_1, newx = test_transformed_X, s = "lambda.min")
-  y_0_pred <- predict(eta_0, newx = test_transformed_X, s = "lambda.min")
+  y_1_pred <- predict(eta_1, newx = X_HTE_test, s = "lambda.min")
+  y_0_pred <- predict(eta_0, newx = X_HTE_test, s = "lambda.min")
   
   # Compute HTE estimate
   HTE_est <- y_1_pred - y_0_pred
@@ -539,27 +539,34 @@ S_lasso <- function(train_data,
                     HTE_spec, 
                     verbose = 0) {
   
-  transformed_X <- transform_X(
+  X_eta <- transform_X(
     single_data = train_data, 
-    regressor_spec = regressor_spec
+    transform_spec = regressor_spec
   )
   
-  complex_X <- transform_X(
+  # complex_X <- transform_X(
+  #   single_data = train_data, 
+  #   transform_spec = "complex"
+  # )
+  
+  # if (HTE_spec == "correctly-specified") {
+  #   regressor_HTE <- train_data$W * cbind(train_data$X.1, train_data$X.10)
+  # } else if (HTE_spec == "linear") {
+  # if (HTE_spec == "linear") {
+  #   regressor_HTE <- cbind(train_data$W, train_data$W * train_data %>% select(starts_with("X.")))
+  # } else if (HTE_spec == "flexible") {
+  #   regressor_HTE <- cbind(train_data$W, train_data$W * transformed_X)
+  # } else if (HTE_spec == "complex") {
+  #   regressor_HTE <- cbind(train_data$W, train_data$W * complex_X)
+  # }
+  
+  X_HTE <- transform_X(
     single_data = train_data, 
-    regressor_spec = "complex"
+    transform_spec = HTE_spec # "linear" or "complex"
   )
+  regressor_HTE <- cbind(train_data$W, train_data$W * X_HTE)
   
-  if (HTE_spec == "correctly-specified") {
-    regressor_HTE <- train_data$W * cbind(train_data$X.1, train_data$X.10)
-  } else if (HTE_spec == "linear") {
-    regressor_HTE <- cbind(train_data$W, train_data$W * train_data %>% select(starts_with("X.")))
-  } else if (HTE_spec == "flexible") {
-    regressor_HTE <- cbind(train_data$W, train_data$W * transformed_X)
-  } else if (HTE_spec == "complex") {
-    regressor_HTE <- cbind(train_data$W, train_data$W * complex_X)
-  }
-  
-  regressor <- cbind(transformed_X, regressor_HTE)
+  regressor <- cbind(X_eta, regressor_HTE)
   regressor <- as.matrix(regressor)
   
   if (HTE_spec == "linear" & regressor_spec == "linear"){
@@ -594,42 +601,51 @@ S_lasso <- function(train_data,
   }
   
 
-  n_transformed_X <- ncol(transformed_X)
-  beta_HTE <- m_beta[(n_transformed_X + 1):length(m_beta)] 
-  beta_eta_0 <- m_beta[1:(n_transformed_X)] 
+  n_X_eta <- ncol(X_eta)
+  beta_HTE <- m_beta[(n_X_eta + 1):length(m_beta)] 
+  beta_eta_0 <- m_beta[1:(n_X_eta)] 
   
   if (verbose >= 1){
     print( "Finished fitting the lasso model. ")
   }
   
   
-  test_transformed_X <- transform_X(
-    single_data = test_data,
-    regressor_spec = regressor_spec)
-  test_complex_X <- transform_X(
-    single_data = test_data,
-    regressor_spec = "complex")
+  # X_HTE_test <- transform_X(
+  #   single_data = test_data,
+  #   transform_spec = regressor_spec)
+  # test_complex_X <- transform_X(
+  #   single_data = test_data,
+  #   transform_spec = "complex")
   
+  X_HTE_test <- transform_X(
+    single_data = test_data,
+    transform_spec = HTE_spec)
+  
+  test_regressor_HTE <- cbind(1, train_data$W * X_HTE_test)
   
   if (verbose >= 1){
     print( "Start prediction. ")
   }
   
-  if (HTE_spec == "correctly-specified") {
-    test_regressor_HTE <- cbind(test_data$X.1, test_data$X.10)
-  } else if (HTE_spec == "linear") {
-    test_regressor_HTE <- cbind(1, as.matrix(test_data %>% select(starts_with("X.")) ) )
-  } else if (HTE_spec == "flexible") {
-    test_regressor_HTE <- cbind(1, as.matrix(test_transformed_X))
-  } else if (HTE_spec == "complex") {
-    test_regressor_HTE <- cbind(1, as.matrix(test_complex_X))
-  }
-
+  # if (HTE_spec == "correctly-specified") {
+  #   test_regressor_HTE <- cbind(test_data$X.1, test_data$X.10)
+  # } else if (HTE_spec == "linear") {
+  #   test_regressor_HTE <- cbind(1, as.matrix(test_data %>% select(starts_with("X.")) ) )
+  # } else if (HTE_spec == "flexible") {
+  #   test_regressor_HTE <- cbind(1, as.matrix(X_HTE_test))
+  # } else if (HTE_spec == "complex") {
+  #   test_regressor_HTE <- cbind(1, as.matrix(test_complex_X))
+  # }
+  
   HTE_est <- as.vector(test_regressor_HTE %*% beta_HTE)
   HTE_true <- test_data$HTE
   
   # Added y_0_pred
-  y_0_pred <- as.vector(test_transformed_X %*% beta_eta_0)
+  X_eta_test <- transform_X(
+    single_data = test_data,
+    transform_spec = regressor_spec)
+  
+  y_0_pred <- as.vector(X_eta_test %*% beta_eta_0)
   y_1_pred <- y_0_pred + HTE_est
   
   if (verbose >= 1){
@@ -691,7 +707,7 @@ m_regression <- function(train_data,
   
   transformed_X <- transform_X(
     single_data = train_data, 
-    regressor_spec = regressor_spec
+    transform_spec = regressor_spec
   )
   
   regressor <- as.matrix(transformed_X)
@@ -714,12 +730,12 @@ m_regression <- function(train_data,
   }
   
   
-  test_transformed_X <- transform_X(
+  X_HTE_test <- transform_X(
     single_data = test_data,
-    regressor_spec = regressor_spec)
+    transform_spec = regressor_spec)
   
   
-  y_pred <- as.vector(test_transformed_X %*% m_beta)
+  y_pred <- as.vector(X_HTE_test %*% m_beta)
   y_0_pred <- y_1_pred <-  y_pred 
   # in m_regression, there is no need to have y_0_pred, y_1_pred
   # We have them to conform with the existing TV_CSL coding logic
@@ -746,16 +762,16 @@ m_regression <- function(train_data,
 #' Transform X Variables for Lasso Regression
 #'
 #' This function performs transformations on variables starting with "X." from the input data.
-#' Depending on the `regressor_spec`, the function creates either simple linear terms or a more complex set of transformations including natural splines, square terms, and interaction terms.
+#' Depending on the `transform_spec`, the function creates either simple linear terms or a more complex set of transformations including natural splines, square terms, and interaction terms.
 #'
 #' @param single_data A data frame that contains the regressors, with column names starting with "X.".
-#' @param regressor_spec A character string specifying the type of transformation. 
+#' @param transform_spec A character string specifying the type of transformation. 
 #'   - "linear": Generates linear terms only.
 #'   - "complex": Generates linear terms, 3 natural splines for continuous variables, square terms, and pairwise interaction terms for both continuous and binary variables.
 #'
 #' @details
-#' - If `regressor_spec` is "linear", the function will return a matrix of linear terms from all variables starting with "X.".
-#' - If `regressor_spec` is "complex", the function applies the following transformations:
+#' - If `transform_spec` is "linear", the function will return a matrix of linear terms from all variables starting with "X.".
+#' - If `transform_spec` is "complex", the function applies the following transformations:
 #'   - Linear terms for all variables.
 #'   - 3 natural spline terms for continuous variables.
 #'   - Square terms for continuous variables.
@@ -765,13 +781,13 @@ m_regression <- function(train_data,
 #' 
 #' @examples
 #' # Using linear transformation
-#' transformed_X_linear <- transform_X(single_data = df_time_var, regressor_spec = "linear")
+#' transformed_X_linear <- transform_X(single_data = df_time_var, transform_spec = "linear")
 #'
 #' # Using complex transformation
-#' transformed_X_complex <- transform_X(single_data = df_time_var, regressor_spec = "complex")
+#' transformed_X_complex <- transform_X(single_data = df_time_var, transform_spec = "complex")
 #'
 #' @export
-transform_X <- function(single_data, regressor_spec = "linear") {
+transform_X <- function(single_data, transform_spec = "linear") {
   library(splines)
   library(dplyr)
   
@@ -780,7 +796,7 @@ transform_X <- function(single_data, regressor_spec = "linear") {
   
   transformed_X <- matrix(nrow = nrow(X_vars), ncol = 0)
   
-  if (regressor_spec == "complex") {
+  if (transform_spec == "complex") {
     
     # transformed_X <- as.matrix(X_vars)
     continuous_vars <- names(X_vars)[sapply(X_vars, function(x) length(unique(x)) > 2)]
@@ -809,7 +825,7 @@ transform_X <- function(single_data, regressor_spec = "linear") {
       }
     }
     
-  } else if (regressor_spec == "linear") {
+  } else if (transform_spec == "linear") {
     
     transformed_X <- as.matrix(X_vars)
     
@@ -1014,7 +1030,7 @@ run_TV_CSL_estimation <- function(
   for (prop_score_spec in methods_TV_CSL$prop_score_specs) {
     for (regressor_spec in methods_TV_CSL$regressor_specs) {
       for (lasso_type in methods_TV_CSL$lasso_types) {
-        for (final_model_method in methods_TV_CSL$final_model_methods) {
+        # for (final_model_method in methods_TV_CSL$final_model_methods) {
           for (HTE_spec in methods_TV_CSL$HTE_specs){
           
           # config_name <- paste(lasso_type, regressor_spec, sep = "_")
@@ -1031,7 +1047,7 @@ run_TV_CSL_estimation <- function(
                                prop_score_spec = prop_score_spec, 
                                lasso_type = lasso_type, 
                                regressor_spec = regressor_spec, 
-                               final_model_method = final_model_method,
+                               # final_model_method = final_model_method,
                                HTE_spec = HTE_spec,
                                i = i)
           end_time <- Sys.time()
@@ -1051,7 +1067,7 @@ run_TV_CSL_estimation <- function(
           # save_res_to_csv(curr_res, FNAME = temp_result_csv_file)
           
           } # End looping over HTE_specs
-        } # End looping over final_model_methods
+        # } # End looping over final_model_methods
       } # End looping over lasso_types
     } # End looping over regressor_specs
   } # End looping over prop_score_specs
@@ -1108,9 +1124,21 @@ TV_CSL_nuisance <- function(fold_train,
       df_prop_score <- train_data_original
     }
     
-    treatment_model <- coxph(Surv(U_A, Delta_A) ~ X.1 + X.2 + X.3, 
+    if (prop_score_spec == "cox-mis-specificaiton") {
+      formula <- as.formula("Surv(U_A, Delta_A) ~ X.1")
+      test_X <- cbind(fold_test_final$X.1)
+    } else {
+      formula <- as.formula("Surv(U_A, Delta_A) ~ X.1 + X.2 + X.3")
+      test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
+    }
+    
+    treatment_model <- coxph(formula, 
                              data = df_prop_score, 
                              ties = "breslow")
+    
+    # treatment_model <- coxph(Surv(U_A, Delta_A) ~ X.1 + X.2 + X.3, 
+    #                          data = df_prop_score, 
+    #                          ties = "breslow")
     alpha_estimate <- treatment_model$coefficients
     
   }else {
@@ -1184,7 +1212,7 @@ TV_CSL_nuisance <- function(fold_train,
     ungroup()
 
   print(paste("alpha_estimate: ", alpha_estimate))
-  test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
+  # test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
   prop_scores <- calculate_eX(
     alpha_estimate = alpha_estimate, 
     X = test_X,
@@ -1203,7 +1231,7 @@ TV_CSL_nuisance <- function(fold_train,
 
 
 fit_TV_CSL <- function(fold_causal_fitted, 
-                       final_model_method, 
+                       # final_model_method, 
                        test_data, 
                        beta_HTE_first_stage = NULL,
                        HTE_spec = "linear") {
@@ -1267,7 +1295,7 @@ fit_TV_CSL <- function(fold_causal_fitted,
     
     complex_X <- transform_X(
       single_data = fold_causal_fitted, 
-      regressor_spec = "complex"
+      transform_spec = "complex"
     )
     
     regressor_TV_CSL <- (fold_causal_fitted$W - as.vector(fold_causal_fitted$a_t_X)) *
@@ -1291,7 +1319,7 @@ fit_TV_CSL <- function(fold_causal_fitted,
   } else if (HTE_spec == "complex") {
     test_complex_X <- transform_X(
       single_data = test_data,
-      regressor_spec = "complex")
+      transform_spec = "complex")
     test_regressor_HTE <- cbind(1, as.matrix(test_complex_X))
   }
   
@@ -1299,8 +1327,9 @@ fit_TV_CSL <- function(fold_causal_fitted,
   
   ret <- list(
     HTE_est = HTE_est,
-    beta_HTE = beta_HTE,
-    final_model_method = final_model_method
+    beta_HTE = beta_HTE
+    # beta_HTE = beta_HTE,
+    # final_model_method = final_model_method
   )
   
   return(ret)
@@ -1320,7 +1349,6 @@ fit_TV_CSL <- function(fold_causal_fitted,
 #' @param prop_score_spec A character string specifying the type of propensity score specification to use in the nuisance model.
 #' @param lasso_type A character string specifying the type of Lasso to use in the model (e.g., "linear", "complex").
 #' @param regressor_spec A character string specifying the regressor transformation ("linear" or "complex").
-#' @param final_model_method A character string specifying the final model method (e.g., "cox", "lasso").
 #'
 #' @return A list containing the following components:
 #'   - `HTE_est`: Estimated HTE values for the test data.
@@ -1352,7 +1380,7 @@ TV_CSL <- function(train_data,
                    prop_score_spec, 
                    lasso_type, 
                    regressor_spec, 
-                   final_model_method,
+                   # final_model_method,
                    HTE_spec,
                    i = 0,
                    id_var = "id",
@@ -1450,7 +1478,7 @@ TV_CSL <- function(train_data,
     
     fit_TV_CSL_ret <- fit_TV_CSL(
       fold_causal_fitted = fold_causal_fitted, 
-      final_model_method = final_model_method,
+      # final_model_method = final_model_method,
       test_data = test_data,
       HTE_spec = HTE_spec,
       beta_HTE_first_stage = beta_HTE_first_stage
