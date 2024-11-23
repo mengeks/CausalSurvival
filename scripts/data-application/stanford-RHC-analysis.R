@@ -30,8 +30,8 @@ n_trt <- nrow(df_trt)
 # Create the time-variation plot
 time_variation_plot <- ggplot(df_trt, aes(x = tstart)) +
   geom_histogram(bins = 12, fill = "lightblue", color = "black") +
-  labs(title = "Distribution of Time of Heart Transplant",
-       x = "Time of Heart Transplant",
+  labs(title = "Distribution of Heart Transplant Timing (for Treated Patients)",
+       x = "Time of Heart Transplant (Days)",
        y = "Frequency") +
   theme_minimal()
 
@@ -45,7 +45,13 @@ ggsave(filename = "time_variation.png", plot = time_variation_plot,
 ### Impact of incorporating time-varying information on a marginal effect.
 ## Marginal effect
 # Fit a model that ignores the time-varying nature of transplant (transplant as fixed)
-fit_fixed <- coxph(Surv(futime, fustat) ~ age + surgery + year + trt, data = df_original, ties = "breslow")
+df_original_standardized <- df_original
+
+# Standardize the 'year' and 'age' variables
+df_original_standardized$year <- scale(df_original$year, center = TRUE, scale = TRUE)
+df_original_standardized$age <- scale(df_original$age, center = TRUE, scale = TRUE)
+
+fit_fixed <- coxph(Surv(futime, fustat) ~ age + surgery + year + trt, data = df_original_standardized, ties = "breslow")
 summary(fit_fixed)
 
 # Fit a model that includes time-varying nature (transplant as time-dependent)
@@ -86,13 +92,28 @@ print(xtable(df_summary,
 #### 
 ## HTE
 # Fit a model that ignores the time-varying nature of transplant (transplant as fixed)
+df_original_standardized <- df_original %>%
+  mutate(
+    age = scale(age),        # Standardize age
+    surgery = surgery,           # Keep surgery binary as is
+    year = scale(year)        # Standardize year
+  )
+
+df_time_var_standardized <- df_time_var %>%
+  mutate(
+    age = scale(age),        # Standardize age
+    surgery = surgery,           # Keep surgery binary as is
+    year = scale(year)        # Standardize year
+  )
+
+
 fit_fixed <- coxph(Surv(futime, fustat) ~ age + surgery + year + trt*(1+age + surgery + year), 
-                   data = df_original, ties = "breslow")
+                   data = df_original_standardized, ties = "breslow")
 summary(fit_fixed)
 
 # Fit a model that includes time-varying nature (transplant as time-dependent)
 fit_timevarying <- coxph(Surv(tstart, tstop, death) ~ age + surgery + year + trt*(1+age + surgery + year), 
-                         data = df_time_var, ties = "breslow")
+                         data = df_time_var_standardized, ties = "breslow")
 summary(fit_timevarying)
 
 # Compare model coefficients and likelihoods

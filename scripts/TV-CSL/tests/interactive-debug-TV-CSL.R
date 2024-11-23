@@ -7,33 +7,170 @@ library(here)
 library(testthat)
 library(survival)
 
-fold_nuisance_original <- 
-  read_single_simulation_data(n = 500, 
+n = 200
+K = 2
+eta_type = "non-linear"
+HTE_type = "linear"
+prop_score_spec = "cox-linear-censored-only"
+lasso_type = "S-lasso"
+HTE_spec = "linear"
+train_data_original <- 
+  read_single_simulation_data(n = n, 
                               is_time_varying=T, 
-                              i = 1,
-                              eta_type = "linear", 
-                              HTE_type = "linear")$data
+                              i = 65,
+                              eta_type = eta_type, 
+                              HTE_type = HTE_type)$data
+train_data_original <- train_data_original %>% 
+  mutate(U_A = pmin(A,U),
+         Delta_A = A <= U)
+train_data <- create_pseudo_dataset(survival_data = train_data_original)
+test_data <- 
+  read_single_simulation_data(n = n, 
+                              is_time_varying=T, 
+                              i = 66,
+                              eta_type = eta_type, 
+                              HTE_type = HTE_type)$data
+source("scripts/TV-CSL/time-varying-estimate.R")
+timing <- system.time({
+  TV_CSL_ret_s_lasso_eta_complex_pcoxtime <- TV_CSL(train_data = train_data, 
+                       test_data = test_data, 
+                       train_data_original = train_data_original, 
+                       HTE_type = HTE_type,
+                       eta_type = eta_type,
+                       K = K, 
+                       prop_score_spec = prop_score_spec, 
+                       lasso_type = lasso_type, 
+                       regressor_spec = "complex", 
+                       HTE_spec = HTE_spec,
+                       i = 65,
+                       final_model_method = "pcoxtime",
+                       verbose = 0)
+})
+
+timing <- system.time({
+  TV_CSL_ret_s_lasso_eta_linear_pcoxtime <- TV_CSL(train_data = train_data, 
+                                           test_data = test_data, 
+                                           train_data_original = train_data_original, 
+                                           HTE_type = HTE_type,
+                                           eta_type = eta_type,
+                                           K = K, 
+                                           prop_score_spec = prop_score_spec, 
+                                           lasso_type = lasso_type, 
+                                           regressor_spec = "linear", 
+                                           HTE_spec = HTE_spec,
+                                           i = 65,
+                                            final_model_method = "pcoxtime",
+                                           verbose = 0)
+})
+TV_CSL_ret_s_lasso_eta_complex_pcoxtime$beta_HTE - TV_CSL_ret_s_lasso_eta_linear_pcoxtime$beta_HTE
+
+source("scripts/TV-CSL/time-varying-estimate.R")
+timing <- system.time({
+  TV_CSL_ret_s_lasso_eta_complex_coxph <- TV_CSL(train_data = train_data, 
+                                                    test_data = test_data, 
+                                                    train_data_original = train_data_original, 
+                                                    HTE_type = HTE_type,
+                                                    eta_type = eta_type,
+                                                    K = K, 
+                                                    prop_score_spec = prop_score_spec, 
+                                                    lasso_type = lasso_type, 
+                                                    regressor_spec = "complex", 
+                                                    HTE_spec = HTE_spec,
+                                                    i = 65,
+                                                    final_model_method = "lasso_coxph",
+                                                    verbose = 0)
+})
+
+timing <- system.time({
+  TV_CSL_ret_s_lasso_eta_linear_coxph <- TV_CSL(train_data = train_data, 
+                                                   test_data = test_data, 
+                                                   train_data_original = train_data_original, 
+                                                   HTE_type = HTE_type,
+                                                   eta_type = eta_type,
+                                                   K = K, 
+                                                   prop_score_spec = prop_score_spec, 
+                                                   lasso_type = lasso_type, 
+                                                   regressor_spec = "linear", 
+                                                   HTE_spec = HTE_spec,
+                                                   i = 65,
+                                                   final_model_method = "lasso_coxph",
+                                                   verbose = 0)
+})
+TV_CSL_ret_s_lasso_eta_complex_coxph$beta_HTE - TV_CSL_ret_s_lasso_eta_linear_coxph$beta_HTE
+
+
+timing <- system.time({
+  TV_CSL_ret_m_eta_complex_coxph <- TV_CSL(train_data = train_data, 
+                                                 test_data = test_data, 
+                                                 train_data_original = train_data_original, 
+                                                 HTE_type = HTE_type,
+                                                 eta_type = eta_type,
+                                                 K = K, 
+                                                 prop_score_spec = prop_score_spec, 
+                                                 lasso_type = "m-regression", 
+                                                 regressor_spec = "complex", 
+                                                 HTE_spec = HTE_spec,
+                                                 i = 65,
+                                                 final_model_method = "lasso_coxph",
+                                                 verbose = 0)
+})
+
+timing <- system.time({
+  TV_CSL_ret_m_eta_linear_coxph <- TV_CSL(train_data = train_data, 
+                                                test_data = test_data, 
+                                                train_data_original = train_data_original, 
+                                                HTE_type = HTE_type,
+                                                eta_type = eta_type,
+                                                K = K, 
+                                                prop_score_spec = prop_score_spec, 
+                                                lasso_type = "m-regression", 
+                                                regressor_spec = "linear", 
+                                                HTE_spec = HTE_spec,
+                                                i = 65,
+                                                final_model_method = "lasso_coxph",
+                                                verbose = 0)
+})
+TV_CSL_ret_m_eta_complex_coxph$beta_HTE - TV_CSL_ret_m_eta_linear_coxph$beta_HTE
+
+
+
+fold_nuisance_original <- 
+  read_single_simulation_data(n = n, 
+                              is_time_varying=T, 
+                              i = 65,
+                              eta_type = eta_type, 
+                              HTE_type = HTE_type)$data
 fold_nuisance_original <- fold_nuisance_original %>% 
   mutate(U_A = pmin(A,U),
          Delta_A = A <= U)
 fold_nuisance <- create_pseudo_dataset(survival_data = fold_nuisance_original)
 fold_causal_original <- test_data <- 
-  read_single_simulation_data(n = 500, 
+  read_single_simulation_data(n = n, 
                               is_time_varying=T, 
-                              i = 101,
-                              eta_type = "linear", 
-                              HTE_type = "linear")$data
+                              i = 66,
+                              eta_type = eta_type, 
+                              HTE_type = HTE_type)$data
 fold_causal <- create_pseudo_dataset(survival_data = fold_causal_original) 
 
-fold_causal_fitted <- TV_CSL_nuisance(
-  fold_train = fold_nuisance, 
-  fold_test = fold_causal, 
-  train_data_original = fold_nuisance_original,
-  prop_score_spec = "cox-linear-all-data",
-  lasso_type = "S-lasso",
-  regressor_spec = "linear",
-  HTE_spec = "linear"
+library(microbenchmark)
+
+timing <- microbenchmark(
+  fold_causal_fitted <- TV_CSL_nuisance(
+    fold_train = fold_nuisance, 
+    fold_test = fold_causal, 
+    train_data_original = fold_nuisance_original,
+    prop_score_spec = prop_score_spec,
+    lasso_type = lasso_type,
+    regressor_spec = eta_spec,
+    HTE_spec = HTE_spec
+  ),
+  times = 1 # Number of iterations
 )
+print(timing)
+
+
+
+
 
 large_nuisance_set <- fold_causal_fitted$fold_test_final
 small_nuisance_set <- fold_causal

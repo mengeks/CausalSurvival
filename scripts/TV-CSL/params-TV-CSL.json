@@ -5,8 +5,8 @@
     "TV_CSL": {
         "enabled": true,
         "prop_score_specs": [
-          "cox-linear-censored-only",
-          "cox-linear-mis-specificaiton"
+          "cox-linear-mis-specification",
+          "cox-linear-censored-only"
         ],
         "regressor_specs": [
           "linear",
@@ -18,8 +18,10 @@
         ],
         "HTE_specs": [
           "linear"
+        ],
+        "final_model_methods": [
+          "lasso_coxph"
         ]
       }
-    },
-  "verbose": 0
+    }
 }

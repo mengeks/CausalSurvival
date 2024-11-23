@@ -16,7 +16,7 @@ verbose=${2:-0}
 
 
 for n in 200 500 1000 2000; do
-  for eta_type in "linear" "non-linear"; do
+  for eta_type in "non-linear"; do
     for HTE_type in "linear"; do
 
       log_dir="/n/holylabs/LABS/pillai_lab/Users/xmeng1/CausalSurvival/scripts/TV-CSL/results/TV-CSL_eta-${eta_type}_HTE-${HTE_type}_n-${n}"
