@@ -1168,7 +1168,11 @@ TV_CSL_nuisance <- function(fold_train,
     if (prop_score_spec == "cox-linear-mis-specification") {
       formula <- as.formula("Surv(U_A, Delta_A) ~ X.1")
     } else {
-      formula <- as.formula("Surv(U_A, Delta_A) ~ X.1 + X.2 + X.3")
+      num_covariates <- ncol(df_prop_score %>% select(starts_with("X.")))
+      
+      covariate_terms <- paste("X.", 1:num_covariates, sep = "", collapse = " + ")
+      formula <- as.formula(paste("Surv(U_A, Delta_A) ~", covariate_terms))
+      # formula <- as.formula("Surv(U_A, Delta_A) ~ X.1 + X.2 + X.3")
     }
     
     treatment_model <- coxph(formula, 
@@ -1255,7 +1259,8 @@ TV_CSL_nuisance <- function(fold_train,
   if (prop_score_spec == "cox-linear-mis-specification") {
     test_X <- cbind(fold_test_final$X.1)
   } else {
-    test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
+    test_X <- as.matrix(fold_test_final %>% select(starts_with("X.")))
+    # test_X <- cbind(fold_test_final$X.1, fold_test_final$X.2, fold_test_final$X.3)
   }
   prop_scores <- calculate_eX(
     alpha_estimate = alpha_estimate, 
@@ -1438,6 +1443,7 @@ TV_CSL <- function(train_data,
   
   n <- nrow(test_data)
   folds <- cut(seq(1, nrow(train_data_original)), breaks = K, labels = FALSE)
+  
   HTE_ests <- matrix(NA, nrow = n, ncol = K)
   
   # Measure time taken for the procedure
@@ -1452,6 +1458,7 @@ TV_CSL <- function(train_data,
   
   
   # Perform K-fold cross-fitting
+  first_stage_lassos <- list()
   for (k in 1:K) {
     
     # Get IDs for nuisance and causal splits
@@ -1475,17 +1482,18 @@ TV_CSL <- function(train_data,
       HTE_spec = HTE_spec
     )
     fold_causal_fitted <- object_causal_fitted$fold_test_final
-    first_stage_lasso <- object_causal_fitted$lasso_ret
+    first_stage_lassos[[k]] <- first_stage_lasso <- 
+      object_causal_fitted$lasso_ret
     
-    output_folder <- generate_output_folder(
-      results_dir = RESULTS_DIR,
-      method_setting = "TV-CSL_", 
-      eta_type = eta_type, 
-      HTE_type = HTE_type, 
-      n = n
-    )
     
     if (verbose == 2){
+      output_folder <- generate_output_folder(
+        results_dir = RESULTS_DIR,
+        method_setting = "TV-CSL_", 
+        eta_type = eta_type, 
+        HTE_type = HTE_type, 
+        n = n
+      )
       
       if (lasso_type == "T-lasso" | lasso_type == "S-lasso"){ # this rules out m-regression
         
@@ -1516,7 +1524,7 @@ TV_CSL <- function(train_data,
       }
     }
     
-    # get the first stage MSE and the regression coefficients
+    
     if (lasso_warmstart){
       beta_HTE_first_stage <- 
         if ( lasso_type == "T-lasso" | lasso_type == "S-lasso") 
@@ -1605,6 +1613,7 @@ TV_CSL <- function(train_data,
   
   # Return results as a list
   return(list(
+    first_stage_lassos = first_stage_lassos,
     beta_HTE_first_stages = beta_HTE_first_stages,
     beta_HTE = beta_HTE,
     beta_HTEs = beta_HTEs,
