@@ -82,7 +82,9 @@ process_all_iterations <- function(config,eta_type, HTE_type, results_dir, n) {
   aggregated_metrics <- combined_results %>%
     group_by(Method, Specification) %>%
     summarise(
-      MSE = mean(MSE_Estimate)
+      MSE = mean(MSE_Estimate),
+      MCSE_MSE = sqrt(var(MSE_Estimate) / n()),
+      n_iterations = n()
     )
   
   return(aggregated_metrics)
@@ -212,8 +214,44 @@ get_plot_file <- function(config,
   return(plot_file)
 }
 
-evaluate_HTE_metrics <- function(json_file, results_dir, eta_type, HTE_type, n_list, HTE_spec,
-                                 output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
+# Function to calculate sample skewness
+calc_skewness <- function(T_values, mean_T, sd_T) {
+  R <- length(T_values)
+  sum((T_values - mean_T)^3) / (R * sd_T^3)
+}
+
+# Function to calculate sample kurtosis
+calc_kurtosis <- function(T_values, mean_T, sd_T) {
+  R <- length(T_values)
+  sum((T_values - mean_T)^4) / (R * sd_T^4)
+}
+
+# Function to calculate MCSE of MSE
+calc_mcse_mse <- function(T_values, theta) {
+  R <- length(T_values)
+  mean_T <- mean(T_values)
+  sd_T <- sd(T_values)
+  
+  skewness_T <- calc_skewness(T_values, mean_T, sd_T)
+  kurtosis_T <- calc_kurtosis(T_values, mean_T, sd_T)
+  
+  term1 <- sd_T^4 * (kurtosis_T - 1)
+  term2 <- 4 * sd_T^3 * skewness_T * (mean_T - theta)
+  term3 <- 4 * sd_T^2 * (mean_T - theta)^2
+  
+  mcse_mse <- sqrt((1 / R) * (term1 + term2 + term3))
+  return(mcse_mse)
+}
+
+
+evaluate_HTE_metrics <- function(
+    json_file, 
+    results_dir, 
+    eta_type, 
+    HTE_type, 
+    n_list, 
+    HTE_spec,
+    output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
   # Load the experiment configuration
   config <- load_experiment_config(json_file)
   methods <- config$methods
@@ -297,39 +335,43 @@ evaluate_HTE_metrics <- function(json_file, results_dir, eta_type, HTE_type, n_l
       return(first_stage_avg)
     }
     
+    # This is average over k
     first_stage_avg <- 
       compute_first_stage_average(df_HTE_coef=df_HTE_coef, 
                                   p_regressor_HTE=p_regressor_HTE,
                                   n_col_df = n_col_df)
     
-    # print(head(first_stage_avg))
-    # print(head(df_HTE_coef))
+
     df_HTE_coef <- rbind(df_HTE_coef,first_stage_avg)
     
     
     # Compute MSE for each row of df_HTE_coef
+    # HTE_true is a vector of length 2000
     df_HTE_coef$MSE <- apply(df_HTE_coef, 1, function(row) {
-      # print(paste0("length(row)  = ", length(row) ))
-      # print(paste0(" ncol(test_regressor_HTE) + 1 = ",  ncol(test_regressor_HTE) + 1) )
-      # beta_HTE <- as.numeric(row[(ncol(row) - ncol(test_regressor_HTE) + 1):ncol(row)])
       beta_HTE <- as.numeric(row[(n_col_df - p_regressor_HTE + 1):n_col_df])
       HTE_est <- as.vector(test_regressor_HTE %*% beta_HTE)
       mean((HTE_est - HTE_true)^2)
     })
     
-    # # Filter for k == 0
-    # df_HTE_coef <- df_HTE_coef[df_HTE_coef$k == 0, ]
-    
-    # print(paste0("n = ", n))
-    # print("print((df_HTE_coef %>% filter(iteration == 65)))")
-    # print((df_HTE_coef %>% filter(iteration == 65)))
-    
-    
+    # ## This is averaging over all "iterations", i.e., R
+    # ## Add MCSE of MSE here
+    # aggregated_metrics_n <- df_HTE_coef %>%
+    #   group_by(lasso_type, eta_spec, HTE_spec, prop_score_spec, stage, k) %>%
+    #   summarise(MSE = mean(MSE), n_iterations = n()) %>%
+    #   ungroup()
     aggregated_metrics_n <- df_HTE_coef %>%
       group_by(lasso_type, eta_spec, HTE_spec, prop_score_spec, stage, k) %>%
-      summarise(MSE = mean(MSE)) %>%
-      # summarise(MSE = mean(MSE, na.rm = TRUE)) %>%
-      ungroup()
+      summarise(
+        MSE_mean = mean(MSE),
+        n_iterations = n(),
+        MCSE_MSE = sqrt(var(MSE) / n())
+        # MCSE_MSE = {
+        #   mse_values <- MSE
+        #   calc_mcse_mse(mse_values, theta = HTE_true) # Adjust theta if needed
+        # }
+      ) %>%
+      ungroup() %>%
+      rename(MSE = "MSE_mean")
     
     # Add n as a variable
     aggregated_metrics_n$n <- n
@@ -392,19 +434,28 @@ make_HTE_by_eta_plots <- function(json_file_lasso,
                                  HTE_type,
                                  output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
   data_lasso <- load_and_process_table_data_single_spec(json_file_lasso,eta_type,HTE_type, output_csv_dir)
+  
   data_TV_CSL <- load_and_process_table_data_single_spec(json_file_TV_CSL,eta_type,HTE_type, output_csv_dir)
   
   combined_data <- bind_rows(data_lasso, data_TV_CSL, .id = "source")
   
   # Create custom labeling functions for each factor
+  # hte_labels <- c(
+  #   "HTE-spec-complex" = "Treatment effect: overly complex",
+  #   "HTE-spec-linear" = "Treatment effect: correctly specified"
+  # )
   hte_labels <- c(
-    "HTE-spec-complex" = "Treatment effect: overly complex",
-    "HTE-spec-linear" = "Treatment effect: correctly specified"
+    "HTE-spec-complex" = "HTE: Complex",
+    "HTE-spec-linear" = "HTE: Linear"
   )
   
+  # eta_labels <- c(
+  #   "regressor-spec-complex" = "Baseline: Mildly mis-specified",
+  #   "regressor-spec-linear" = "Baseline: Quite mis-specified"
+  # )
   eta_labels <- c(
-    "regressor-spec-complex" = "Baseline: Mildly mis-specified",
-    "regressor-spec-linear" = "Baseline: Quite mis-specified"
+    "regressor-spec-complex" = "Baseline: Linear",
+    "regressor-spec-linear" = "Baseline: Complex"
   )
   
   p <- ggplot(combined_data, aes(x = as.factor(n), y = MSE, color = Method)) +

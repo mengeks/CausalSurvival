@@ -1,0 +1,37 @@
+{
+  "methods": {
+    "TV_CSL": {
+        "enabled": true,
+        "prop_score_specs": [
+          "cox-linear-all-data"
+        ],
+        "regressor_specs": [
+          "linear",
+          "complex"
+        ],
+        "lasso_types": [
+          "m-regression",
+          "S-lasso"
+        ],
+        "HTE_specs": [
+          "linear"
+        ],
+        "final_model_methods": [
+          "lasso_coxph"
+        ]
+      },
+      "lasso": {
+        "enabled": true,
+        "regressor_specs": [
+          "linear",
+          "complex"
+        ],
+        "lasso_types": [
+          "S-lasso"
+        ],
+        "HTE_specs": [
+          "linear"
+        ]
+      }
+    }
+}

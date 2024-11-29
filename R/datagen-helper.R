@@ -177,6 +177,8 @@ generate_treatment <-
           2 * cos(L5) * cos(L6))
   }
   
+  complex_fn <- function(X)   2 * ( sqrt(abs(X[,1] * X[,2])) -  cos (X[,3]) )
+  
   # Treatment generation logic
   if (difficulty == "simple") {
     fn <- simple_fn
@@ -184,7 +186,17 @@ generate_treatment <-
     fn <- hard_fn
   } else if (difficulty == "super-hard") {
     fn <- super_hard_fn
+  } else if (difficulty == "complex"){
+    fn <- complex_fn
+  } else if (difficulty == "constant"){
+    if (is_time_varying) {
+      fn <- function(X) log(1/ 3)
+    } else {
+      fn <- function(X) 0.5
+    }
   }
+  
+  
   
   if (difficulty == "uniform") {
     if (is_time_varying) {
@@ -192,7 +204,7 @@ generate_treatment <-
     } else {
       W <- rbinom(n, 1, prob = 0.5)
     }
-  } else {
+  }  else {
     if (is_time_varying) {
       A <- rexp(n, rate = exp(fn(X)))
     } else {

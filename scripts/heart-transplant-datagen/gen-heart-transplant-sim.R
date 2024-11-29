@@ -119,7 +119,8 @@ generate_heart_transplant_simulated_data <-
     verbose_print("Step 4: Simulating survival data...", 2)
     start_time <- Sys.time()
     df_original_sim_eta_edit <- df_original_sim %>%
-      mutate(eta_0 = eta_0 - 10)
+      # mutate(eta_0 = eta_0 - 10)
+      mutate(eta_0 = eta_0 - 5)
     source("R/datagen-helper.R")
     simulated_data <- simsurv(
       hazard = hazard_function,
@@ -159,12 +160,12 @@ generate_heart_transplant_simulated_data <-
     return(processed_data)
   }
 
-# Examples
+# s# Examples
 # df_123 <- generate_heart_transplant_simulated_data(seed_value = 123)
-# # proportion of treated
-# table(df_123$U > df_123$A) # 97%
-# # proportion of treated
-# table(df_123$Delta) # 27%
+# # # proportion of treated
+# table(df_123$U > df_123$A) # 67%
+# # # proportion of death
+# table(df_123$Delta) # 49%
 # 
 # df_456 <- generate_heart_transplant_simulated_data(seed_value = 456)
 # table(df_456$U > df_456$A) # 96%
