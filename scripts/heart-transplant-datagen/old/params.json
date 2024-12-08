@@ -1,0 +1,16 @@
+{
+  "n_list": [200, 500, 1000, 2000],
+  "R": 200,
+  "HTE_type_list": ["zero", "constant", "ReLU", "linear", "non-linear"],
+  "eta_type_list": ["linear", "non-linear"],
+  "other_params": {
+    "is_time_varying": true,
+    "light_censoring": false,
+    "lambda_C": 0.1,
+    "p": 3,
+    "X_distribution": "normal",
+    "X_cov_type": "identity",
+    "tx_difficulty": "simple"
+  },
+  "verbose": 0
+}

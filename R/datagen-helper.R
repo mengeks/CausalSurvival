@@ -138,7 +138,6 @@ calculate_hazard <- function(t,
                              is_time_varying, 
                              baseline_type = "linear"
 ) {
-  
   baseline_hazard <- 
     calculate_baseline_hazard(
       t = t, 
@@ -146,7 +145,6 @@ calculate_hazard <- function(t,
     )
   
   if (is_time_varying) {
-    # hazard <- exp(eta_0 + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
     hazard <- exp(x[, "eta_0"] + (t >= x[, "A"]) * x[, "HTE"]) * baseline_hazard
   } else {
     # hazard <- exp(eta_0 + x[, "W"] * x[, "HTE"]) * baseline_hazard
@@ -179,6 +177,8 @@ generate_treatment <-
           2 * cos(L5) * cos(L6))
   }
   
+  complex_fn <- function(X)   2 * ( sqrt(abs(X[,1] * X[,2])) -  cos (X[,3]) )
+  
   # Treatment generation logic
   if (difficulty == "simple") {
     fn <- simple_fn
@@ -186,7 +186,17 @@ generate_treatment <-
     fn <- hard_fn
   } else if (difficulty == "super-hard") {
     fn <- super_hard_fn
+  } else if (difficulty == "complex"){
+    fn <- complex_fn
+  } else if (difficulty == "constant"){
+    if (is_time_varying) {
+      fn <- function(X) log(1/ 3)
+    } else {
+      fn <- function(X) 0.5
+    }
   }
+  
+  
   
   if (difficulty == "uniform") {
     if (is_time_varying) {
@@ -194,7 +204,7 @@ generate_treatment <-
     } else {
       W <- rbinom(n, 1, prob = 0.5)
     }
-  } else {
+  }  else {
     if (is_time_varying) {
       A <- rexp(n, rate = exp(fn(X)))
     } else {
@@ -265,67 +275,6 @@ generate_censoring_times <-
     return(rexp(n, rate = lambda_C))
   }
 }
-
-
-
-# calculate_eta_old <- function(x, 
-#                           eta_type = "linear-interaction",
-#                           linear_intercept = 0,
-#                           linear_slope_multiplier = 2.5) {
-#   # Hardcoded betas and delta
-#   betas <- rep(1, 5)
-#   delta <- 0.5
-#   
-#   # Extract relevant covariates
-#   X1 <- x[, "X.1"]
-#   X2 <- x[, "X.2"]
-#   X3 <- x[, "X.3"]
-#   X4 <- x[, "X.4"]
-#   X5 <- x[, "X.5"]
-#   
-#   if (ncol(x) >= 10) {
-#     # If 10-dimensional data is provided, extract additional covariates
-#     X6 <- x[, "X.6"]
-#     X10 <- x[, "X.10"]
-#   }
-#   
-#   # Calculate eta_0 based on the type of interaction
-#   if (eta_type == "linear-interaction") {
-#     # Linear-Interaction form
-#     eta_0 <- X1 * betas[1] +
-#       X2 * betas[2] + 
-#       X3 * betas[3] + 
-#       X4 * betas[4] + 
-#       X5 * betas[5] + 
-#       delta * X1 * X2
-#     
-#   } else if (eta_type == "non-linear") {
-#     # Non-linear form: 𝜎(x1)𝜎(x2), where 𝜎(x) = 2 / (1 + e^(-12(x - 1/2)))
-#     sigma <- function(x) 2 / (1 + exp(-12 * (x - 0.5)))
-#     eta_0 <- (-3/4) * sigma(X1) * sigma(X10)
-#     
-#   } else if (eta_type == "linear") {
-#     eta_0 <- linear_intercept + linear_slope_multiplier * sum(sapply(1:10, function(j) x[, paste0("X.", j)] / j))
-#     
-#   } else if (eta_type == "10-dim-non-linear") {
-#     # 10-dimensional non-linear form
-#     eta_0 <- -2 + (2/3) * (
-#       - 0.5 * sqrt(abs(X1 * X2)) +
-#         0.5 * sqrt(abs(X10)) -
-#         0.5 * cos(X5) +
-#         0.5 * cos(X5) * cos(X6)
-#     )
-#     
-#   } else if (eta_type == "log") {
-#     # Log form
-#     eta_0 <- 2 * log(1 + exp(X1 + X2 + X3))
-#     
-#   } else {
-#     stop("Unsupported eta_type")
-#   }
-#   
-#   return(eta_0)
-# }
 
 
 
@@ -514,47 +463,3 @@ generate_and_save_data <-
     cat("Time used:", time_used, "\n")
   }
 
-
-
-# generate_and_save_data_old <- 
-#   function(i, 
-#            n, 
-#            path_for_sim_data, 
-#            params,
-#            verbose = 0) {
-#   print(paste("Generating dataset", i, "for n =", n, "and time_varying =", is_time_varying))
-#   
-#   seed_value <- 123 + 11 * i
-#   params$seed <- seed_value
-#   
-#   simulated_data_i_n <- 
-#     generate_simulated_data(
-#       n, 
-#       is_time_varying = params$is_time_varying, 
-#       light_censoring = params$light_censoring,
-#       lambda_C = params$lambda_C,
-#       p = params$p,
-#       eta_type = params$eta_type,
-#       X_distribution = params$X_distribution, 
-#       X_cov_type = params$X_cov_type,
-#       tx_difficulty = params$tx_difficulty,
-#       HTE_type = params$HTE_type,
-#       seed_value = params$seed_value,
-#       verbose = verbose
-#     )
-#   
-#   
-#   dataset_with_params <- list(
-#     data = simulated_data_i_n,
-#     params = params
-#   )
-#   
-#   file_name <- paste0("sim_data_", i, "_n_",n, ".rds")
-#   file_path <- file.path(path_for_sim_data, file_name)
-# 
-#   saveRDS(dataset_with_params, file_path)
-#   
-#   cat("Saved dataset", i, "to", file_path, "\n")
-# }
-# 
-# 

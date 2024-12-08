@@ -21,6 +21,13 @@ read_single_iteration_result <- function(csv_file) {
   return(df)
 }
 
+get_is_running_flags <- function(methods) {
+  list(
+    is_running_cox = !is.null(methods$cox) && methods$cox$enabled,
+    is_running_lasso = !is.null(methods$lasso) && methods$lasso$enabled,
+    is_running_TV_CSL = !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
+  )
+}
 
 # Function to aggregate all CSV files and calculate final metrics
 process_all_iterations <- function(config,eta_type, HTE_type, results_dir, n) {
@@ -29,10 +36,15 @@ process_all_iterations <- function(config,eta_type, HTE_type, results_dir, n) {
   # HTE_type <- config$HTE_type
   R <- config$R
   
-  is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
-  is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
-  is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
+  running_flags <- get_is_running_flags(methods)
+  
+  is_running_cox <- running_flags$is_running_cox
+  is_running_lasso <- running_flags$is_running_lasso
+  is_running_TV_CSL <- running_flags$is_running_TV_CSL
 
+  # is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
+  # is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
+  # is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
   
   all_results <- list()
   all_times <- list()
@@ -70,7 +82,9 @@ process_all_iterations <- function(config,eta_type, HTE_type, results_dir, n) {
   aggregated_metrics <- combined_results %>%
     group_by(Method, Specification) %>%
     summarise(
-      MSE = mean(MSE_Estimate)
+      MSE = mean(MSE_Estimate),
+      MCSE_MSE = sqrt(var(MSE_Estimate) / n()),
+      n_iterations = n()
     )
   
   return(aggregated_metrics)
@@ -200,8 +214,191 @@ get_plot_file <- function(config,
   return(plot_file)
 }
 
+# Function to calculate sample skewness
+calc_skewness <- function(T_values, mean_T, sd_T) {
+  R <- length(T_values)
+  sum((T_values - mean_T)^3) / (R * sd_T^3)
+}
 
-load_and_process_table_data <- function(json_file,
+# Function to calculate sample kurtosis
+calc_kurtosis <- function(T_values, mean_T, sd_T) {
+  R <- length(T_values)
+  sum((T_values - mean_T)^4) / (R * sd_T^4)
+}
+
+# Function to calculate MCSE of MSE
+calc_mcse_mse <- function(T_values, theta) {
+  R <- length(T_values)
+  mean_T <- mean(T_values)
+  sd_T <- sd(T_values)
+  
+  skewness_T <- calc_skewness(T_values, mean_T, sd_T)
+  kurtosis_T <- calc_kurtosis(T_values, mean_T, sd_T)
+  
+  term1 <- sd_T^4 * (kurtosis_T - 1)
+  term2 <- 4 * sd_T^3 * skewness_T * (mean_T - theta)
+  term3 <- 4 * sd_T^2 * (mean_T - theta)^2
+  
+  mcse_mse <- sqrt((1 / R) * (term1 + term2 + term3))
+  return(mcse_mse)
+}
+
+
+evaluate_HTE_metrics <- function(
+    json_file, 
+    results_dir, 
+    eta_type, 
+    HTE_type, 
+    n_list, 
+    HTE_spec,
+    output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
+  # Load the experiment configuration
+  config <- load_experiment_config(json_file)
+  methods <- config$methods
+  
+  # Get running flags
+  running_flags <- get_is_running_flags(methods)
+  is_running_cox <- running_flags$is_running_cox
+  is_running_lasso <- running_flags$is_running_lasso
+  is_running_TV_CSL <- running_flags$is_running_TV_CSL
+  
+  # Initialize aggregated metrics
+  aggregated_metrics <- NULL
+  
+  for (n in n_list) {
+    # Generate method settings and output folder
+    method_setting <- paste0(
+      ifelse(is_running_cox, "cox_", ""),
+      ifelse(is_running_lasso, "lasso_", ""),
+      ifelse(is_running_TV_CSL, "TV-CSL_", "")
+    )
+    
+    output_folder <- generate_output_folder(
+      results_dir = results_dir,
+      method_setting = method_setting, 
+      eta_type = eta_type, 
+      HTE_type = HTE_type, 
+      n = n
+    )
+    
+    # Path to the HTE coefficient file
+    HTE_coef_file <- paste0("HTE-spec-", HTE_spec, "_beta-HTE.csv")
+    result_csv_file <- file.path(output_folder, HTE_coef_file)
+    
+    # Check if the file exists
+    if (!file.exists(result_csv_file)) {
+      cat("Warning: File not found for n =", n, "\n")
+      next
+    }
+    
+    # Load HTE coefficient data
+    df_HTE_coef <- read.csv(result_csv_file)
+    
+    
+    
+    # Read a single test set
+    test_data <- read_single_simulation_data(
+      n = 2000, 
+      i = 101, 
+      eta_type = eta_type,
+      HTE_type = HTE_type
+    )$data
+    
+    # Extract HTE_true and transform test data
+    HTE_true <- test_data$HTE
+    X_HTE_test <- transform_X(
+      single_data = test_data,
+      transform_spec = HTE_spec
+    )
+    test_regressor_HTE <- cbind(1, X_HTE_test)
+    # print(paste0("dim(test_regressor_HTE)=",dim(test_regressor_HTE)))
+    
+    p_regressor_HTE <- ncol(test_regressor_HTE)
+    n_col_df <- ncol(df_HTE_coef)
+    
+    
+    ## Compute the first stage average
+    compute_first_stage_average <- function(df_HTE_coef, p_regressor_HTE, n_col_df) {
+      
+      coefficient_colnames <- colnames(df_HTE_coef)[(n_col_df - p_regressor_HTE + 1):n_col_df]
+      # print(coefficient_colnames)
+      
+      first_stage_df <- df_HTE_coef %>% 
+        filter(stage == "first")
+      
+      first_stage_avg <- first_stage_df %>%
+        group_by(iteration, lasso_type, eta_spec, HTE_spec, prop_score_spec, stage) %>%
+        summarise(across(all_of(coefficient_colnames), mean, na.rm = TRUE)) %>%
+        ungroup()
+      
+      first_stage_avg$k <- 0
+      return(first_stage_avg)
+    }
+    
+    # This is average over k
+    first_stage_avg <- 
+      compute_first_stage_average(df_HTE_coef=df_HTE_coef, 
+                                  p_regressor_HTE=p_regressor_HTE,
+                                  n_col_df = n_col_df)
+    
+
+    df_HTE_coef <- rbind(df_HTE_coef,first_stage_avg)
+    
+    
+    # Compute MSE for each row of df_HTE_coef
+    # HTE_true is a vector of length 2000
+    df_HTE_coef$MSE <- apply(df_HTE_coef, 1, function(row) {
+      beta_HTE <- as.numeric(row[(n_col_df - p_regressor_HTE + 1):n_col_df])
+      HTE_est <- as.vector(test_regressor_HTE %*% beta_HTE)
+      mean((HTE_est - HTE_true)^2)
+    })
+    
+    # ## This is averaging over all "iterations", i.e., R
+    # ## Add MCSE of MSE here
+    # aggregated_metrics_n <- df_HTE_coef %>%
+    #   group_by(lasso_type, eta_spec, HTE_spec, prop_score_spec, stage, k) %>%
+    #   summarise(MSE = mean(MSE), n_iterations = n()) %>%
+    #   ungroup()
+    aggregated_metrics_n <- df_HTE_coef %>%
+      group_by(lasso_type, eta_spec, HTE_spec, prop_score_spec, stage, k) %>%
+      summarise(
+        MSE_mean = mean(MSE),
+        n_iterations = n(),
+        MCSE_MSE = sqrt(var(MSE) / n())
+        # MCSE_MSE = {
+        #   mse_values <- MSE
+        #   calc_mcse_mse(mse_values, theta = HTE_true) # Adjust theta if needed
+        # }
+      ) %>%
+      ungroup() %>%
+      rename(MSE = "MSE_mean")
+    
+    # Add n as a variable
+    aggregated_metrics_n$n <- n
+    
+    # Combine with overall aggregated metrics
+    if (is.null(aggregated_metrics)) {
+      aggregated_metrics <- aggregated_metrics_n
+    } else {
+      aggregated_metrics <- rbind(aggregated_metrics, aggregated_metrics_n)
+    }
+  }
+  
+  table_csv_file <- get_table_csv_file(config = config,
+                                       eta_type = eta_type,
+                                       HTE_type = HTE_type,
+                                       output_csv_dir = output_csv_dir)
+  
+  write.csv(
+    aggregated_metrics, 
+    table_csv_file, 
+    row.names = FALSE)
+  
+  return(aggregated_metrics)
+}
+
+
+load_and_process_table_data_single_spec <- function(json_file,
                                         eta_type,
                                         HTE_type,
                                         output_csv_dir) {
@@ -216,32 +413,49 @@ load_and_process_table_data <- function(json_file,
   return(data)
 }
 
+load_and_process_table_data_multi_spec <- function(json_file,
+                                               eta_type,
+                                               HTE_type,
+                                               MSE_csv_dir) {
+  config <- load_experiment_config(json_file)
+  table_csv_file <- get_table_csv_file(config,eta_type, HTE_type, output_csv_dir = MSE_csv_dir)
+  data <- read.csv(table_csv_file)
+  return(data)
+}
 
 ### TODO: 
 ### 0. Make the file name better
 ### 1. Remove "regressor-spec" from eta_model label
 ### 2. Remove "HTE-spec" from eta_model label
 ### input: the table
-make_plots_from_json <- function(json_file_lasso,
+make_HTE_by_eta_plots <- function(json_file_lasso,
                                  json_file_TV_CSL, 
                                  eta_type,
                                  HTE_type,
                                  output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
+  data_lasso <- load_and_process_table_data_single_spec(json_file_lasso,eta_type,HTE_type, output_csv_dir)
   
-  data_lasso <- load_and_process_table_data(json_file_lasso,eta_type,HTE_type, output_csv_dir)
-  data_TV_CSL <- load_and_process_table_data(json_file_TV_CSL,eta_type,HTE_type, output_csv_dir)
+  data_TV_CSL <- load_and_process_table_data_single_spec(json_file_TV_CSL,eta_type,HTE_type, output_csv_dir)
   
   combined_data <- bind_rows(data_lasso, data_TV_CSL, .id = "source")
   
   # Create custom labeling functions for each factor
+  # hte_labels <- c(
+  #   "HTE-spec-complex" = "Treatment effect: overly complex",
+  #   "HTE-spec-linear" = "Treatment effect: correctly specified"
+  # )
   hte_labels <- c(
-    "HTE-spec-complex" = "Treatment effect: overly complex",
-    "HTE-spec-linear" = "Treatment effect: correctly specified"
+    "HTE-spec-complex" = "HTE: Complex",
+    "HTE-spec-linear" = "HTE: Linear"
   )
   
+  # eta_labels <- c(
+  #   "regressor-spec-complex" = "Baseline: Mildly mis-specified",
+  #   "regressor-spec-linear" = "Baseline: Quite mis-specified"
+  # )
   eta_labels <- c(
-    "regressor-spec-complex" = "Baseline: Mildly mis-specified",
-    "regressor-spec-linear" = "Baseline: Quite mis-specified"
+    "regressor-spec-complex" = "Baseline: Linear",
+    "regressor-spec-linear" = "Baseline: Complex"
   )
   
   p <- ggplot(combined_data, aes(x = as.factor(n), y = MSE, color = Method)) +
@@ -271,123 +485,54 @@ make_plots_from_json <- function(json_file_lasso,
   return(output_plot_path)
 }
 
-### TODO: 
-### 0. Make the file name better
-### 1. Remove "regressor-spec" from eta_model label
-### 2. Remove "HTE-spec" from eta_model label
-### input: the table
-make_plots_from_json_single_method <- function(json_file, 
-                                 output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
-  
-  config <- load_experiment_config(json_file)
-  table_csv_file <- get_table_csv_file(config, output_csv_dir)
-  data <- read.csv(table_csv_file)
-  
-  data <- data %>%
-    mutate(Specification = as.character(Specification),
-           Model = sapply(strsplit(Specification, "_"), `[`, 1),
-           eta_model = sapply(strsplit(Specification, "_"), `[`, 2),
-           HTE_model = sapply(strsplit(Specification, "_"), `[`, 3))
-  
-  p <- ggplot(data, aes(x = as.factor(n), y = MSE, color = Model)) +
-    geom_point() +
-    geom_line() +
-    facet_grid(HTE_model ~ eta_model, labeller = label_both) +
-    labs(x = "n", y = "MSE", title = "MSE by Model, eta model, and HTE model") +
-    theme_minimal() +
-    theme(panel.grid.minor = element_blank(),
-          panel.grid.major = element_line(size = 0.1),
-          strip.text = element_text(face = "bold"))
-  
-  output_plot_path <- get_plot_file(config = config, 
-                                    output_csv_dir = output_csv_dir)
-  ggsave(output_plot_path, plot = p, width = 8, height = 6)
-  
-  return(output_plot_path)
-}
 
 
-make_beta_HTEs_table <- function(json_file, 
-                                 n_list = c(200, 500, 1000, 2000), 
-                                 output_csv_dir = "scripts/TV-CSL/tables-and-plots",
-                                 results_dir = RESULTS_DIR) {
-  
-  config <- load_experiment_config(json_file)
-  methods <- config$methods
-  eta_type <- config$eta_type
-  HTE_type <- config$HTE_type
-  
-  is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
-  is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
-  is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
-  method_setting <- paste0(
-    ifelse(is_running_cox, "cox_", ""),
-    ifelse(is_running_lasso, "lasso_", ""),
-    ifelse(is_running_TV_CSL, "TV-CSL_", "")
-  )
-  
-  beta_HTEs <- NULL
-  for (n in n_list) {
-    output_folder_n <- generate_output_folder(
-      results_dir = results_dir,
-      method_setting = method_setting, 
-      eta_type = eta_type, 
-      HTE_type = HTE_type, 
-      n = n
-    )
-    
-    beta_HTE_n_path <- file.path(output_folder_n, "beta-HTE.csv")
-    print(beta_HTE_n_path)
-    if (file.exists(beta_HTE_n_path)) {
-      beta_HTE_n <- read_csv(beta_HTE_n_path)
-      beta_HTE_n$n <- n
-      if (is.null(beta_HTEs)) {
-        beta_HTEs <- beta_HTE_n
-      } else {
-        beta_HTEs <- bind_rows(beta_HTEs, beta_HTE_n)
-      }
-    }
-    
-  }
-  
-  print(head(beta_HTEs))
-  
-  beta_HTEs_summary <- beta_HTEs %>%
-    group_by(config_name, n) %>%
-    summarize(across(-iteration, mean, na.rm = TRUE), .groups = "drop")
-  
-  beta_HTEs_table_csv_file <- get_table_csv_file(
-    config = config, 
-    eta_type = eta_type, 
-    HTE_type = HTE_type, 
-    output_csv_dir = output_csv_dir,
-    file_suffix = "_beta_HTEs.csv"
-  )
-  write_csv(beta_HTEs_summary, beta_HTEs_table_csv_file)
-  
-  return(beta_HTEs_table_csv_file)
-}
-
-# 
-# # TODO: make process_results_to_csv explicitly takes into eta_type and HTE_type
-# process_results_to_csv_single_n <- function(json_file, n = 500) {
+# ### TODO: 
+# ### 0. Make the file name better
+# ### 1. Remove "regressor-spec" from eta_model label
+# ### 2. Remove "HTE-spec" from eta_model label
+# ### input: the table
+# make_plots_from_json_single_method <- function(json_file, 
+#                                  output_csv_dir = "scripts/TV-CSL/tables-and-plots") {
 #   
 #   config <- load_experiment_config(json_file)
+#   table_csv_file <- get_table_csv_file(config, output_csv_dir)
+#   data <- read.csv(table_csv_file)
 #   
+#   data <- data %>%
+#     mutate(Specification = as.character(Specification),
+#            Model = sapply(strsplit(Specification, "_"), `[`, 1),
+#            eta_model = sapply(strsplit(Specification, "_"), `[`, 2),
+#            HTE_model = sapply(strsplit(Specification, "_"), `[`, 3))
 #   
-#   aggregated_metrics <- 
-#     process_all_iterations(
-#       config=config, 
-#       results_dir=RESULTS_DIR,
-#       n = n
-#     )
+#   p <- ggplot(data, aes(x = as.factor(n), y = MSE, color = Model)) +
+#     geom_point() +
+#     geom_line() +
+#     facet_grid(HTE_model ~ eta_model, labeller = label_both) +
+#     labs(x = "n", y = "MSE", title = "MSE by Model, eta model, and HTE model") +
+#     theme_minimal() +
+#     theme(panel.grid.minor = element_blank(),
+#           panel.grid.major = element_line(size = 0.1),
+#           strip.text = element_text(face = "bold"))
 #   
-#   output_csv_dir <- "scripts/TV-CSL/tables"
+#   output_plot_path <- get_plot_file(config = config, 
+#                                     output_csv_dir = output_csv_dir)
+#   ggsave(output_plot_path, plot = p, width = 8, height = 6)
 #   
-#   eta_type_folder_name <- 
-#     paste0(config$eta_type, "_", config$HTE_type)
+#   return(output_plot_path)
+# }
+# 
+# 
+# make_beta_HTEs_table <- function(json_file, 
+#                                  n_list = c(200, 500, 1000, 2000), 
+#                                  output_csv_dir = "scripts/TV-CSL/tables-and-plots",
+#                                  results_dir = RESULTS_DIR) {
 #   
+#   config <- load_experiment_config(json_file)
 #   methods <- config$methods
+#   eta_type <- config$eta_type
+#   HTE_type <- config$HTE_type
+#   
 #   is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
 #   is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
 #   is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
@@ -397,14 +542,45 @@ make_beta_HTEs_table <- function(json_file,
 #     ifelse(is_running_TV_CSL, "TV-CSL_", "")
 #   )
 #   
-#   metrics_csv_file <- 
-#     file.path(output_csv_dir, 
-#               paste0(method_setting, eta_type_folder_name,"_n_", n, "_est_quality.csv") )
+#   beta_HTEs <- NULL
+#   for (n in n_list) {
+#     output_folder_n <- generate_output_folder(
+#       results_dir = results_dir,
+#       method_setting = method_setting, 
+#       eta_type = eta_type, 
+#       HTE_type = HTE_type, 
+#       n = n
+#     )
+#     
+#     beta_HTE_n_path <- file.path(output_folder_n, "beta-HTE.csv")
+#     print(beta_HTE_n_path)
+#     if (file.exists(beta_HTE_n_path)) {
+#       beta_HTE_n <- read_csv(beta_HTE_n_path)
+#       beta_HTE_n$n <- n
+#       if (is.null(beta_HTEs)) {
+#         beta_HTEs <- beta_HTE_n
+#       } else {
+#         beta_HTEs <- bind_rows(beta_HTEs, beta_HTE_n)
+#       }
+#     }
+#     
+#   }
 #   
-#   write.csv(
-#     aggregated_metrics, 
-#     metrics_csv_file, 
-#     row.names = FALSE)
+#   print(head(beta_HTEs))
 #   
-#   cat("Aggregated results saved to", metrics_csv_file, "\n")
+#   beta_HTEs_summary <- beta_HTEs %>%
+#     group_by(config_name, n) %>%
+#     summarize(across(-iteration, mean, na.rm = TRUE), .groups = "drop")
+#   
+#   beta_HTEs_table_csv_file <- get_table_csv_file(
+#     config = config, 
+#     eta_type = eta_type, 
+#     HTE_type = HTE_type, 
+#     output_csv_dir = output_csv_dir,
+#     file_suffix = "_beta_HTEs.csv"
+#   )
+#   write_csv(beta_HTEs_summary, beta_HTEs_table_csv_file)
+#   
+#   return(beta_HTEs_table_csv_file)
 # }
+

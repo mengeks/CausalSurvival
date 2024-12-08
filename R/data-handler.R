@@ -44,6 +44,13 @@ generate_output_folder <- function(results_dir, method_setting, eta_type, HTE_ty
 }
 
 
+generate_output_folder_heart_transplant <- 
+  function(results_dir = "scripts/heart-transplant-analysis/results/") {
+  dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
+  return(results_dir)
+}
+
+
 #' Generate file paths for experiment results and save data to CSV
 #'
 #' @param is_running_cox Logical, whether cox method is running
@@ -57,7 +64,7 @@ generate_output_folder <- function(results_dir, method_setting, eta_type, HTE_ty
 #' 
 #' @return The full path of the saved CSV file
 generate_output_path <- function(results_dir = "scripts/TV-CSL/results/",
-                                 is_running_cox, 
+                                 is_running_cox = F, 
                                  is_running_lasso, 
                                  is_running_TV_CSL, 
                                  eta_type, 
@@ -109,21 +116,55 @@ save_lasso_beta <- function(lasso_ret,
                             output_folder, 
                             i, 
                             lasso_type,
-                            eta_type, 
-                            HTE_type, 
+                            eta_spec, 
+                            HTE_spec, 
+                            prop_score_spec,
                             stage = "final",
-                            k = 0) {
-  fname_HTE <- paste0(output_folder, "/", "eta-type-", eta_type,"_HTE-type-",HTE_type, "_beta-HTE.csv")
-  fname_eta_0 <- paste0(output_folder,"/", "eta-type-", eta_type,"_HTE-type-",HTE_type, "_beta-HTE.csv")
-  
-  curr_res_beta_HTE <- c(iteration = i, lasso_type = lasso_type, eta_type = eta_type, HTE_type = HTE_type, stage = stage, k = k,  lasso_ret$beta_HTE)
-  curr_res_beta_eta_0 <- c(iteration = i, lasso_type = lasso_type, eta_type = eta_type, HTE_type = HTE_type, stage = stage, k = k, lasso_ret$beta_eta_0)
-  
+                            k = 0,
+                            method = "NA") {
+  # fname_HTE <- paste0(output_folder, "/", "eta-spec-", eta_spec,"_HTE-spec-",HTE_spec, "_beta-HTE.csv")
+  # fname_eta_0 <- paste0(output_folder,"/", "eta-spec-", eta_spec,"_HTE-spec-",HTE_spec, "_beta-HTE.csv")
+  fname_HTE <- paste0(output_folder, "/", "HTE-spec-",HTE_spec, "_beta-HTE.csv")
+  curr_res_beta_HTE <- c(iteration = i, 
+                         method = method,
+                         lasso_type = lasso_type, 
+                         eta_spec = eta_spec, 
+                         HTE_spec = HTE_spec, 
+                         prop_score_spec = prop_score_spec, 
+                         stage = stage, k = k,  
+                         lasso_ret$beta_HTE)
   curr_res_beta_HTE_df <- as.data.frame(t(curr_res_beta_HTE), stringsAsFactors = FALSE)
-  curr_res_beta_eta_0_df <- as.data.frame(t(curr_res_beta_eta_0), stringsAsFactors = FALSE)
-  
   save_res_to_csv(curr_res_beta_HTE_df, fname_HTE)
-  save_res_to_csv(curr_res_beta_eta_0_df, fname_eta_0)
+  
+  if (stage != "final"){
+    dir.create(file.path(output_folder, "eta-0"), recursive = TRUE)
+    fname_eta_0 <- paste0(output_folder,"/eta-0/", "eta-spec-", eta_spec, "_beta-0.csv")
+    if (lasso_type == "m-regression"){
+      curr_res_beta_eta_0 <- c(iteration = i, 
+                               method = method,
+                               lasso_type = lasso_type, 
+                               eta_spec = eta_spec, 
+                               HTE_spec = HTE_spec, 
+                               prop_score_spec = prop_score_spec, 
+                               stage = stage, 
+                               k = k, 
+                               lasso_ret$m_beta)
+    }else{
+      curr_res_beta_eta_0 <- c(iteration = i, 
+                               method = method,
+                               lasso_type = lasso_type, 
+                               eta_spec = eta_spec, 
+                               HTE_spec = HTE_spec, 
+                               prop_score_spec = prop_score_spec, 
+                               stage = stage, 
+                               k = k, 
+                               lasso_ret$beta_eta_0)
+    }
+    
+    curr_res_beta_eta_0_df <- as.data.frame(t(curr_res_beta_eta_0), stringsAsFactors = FALSE)
+    save_res_to_csv(curr_res_beta_eta_0_df, fname_eta_0)
+  }
+  
 }
 
 save_lasso_MSE <- function(lasso_ret, 
@@ -131,20 +172,24 @@ save_lasso_MSE <- function(lasso_ret,
                            output_folder, 
                            i, 
                            lasso_type,
-                           eta_type, 
-                           HTE_type, 
+                           eta_spec, 
+                           HTE_spec, 
+                           prop_score_spec,
                            stage = "final",
-                           k = 0) {
+                           k = 0,
+                           method = "NA") {
   HTE_est <- lasso_ret$HTE_est
   MSE <- mean((HTE_true - HTE_est)^2)
   
-  fname_MSE <- paste0(output_folder, "/", "eta-type-", eta_type, "_HTE-type-", HTE_type, "_MSE.csv")
+  fname_MSE <- paste0(output_folder, "/", "MSE.csv")
   
   curr_res_MSE <- data.frame(
     iteration = i,
-    eta_type = eta_type,
-    HTE_type = HTE_type,
+    method = method,
     lasso_type = lasso_type,
+    eta_spec = eta_spec,
+    HTE_spec = HTE_spec,
+    prop_score_spec = prop_score_spec, 
     stage = stage,
     k = k,
     MSE = MSE,
