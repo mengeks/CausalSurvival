@@ -30,7 +30,7 @@ p1 <- ggplot(plot_data, aes(x = h, y = value, color = type)) +
              color = "gray") +
   scale_color_manual(values = c("red", "blue")) +
   labs(x = "hat h0", y = "Function value", 
-       title = "Best Parabola Approx. of Likelihood") +
+       title = "Best Parabola Approx. of Influence Function") +
   theme_minimal() +
   annotate("text", x = h0, y = -0.5, label = "h0") +
   coord_cartesian(ylim = c(-0.5, 5))
