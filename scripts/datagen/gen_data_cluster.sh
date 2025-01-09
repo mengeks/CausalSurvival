@@ -17,14 +17,20 @@ i=$SLURM_ARRAY_TASK_ID
 
 
 declare -a eta_types=("linear" "non-linear")
-declare -a hte_types=("zero" "non-linear")
+declare -a hte_types=("zero" "non-linear" "linear")
 declare -a tx_difficulties=("complex" "constant")
 
+
+# declare -A dgp_map=(
+#   ["linear_zero_complex"]="DGP 2.1"
+#   ["non-linear_zero_complex"]="DGP 2.2"
+#   ["non-linear_non-linear_constant"]="DGP 3"
+#   ["non-linear_non-linear_complex"]="DGP 4"
+#   ["non-linear_linear_complex"]="DGP 5"
+# )
+
 declare -A dgp_map=(
-  ["linear_zero_complex"]="DGP 2.1"
-  ["non-linear_zero_complex"]="DGP 2.2"
-  ["non-linear_non-linear_constant"]="DGP 3"
-  ["non-linear_non-linear_complex"]="DGP 4"
+  ["non-linear_linear_complex"]="DGP 5"
 )
 
 # Loop through parameter combinations
