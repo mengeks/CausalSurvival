@@ -4,6 +4,7 @@ library(dplyr)
 source("scripts/TV-CSL/result-process.R")
 source("scripts/TV-CSL/time-varying-estimate.R")
 
+## Figure 1
 eta_type <- "non-linear"; HTE_type <- "linear"
 json_file_TV_CSL <- "scripts/TV-CSL/params-TV-CSL.json"
 json_file_lasso <- "scripts/TV-CSL/params-lasso.json"
@@ -65,8 +66,10 @@ prop_score_labels <- c(
   "cox-linear-mis-specification" = "Prop score: mis-specified"
 )
 
-p <- ggplot(combined_data %>% 
-              filter(Method == "TV-CSL_S-lasso" | Method == "Lasso"), aes(x = as.factor(n), y = MSE, color = Method)) +
+p <- ggplot(combined_data <- combined_data %>%
+              filter(Method == "TV-CSL_S-lasso" | Method == "Lasso") %>%
+              mutate(Method = ifelse(Method == "TV-CSL_S-lasso", "TV-CSL", 
+                                     ifelse(Method == "Lasso", "S-Lasso", Method)) ), aes(x = as.factor(n), y = MSE, color = Method)) +
   geom_point() +
   geom_line(aes(group = interaction(Method, eta_spec, prop_score_spec))) +
   geom_errorbar(aes(ymin = MSE - 1.96 * MCSE_MSE, 
@@ -111,8 +114,14 @@ output_csv_dir <- "scripts/TV-CSL/tables-and-plots"
 ggsave(file.path(output_csv_dir, "m-regression-vs-S-lasso.png" ), plot = p, width = 8, height = 6)
 
 
-#   return(output_plot_path)
-# }
 
+
+## Figure 2
+source("scripts/TV-CSL/result-process.R")
+make_HTE_by_eta_plots(json_file_lasso = "scripts/TV-CSL/params-lasso.json",
+                      json_file_TV_CSL = "scripts/TV-CSL/results/result-TV-CSL-5-Nov-2024/params-TV-CSL.json", 
+                      eta_type = "non-linear",
+                      HTE_type = "linear",
+                      output_csv_dir = "scripts/TV-CSL/tables-and-plots/5-Nov-2024")
 
 
