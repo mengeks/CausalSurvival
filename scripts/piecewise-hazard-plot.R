@@ -39,6 +39,14 @@ ggsave(filename = here("figures/f-tx-f-co.png"),
 #### 
 ## Plotting the hazards
 ######
+### Our assumption
+
+# Define the constants
+lambda_0 <-1/1.5 - 0.05 
+a <- 1.5
+lambda_1 <- 1/2 - 0.05 
+tend <- 2.5
+
 plot_hazard <- function(a){
   
   x <- seq(0, tend, by = 0.01)
@@ -57,7 +65,8 @@ plot_hazard <- function(a){
     labs(x = "t", y = "Hazard value") +
     theme_minimal(base_size = 30) + # Double base size for axis labels and titles
     theme(panel.grid = element_blank(), # Remove grid background
-          legend.position = "none") # Remove the color legend
+          legend.position = "none") + # Remove the color legend
+    ylim(c(0.45,0.75))
   p
 }
 
@@ -70,4 +79,38 @@ ggsave(filename =
        width = 8, height = 5)
 
 
+### Alternative assumption
+# Define the constants
+lambda_2 <-1/1.5
+a <- 1.5
+lambda_3 <- 1/2
+tend <- 2.5
+
+plot_hazard_alt <- function(a){
+  
+  x <- seq(0, tend, by = 0.01)
+  y <- ifelse(x <= a, lambda_2, lambda_3)
+  
+  # Create a data frame for plotting
+  df_hazard <- data.frame(time = x, hazard = y)
+  
+  # Plot using ggplot2
+  p <- ggplot(df_hazard, aes(x = time, y = hazard)) +
+    geom_line(aes(color = ifelse(time <= a, "black", "blue")), size = 1.5) + # Change color before and after 'a'
+    scale_color_manual(values = c("black" = "black", "blue" = "blue")) + # Set colors
+    geom_vline(xintercept = a, linetype = "dotted", size = 1.5) + # Vertical line at 'a'
+    annotate("text", x = a/2, y = lambda_2 + 0.05, label = expression(h[0](x)), color = "black", size = 10) + # Label for h0 (doubled text size)
+    annotate("text", x = (a + tend) / 2, y = lambda_3 + 0.05, label = expression(h[1](x)), color = "blue", size = 10) + # Label for h1 (doubled text size)
+    labs(x = "t", y = "Hazard value") +
+    theme_minimal(base_size = 30) + # Double base size for axis labels and titles
+    theme(panel.grid = element_blank(), # Remove grid background
+          legend.position = "none") + # Remove the color legend
+    ylim(c(0.45,0.75))
+  
+  p
+}
+plot_hazard_alt(a = 2)
+ggsave(filename = 
+         here("figures/hazard-viz-a-2-alt.png"), 
+       width = 8, height = 5)
 
