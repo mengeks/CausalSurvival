@@ -287,18 +287,19 @@ lasso_ret$beta_HTE
 
 
 
-TV_CSL_ret_no_warmstart <- TV_CSL(train_data = df_time_var, 
-                     test_data = df_original, 
-                     train_data_original = df_original, 
-                     K = 2, 
-                     prop_score_spec = "cox-linear-all-data", 
-                     lasso_type = "S-lasso", 
-                     regressor_spec = "complex",
-                     HTE_spec = "linear",
-                     final_model_method = "coxph",
-                     id_var = "subject",
-                     lasso_warmstart = F,
-                     verbose = 1) 
+TV_CSL_ret_no_warmstart <- 
+  TV_CSL(train_data = df_time_var, 
+         test_data = df_original, 
+         train_data_original = df_original, 
+         K = 2, 
+         prop_score_spec = "cox-linear-all-data", 
+         lasso_type = "S-lasso", 
+         regressor_spec = "complex",
+         HTE_spec = "linear",
+         final_model_method = "coxph",
+         id_var = "subject",
+         lasso_warmstart = F,
+         verbose = 1) 
 TV_CSL_ret_no_warmstart$beta_HTEs
 TV_CSL_ret$beta_HTEs
 TV_CSL_ret$beta_HTE_first_stages
@@ -306,18 +307,19 @@ TV_CSL_ret$beta_HTE_first_stages
 
 
 
-TV_CSL_ret_K_3 <- TV_CSL(train_data = df_time_var, 
-                                  test_data = df_original, 
-                                  train_data_original = df_original, 
-                                  K = 3, 
-                                  prop_score_spec = "cox-linear-all-data", 
-                                  lasso_type = "S-lasso", 
-                                  regressor_spec = "complex",
-                                  HTE_spec = "linear",
-                                  final_model_method = "coxph",
-                                  id_var = "subject",
-                                  lasso_warmstart = F,
-                                  verbose = 1) 
+TV_CSL_ret_K_3 <- 
+  TV_CSL(train_data = df_time_var, 
+         test_data = df_original, 
+         train_data_original = df_original, 
+         K = 3, 
+         prop_score_spec = "cox-linear-all-data", 
+         lasso_type = "S-lasso", 
+         regressor_spec = "complex",
+         HTE_spec = "linear",
+         final_model_method = "coxph",
+         id_var = "subject",
+         lasso_warmstart = F,
+         verbose = 1) 
 TV_CSL_ret_K_3$beta_HTEs
 TV_CSL_ret$beta_HTEs
 
