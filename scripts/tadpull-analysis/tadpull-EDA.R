@@ -1,255 +1,209 @@
+library(ggplot2)
 library(dplyr)
-# q: Seems that we are automatically at the project folder -- when do we need here package? where does here::here() specify?
-# a: here::here() specifies the project folder. We need to use package here when we want to use the function here().
-df_page_view <- read.csv("data/data_share_tadpull/ts_pixel_page_view_data.csv") %>% 
-  select(-X) # remove the first column
-df_sales <- read.csv("data/data_share_tadpull/ts_sales_lines_data.csv") %>%
-  select(-X) # remove the first column
 
+df_time_to_treatment <- readRDS("data/tadpull/df_time_to_treatment.rds")
+df_customer_summary <- readRDS("data/tadpull/df_customer_summary.rds")
 
-# Next: go to iav meeting notes to see what is the business question that we were talking about
-#   goal is to find the variable and find the cutoff
-tmp <- df_sales %>% filter(customer_id=="23053465")
+df_original <- df_time_to_treatment %>% 
+  mutate(U_A = pmin(tx_time,outcome_time),
+         Delta_A = tx_time < outcome_time)
+table(df_original$Delta_A)
+# k1 is 0.1
+# FALSE  TRUE 
+# 687   129
+# k1 is 0.5
+# FALSE  TRUE 
+# 545    47
+# k1 is 0.25
+# FALSE  TRUE 
+# 526    57
 
-summary(df_sales$gross_amount)
-hist(df_sales$gross_amount)
+# focus on df_customer_summary, 
+df_time_to_treatment <- df_time_to_treatment %>%
+  filter(tx_time > 0) # 841 users
 
-
-n_purchase_by_user <- df_sales %>% 
-  group_by(customer_id) %>%
-  summarise(n_purchase = n())
-summary(n_purchase_by_user$n_purchase)
-# a lot of them purchased more than once so it's okay..
-
-# set k1: threshold for, k2
-# initial guess: k1 = median / Q1, k2
-summary(df_sales$gross_amount)
-k1 = quantile(df_sales$gross_amount, probs = 0.25)
-k2 = quantile(df_sales$gross_amount, probs = 0.75)
-# Treatment: first time a person's purchase amount is greater than k1
-# Outcome: after the treatment date, the first time a person's purchase amount is greater than k2
-# Other variable of interest: the first time a person's purchase amount is greater than k2
-# EDA: within each user, first order in ascending order of dates
-# then compute Treatment, Outcome, and Other variable of interest
-# First, clean up the date format of df_page_view timestamps
-df_page_view_clean <- df_page_view %>%
-  # Convert timestamps to POSIXct format
-  mutate(
-    page_view_start_tstamp = as.POSIXct(page_view_start_tstamp),
-    page_view_end_tstamp = as.POSIXct(page_view_end_tstamp)
-  )
-
-# Calculate first interaction date for each customer from page views
-df_first_interaction <- df_page_view_clean %>%
-  group_by(customer_id) %>%
-  summarize(
-    first_interaction_date = min(page_view_start_tstamp, na.rm = TRUE)
-  )
-
-# Clean sales data
-df_sales_clean <- df_sales %>%
-  # Convert transaction_date to POSIXct format
-  mutate(transaction_date = as.POSIXct(transaction_date))
-
-# Join sales data with first interaction dates
-df_sales_with_interaction <- df_sales_clean %>%
-  # Left join to keep all sales records
-  left_join(df_first_interaction, by = "customer_id")
-
-# Now we can use df_sales_with_interaction as the base for our treatment-outcome analysis
-# Calculate first treatment date for each customer
-df_treatments <- df_sales_with_interaction %>%
-  arrange(customer_id, transaction_date) %>%
-  group_by(customer_id) %>%
-  mutate(
-    trt = ifelse(gross_amount > k1, 1, 0),
-    cumulative_trt = cumsum(trt),
-    is_first_trt = (cumulative_trt == 1 & trt == 1)
-  )
-
-# Identify first treatment date
-df_first_trt_dates <- df_treatments %>%
-  filter(is_first_trt) %>%
-  group_by(customer_id) %>%
-  summarize(first_trt_date = min(transaction_date, na.rm = TRUE))
-
-# Join treatment dates back to main dataset
-df_with_trt_dates <- df_treatments %>%
-  left_join(df_first_trt_dates, by = "customer_id")
-
-# Continue with outcome processing similar to before
-df_outcomes <- df_with_trt_dates %>%
-  group_by(customer_id) %>%
-  arrange(customer_id, transaction_date) %>%
-  mutate(
-    outcome = case_when(
-      is.na(first_trt_date) ~ 0,
-      gross_amount > k2 & transaction_date > first_trt_date ~ 1,
-      TRUE ~ 0
-    ),
-    cumulative_outcome = cumsum(outcome),
-    is_first_outcome = (cumulative_outcome == 1 & outcome == 1)
-  )
-
-# Get first outcome dates
-df_first_outcome_dates <- df_outcomes %>%
-  filter(is_first_outcome) %>%
-  group_by(customer_id) %>%
-  summarize(first_outcome_date = min(transaction_date, na.rm = TRUE))
-
-# Join outcome dates
-df_with_outcomes <- df_outcomes %>%
-  left_join(df_first_outcome_dates, by = "customer_id")
-
-# Process other variables
-df_trt_outcome <- df_with_outcomes %>%
-  group_by(customer_id) %>%
-  mutate(
-    other_var = ifelse(gross_amount > k2, gross_amount, NA),
-    has_other_var = !is.na(other_var),
-    cumulative_other_var = cumsum(has_other_var),
-    is_first_other_var = (cumulative_other_var == 1 & has_other_var)
-  )
-
-# Get first other_var dates
-df_first_other_var_dates <- df_trt_outcome %>%
-  filter(is_first_other_var) %>%
-  group_by(customer_id) %>%
-  summarize(
-    first_other_var_date = min(transaction_date, na.rm = TRUE),
-    first_other_var_value = first(other_var)
-  )
-
-# Complete the dataset
-df_full_trt_outcome <- df_trt_outcome %>%
-  left_join(df_first_other_var_dates, by = "customer_id")
-
-# Create customer summary using first_interaction_date instead of first_transaction_date
-df_customer_summary <- df_full_trt_outcome %>%
-  group_by(customer_id) %>%
-  summarize(
-    # First interaction (from page views)
-    first_interaction_date = first(first_interaction_date),
-    
-    # First transaction (from sales)
-    first_transaction_date = min(transaction_date, na.rm = TRUE),
-    
-    # Treatment information
-    treatment_status = max(trt, na.rm = TRUE),
-    first_treatment_date = first(first_trt_date),
-    
-    # Outcome information
-    outcome_status = max(outcome, na.rm = TRUE),
-    first_outcome_date = first(first_outcome_date),
-    
-    # Other variable information
-    other_var_status = max(has_other_var, na.rm = TRUE),
-    first_other_var_value = first(first_other_var_value),
-    first_other_var_date = first(first_other_var_date)
-  )
-
-# Next: i just want to get one row per customer_id
-#   where i need to know the first treamtent date, treatment status, first outcome date, outcome status
-# first treamtent date could be NA, meaning no treatment, 
-# first outcome date could be NA, meaning no outcome, i.e., outcome is censored.
-
-
-# df_customer_summary looks good
-# Now we want to plot the histogram of the treatment dates
-# first we need to calculate the time between the first transaction date and the first treatment date
-# Calculate time between first transaction and first treatment
-
-
-# Calculate time between first interaction and first treatment
-df_time_to_treatment <- df_customer_summary %>%
-  # Only include customers who received treatment and have page view data
-  filter(treatment_status == 1, !is.na(first_interaction_date)) %>%
-  # Calculate time difference in days
-  mutate(
-    days_to_treatment = as.numeric(difftime(first_treatment_date, 
-                                            first_interaction_date,
-                                            units = "days")),
-    # Add a category for plotting
-    time_category = case_when(
-      days_to_treatment == 0 ~ "Same day",
-      days_to_treatment <= 7 ~ "Within a week",
-      days_to_treatment <= 30 ~ "Within a month",
-      days_to_treatment <= 90 ~ "1-3 months",
-      days_to_treatment <= 180 ~ "3-6 months",
-      TRUE ~ "Over 6 months"
-    )
-  )
-
-# Basic histogram of days to treatment
-# since the view 
-ggplot(df_time_to_treatment, aes(x = days_to_treatment)) +
+# Histogram of treatment time
+ggplot(df_original%>% filter(!is.na(tx_time), Delta_A==T),
+  # df_time_to_treatment %>% filter(!is.na(tx_time)), 
+       aes(x = tx_time)) +
   geom_histogram(binwidth = 7, fill = "steelblue", color = "white", alpha = 0.7) +
   labs(
     title = "Time from First Interaction to First Treatment",
-    subtitle = "Based on first page view rather than first transaction",
-    x = "Days to Treatment",
+    subtitle = "Based on first page view",
+    x = "Treatment Time (days)",
     y = "Number of Customers"
   ) +
   theme_minimal()
 
-# Bar chart of time categories
-ggplot(df_time_to_treatment, aes(x = time_category)) +
+# Histogram of outcome time
+ggplot(df_time_to_treatment %>% filter(!is.na(outcome_time)), 
+       aes(x = outcome_time)) +
+  geom_histogram(binwidth = 7, fill = "firebrick", color = "white", alpha = 0.7) +
+  labs(
+    title = "Time from First Interaction to First Outcome",
+    subtitle = "Based on first page view",
+    x = "Outcome Time (days)",
+    y = "Number of Customers"
+  ) +
+  theme_minimal()
+
+# Bar chart of treatment time categories
+ggplot(df_time_to_treatment %>% filter(tx_category != "No treatment"), 
+       aes(x = tx_category)) +
   geom_bar(fill = "steelblue", alpha = 0.7) +
   labs(
     title = "Time from First Interaction to First Treatment",
-    subtitle = "Based on first page view rather than first transaction",
-    x = "Time to Treatment",
+    subtitle = "Based on first page view",
+    x = "Treatment Time",
     y = "Number of Customers"
   ) +
   theme_minimal() +
   # Order the categories logically
-  scale_x_discrete(limits = c("Same day", "Within a week", "Within a month", 
-                              "1-3 months", "3-6 months", "Over 6 months"))
+  scale_x_discrete(limits = c("Before interaction", "Same day", "Within a week", 
+                              "Within a month", "1-3 months", "3-6 months", "Over 6 months"))
 
-# Add a comparison between first interaction and first transaction
+# Bar chart of outcome time categories
+ggplot(df_time_to_treatment %>% filter(outcome_category != "No outcome"), 
+       aes(x = outcome_category)) +
+  geom_bar(fill = "firebrick", alpha = 0.7) +
+  labs(
+    title = "Time from First Interaction to First Outcome",
+    subtitle = "Based on first page view",
+    x = "Outcome Time",
+    y = "Number of Customers"
+  ) +
+  theme_minimal() +
+  # Order the categories logically
+  scale_x_discrete(limits = c("Before interaction", "Same day", "Within a week", 
+                              "Within a month", "1-3 months", "3-6 months", "Over 6 months"))
+
+# Comparison of timelines
 df_time_comparison <- df_customer_summary %>%
-  filter(treatment_status == 1, !is.na(first_interaction_date)) %>%
+  filter(!is.na(first_interaction_date)) %>%
   mutate(
-    days_interaction_to_treatment = as.numeric(difftime(first_treatment_date, 
-                                                        first_interaction_date,
-                                                        units = "days")),
-    days_transaction_to_treatment = as.numeric(difftime(first_treatment_date, 
-                                                        first_transaction_date,
-                                                        units = "days")),
-    days_interaction_to_transaction = as.numeric(difftime(first_transaction_date, 
-                                                          first_interaction_date,
-                                                          units = "days"))
+    # Renamed variables
+    interaction_to_tx = as.numeric(difftime(first_treatment_date, 
+                                            first_interaction_date,
+                                            units = "days")),
+    transaction_to_tx = as.numeric(difftime(first_treatment_date, 
+                                            first_transaction_date,
+                                            units = "days")),
+    interaction_to_transaction = as.numeric(difftime(first_transaction_date, 
+                                                     first_interaction_date,
+                                                     units = "days")),
+    # Add outcome timelines
+    interaction_to_outcome = as.numeric(difftime(first_outcome_date, 
+                                                 first_interaction_date,
+                                                 units = "days")),
+    tx_to_outcome = as.numeric(difftime(first_outcome_date, 
+                                        first_treatment_date,
+                                        units = "days"))
   )
 
 # Summary statistics
 time_summary <- df_time_comparison %>%
   summarize(
-    total_treated_customers = n(),
-    avg_days_interaction_to_treatment = mean(days_interaction_to_treatment),
-    median_days_interaction_to_treatment = median(days_interaction_to_treatment),
-    avg_days_transaction_to_treatment = mean(days_transaction_to_treatment),
-    median_days_transaction_to_treatment = median(days_transaction_to_treatment),
-    avg_days_interaction_to_transaction = mean(days_interaction_to_transaction),
-    median_days_interaction_to_transaction = median(days_interaction_to_transaction)
+    total_customers = n(),
+    treated_customers = sum(!is.na(interaction_to_tx)),
+    outcome_customers = sum(!is.na(interaction_to_outcome)),
+    
+    # Treatment timing
+    avg_interaction_to_tx = mean(interaction_to_tx, na.rm = TRUE),
+    median_interaction_to_tx = median(interaction_to_tx, na.rm = TRUE),
+    avg_transaction_to_tx = mean(transaction_to_tx, na.rm = TRUE),
+    median_transaction_to_tx = median(transaction_to_tx, na.rm = TRUE),
+    
+    # Interaction to transaction
+    avg_interaction_to_transaction = mean(interaction_to_transaction, na.rm = TRUE),
+    median_interaction_to_transaction = median(interaction_to_transaction, na.rm = TRUE),
+    
+    # Outcome timing
+    avg_interaction_to_outcome = mean(interaction_to_outcome, na.rm = TRUE),
+    median_interaction_to_outcome = median(interaction_to_outcome, na.rm = TRUE),
+    avg_tx_to_outcome = mean(tx_to_outcome, na.rm = TRUE),
+    median_tx_to_outcome = median(tx_to_outcome, na.rm = TRUE)
   )
 
 print(time_summary)
 
-# Scatterplot comparing the two time measures
-ggplot(df_time_comparison, aes(x = days_interaction_to_treatment, 
-                               y = days_transaction_to_treatment)) +
+# Scatterplot comparing treatment and outcome times
+ggplot(df_time_comparison %>% filter(!is.na(interaction_to_tx), !is.na(interaction_to_outcome)), 
+       aes(x = interaction_to_tx, y = interaction_to_outcome)) +
   geom_point(alpha = 0.3) +
   geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
   labs(
-    title = "Comparison of Treatment Timing Metrics",
+    title = "Treatment vs Outcome Timing",
     x = "Days from First Interaction to Treatment",
-    y = "Days from First Transaction to Treatment",
-    caption = "Points below the line indicate first transaction occurred after first interaction"
+    y = "Days from First Interaction to Outcome",
+    caption = "Points above the line indicate outcome occurred after treatment"
   ) +
   theme_minimal() +
   coord_equal()
-# Next: read the plots
-# Next: get number of customers whose treatment date > 0
-nrow(df_time_to_treatment %>% filter(days_to_treatment > 0)) # 841 users
+
+# Additional visualization: time from treatment to outcome
+ggplot(df_time_comparison %>% filter(!is.na(tx_to_outcome)), 
+       aes(x = tx_to_outcome)) +
+  geom_histogram(binwidth = 7, fill = "darkgreen", color = "white", alpha = 0.7) +
+  labs(
+    title = "Time from Treatment to Outcome",
+    x = "Days from Treatment to Outcome",
+    y = "Number of Customers"
+  ) +
+  theme_minimal()
+
+# Next: we should use the other outcome in the data.
+#   -- it's reasonable that the outcome happens before the treatment, i.e., the outcoe date should always be greater  -- done
+# Next: fit the model -- Start by trying the survival model -- we need to separate into start and end 
+# What do we need to fit the model -- we need to create the se
+ 
+df_original <- df_time_to_treatment %>% 
+  mutate(U_A = pmin(tx_time,outcome_time),
+         Delta_A = tx_time < outcome_time)
+table(df_original$Delta_A)
+# k1 is 0.5
+# FALSE  TRUE 
+# 545    47
+# k1 is 0.25
+# FALSE  TRUE 
+# 526    57
+# meaning: 526 did not get the treatment 
+# 57 got the treatment
+# the rest: did not purchase anything of value > k2 (but they did purchase things > k1), i.e., is censored
+
+source("scripts/TV-CSL/time-varying-estimate.R")
+# align data format as required 
+df_original <- df_original %>% 
+  mutate(id = 1:n(),
+         U =
+           ifelse(is.na(outcome_time), max(outcome_time, na.rm = T), outcome_time),  # if the outcome_time is NA then set it to the largest outcome_time, otherwise set it to outcome_time
+         Delta =ifelse(is.na(outcome_time), 0, 1),
+         A = tx_time)
+
+fit_timefixed <- coxph(
+  Surv(U, Delta) ~ 1 + Delta_A, 
+  data = df_original, 
+  ties = "breslow")
+summary(fit_timefixed)
+
+
+df_processed <- preprocess_data(single_data = df_original, 
+                                run_time_varying = T)
+
+
+fit_timevarying <- coxph(
+  Surv(tstart, tstop, Delta) ~ 1 + W, 
+  data = df_processed, ties = "breslow")
+summary(fit_timevarying)
+
+
+coef(fit_timefixed)
+confint(fit_timefixed)
+
+coef(fit_timevarying)
+confint(fit_timevarying) 
+# more humble confidence intervals
+
+# Next: reflect on choosing k1 and k2
+# Next: write up the analysis to get clarity
+# Next: implement the S-LASSO
 # Next: add control variables
-# Next: fit the model
