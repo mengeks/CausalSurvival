@@ -8,7 +8,9 @@ library(here)
 source("scripts/TV-CSL/time-varying-estimate.R")
 load(file=here("scripts/heart-transplant-analysis/data/stanford-RHC-processed.rds"))
 
-
+########
+# Overview
+########
 source("scripts/TV-CSL/time-varying-estimate.R")
 source("R/data-handler.R")
 df_time_var <- df_time_var %>%
@@ -32,23 +34,25 @@ df_original <- df_original %>%
 
 
 source("scripts/TV-CSL/time-varying-estimate.R")
-TV_CSL_ret_linear_eta <- TV_CSL(train_data = df_time_var, 
-                                test_data = df_original, 
-                                train_data_original = df_original, 
-                                K = 2, 
-                                prop_score_spec = "cox-linear-all-data",
-                                # prop_score_spec = "cox-linear-mis-specification", 
-                                lasso_type = "S-lasso",
-                                # lasso_type = "m-regression", 
-                                eta_type = "non-linear",
-                                HTE_type = "linear",
-                                # regressor_spec = "linear",
-                                regressor_spec = "complex",
-                                HTE_spec = "linear",
-                                final_model_method = "lasso_coxph",
-                                id_var = "subject",
-                                lasso_warmstart = F,
-                                verbose = 0) 
+# The main implementation of TV-CSL
+TV_CSL_ret_linear_eta <- 
+  TV_CSL(train_data = df_time_var, 
+         test_data = df_original, 
+         train_data_original = df_original, 
+         K = 2, 
+         prop_score_spec = "cox-linear-all-data",
+         # prop_score_spec = "cox-linear-mis-specification", 
+         lasso_type = "S-lasso",
+         # lasso_type = "m-regression", 
+         eta_type = "non-linear",
+         HTE_type = "linear",
+         # regressor_spec = "linear",
+         regressor_spec = "complex",
+         HTE_spec = "linear",
+         final_model_method = "lasso_coxph",
+         id_var = "subject",
+         lasso_warmstart = F,
+         verbose = 0) 
 
 TV_CSL_ret_linear_eta$beta_HTE
 cox_ret$beta_HTE

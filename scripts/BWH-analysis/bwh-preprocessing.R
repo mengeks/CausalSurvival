@@ -5,6 +5,15 @@ library(stringr)
 library(text)
 
 df_raw <- read_xlsx("data/bwh-heart-transplant/bwh-listing.xlsx")
+nrow(df_raw) # 1221 rows
+
+## Setting rule for the variables 
+## Rules for "event": just one ifelse(!is.na(death_date), 1, 0)
+##  if there is death_date, then event = 1. Otherwise 0.  
+## Problem: I think this makes sense, but i'm getting 
+## 73 out of 1221 deaths only, which is too low. So i wonder
+##  whether there are other indicators of death to give me
+##  death count -- seems no other is better so maybe this is real data
 
 df <- df_raw %>%
   mutate(listing_date = as.Date(`Listing Date`)) %>%
@@ -75,8 +84,10 @@ df <- df_raw %>%
   ) %>%
   filter(!is.na(listing_date))
 
+
 # save the data as rds
 saveRDS(df, "data/bwh-heart-transplant/cleaned_bwh_transplant_data.rds")
+# The df has 1221 rows 
 
 
 # EDA
