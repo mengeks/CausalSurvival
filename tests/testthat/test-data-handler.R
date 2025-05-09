@@ -1,106 +1,183 @@
-library(testthat)
-source("R/data-handler.R")
+library(dplyr)
+library(here)
 
-test_that("Test generate_output_path function", {
+generate_m_estimation_data <- function(){
   
-  json_file <- "scripts/TV-CSL/params.json"
-  config <- load_experiment_config(json_file)
+  sim_constant <- generate_simulated_data(
+    n = 200, 
+    lambda_C = 0.1,
+    eta_type = "linear",
+    HTE_type = "constant",
+    seed_value = 123,
+    verbose = 0
+  ) %>% mutate(W = A < U)
   
-  n <- config$n
-  methods <- config$methods
-  eta_type <- config$eta_type
-  HTE_type <- config$HTE_type
-  R <- config$R
-  
+}
 
-  is_running_cox <- !is.null(methods$cox) && methods$cox$enabled
-  is_running_lasso <- !is.null(methods$lasso) && methods$lasso$enabled
-  is_running_TV_CSL <- !is.null(methods$TV_CSL) && methods$TV_CSL$enabled
+create_TV_CSL_nuisance_filepath <- function(save_path, k, eta_type, n) {
+  file.path(save_path, 
+            paste0("TV_CSL_nuisance_data_k", k,
+                   ifelse(eta_type == "linear", "_eta-type-linear", ""),
+                   "_n-", n,
+                   ".RData"))
+}
+
+generate_TV_CSL_nuisance_data <- 
+  function(n = 500, 
+           i = 1, 
+           eta_type = "10-dim-non-linear", 
+           HTE_type = "linear", 
+           k = 1, 
+           save_path = here("scripts/TV-CSL/tests/data")) {
   
-  # Iteration and seed values
-  i <- 1
-  seed_value <- 123 + 11 * i
+  source("R/data-handler.R")
+  source("scripts/TV-CSL/time-varying-estimate.R")
+  source("scripts/TV-CSL/tests/test-helper.R")
   
-  result_csv_file <- generate_output_path(
-    is_running_cox = is_running_cox,
-    is_running_lasso = is_running_lasso,
-    is_running_TV_CSL = is_running_TV_CSL,
-    eta_type = eta_type,
-    HTE_type = HTE_type,
-    n = n,
-    i = i,
-    seed_value = seed_value
+    if (eta_type == "10-dim-non-linear") {
+      train_data_original <- 
+        read_single_simulation_data(
+          n = n, i = i, eta_type = eta_type, HTE_type = HTE_type)$data
+      test_data <- 
+        read_single_simulation_data(
+          n = n, 
+          i = i + 100, 
+          eta_type = eta_type, 
+          HTE_type = HTE_type)$data
+    } else if (eta_type == "linear") {
+      train_data_original <- test_data <- 
+        load_or_generate_test_data_m_regression(
+          n = n,
+          lambda_C = 0.1,
+          eta_type = "linear",
+          # HTE_type = "linear",
+          HTE_type = HTE_type,
+          intercept = 3,
+          slope_multiplier = 2.5,
+          seed_value = 42
+        )$train_data
+    }
+  
+  train_data <- 
+    create_pseudo_dataset(survival_data = train_data_original)
+  
+  train_data_original <- train_data_original %>%
+    mutate(U_A = pmin(A, U), Delta_A = A <= U)
+  
+  folds <- cut(seq(1, n), breaks = 5, labels = FALSE)
+  
+  nuisance_ids <- train_data_original[folds != k, "id"]
+  causal_ids <- train_data_original[folds == k, "id"]
+  
+  fold_nuisance <- train_data[train_data$id %in% nuisance_ids, ]
+  fold_causal <- train_data[train_data$id %in% causal_ids, ]
+  
+  train_data_original_nuisance <- train_data_original[train_data_original$id %in% nuisance_ids, ]
+  
+  dir.create(save_path, recursive = T, showWarnings = F)
+  save_file_path <- 
+    create_TV_CSL_nuisance_filepath(
+      save_path=save_path, 
+      k = k, 
+      eta_type = eta_type,
+      n = n)
+  
+  
+  save(fold_nuisance, fold_causal, train_data_original_nuisance, file = save_file_path)
+  
+  message("Data saved to: ", save_file_path)
+}
+
+read_TV_CSL_nuisance_data <- 
+ function(k = 1, 
+          data_path = here("scripts/TV-CSL/tests/data"),
+          n = 500,
+          i = 1,
+          eta_type = "10-dim-non-linear",
+          HTE_type = "linear") {
+   
+   file_path <- create_TV_CSL_nuisance_filepath(data_path, k, eta_type, n)
+   
+   if (!file.exists(file_path)) {
+     generate_TV_CSL_nuisance_data(
+       k = k,
+       n = n,
+       i = i,
+       eta_type = eta_type,
+       HTE_type = HTE_type,
+       save_path = data_path
+     )
+   }
+   
+   load(file_path)
+   
+   list(
+     fold_nuisance = fold_nuisance,
+     fold_causal = fold_causal,
+     train_data_original_nuisance = train_data_original_nuisance
+   )
+ }
+
+
+load_or_generate_test_data_m_regression <- function(
+    n = 2000,
+    lambda_C = 0.1,
+    eta_type = "linear",
+    HTE_type = "zero",
+    intercept = 3,
+    slope_multiplier = 2.5,
+    seed_value = 42
+) {
+  source("R/datagen-helper.R")
+  
+  file_path <- here::here(
+    "scripts", "TV-CSL", "tests", "data",
+    sprintf(
+      "eta-type-%s_HTE-type-%s_n-%d%s.rds",
+      eta_type,
+      HTE_type,
+      n,
+      if (seed_value != 42) sprintf("_seed-value-%s", seed_value) else ""
+    )
   )
   
-  expected_folder <- paste0("scripts/TV-CSL/results/",
-                            ifelse(is_running_cox, "cox_", ""),
-                            ifelse(is_running_lasso, "lasso_", ""),
-                            ifelse(is_running_TV_CSL, "TV-CSL_", ""),
-                            "eta-", eta_type, "_HTE-", HTE_type, "_n-", n, "/")
+  dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
   
-  expected_file <- paste0(expected_folder, "result-iteration_", i, "-seed_", seed_value, ".csv")
+  if (!file.exists(file_path)) {
+    train_data <- generate_simulated_data(
+      n = n,
+      lambda_C = lambda_C,
+      eta_type = eta_type,
+      HTE_type = HTE_type,
+      seed_value = seed_value,
+      linear_intercept = intercept,
+      linear_slope_multiplier = slope_multiplier,
+      verbose = 0
+    )
+    
+    train_data_pseudo <- preprocess_data(
+      single_data = train_data,
+      run_time_varying = TRUE
+    )
+    
+    saveRDS(
+      list(
+        train_data = train_data,
+        train_data_pseudo = train_data_pseudo,
+        parameters = list(
+          n = n,
+          lambda_C = lambda_C,
+          eta_type = eta_type,
+          HTE_type = HTE_type,
+          intercept = intercept,
+          slope_multiplier = slope_multiplier,
+          seed_value = seed_value
+        )
+      ),
+      file = file_path
+    )
+  }
   
-  
-  expect_equal(result_csv_file, expected_file)
-  
-  dir.create(expected_folder, showWarnings = FALSE, recursive = TRUE)
-  expect_true(dir.exists(expected_folder))
-})
-
-
-
-test_that("read_single_simulation_data works correctly for new data", {
-  single_data <- read_single_simulation_data(
-    n = 500, 
-    R = 200, 
-    i = 1, 
-    eta_type = "10-dim-non-linear",
-    HTE_type = "linear"
-  )
-  
-  tmp <- single_data$data
-  tmp_params <- single_data$params
-  
-  expect_true(!is.null(tmp), info = "Data should not be NULL")
-  
-  expect_true(!is.null(tmp_params), info = "Params should not be NULL")
-  
-  # expect_true("tau" %in% names(tmp_params), info = "Params should contain 'tau'")
-  expect_true("light_censoring" %in% names(tmp_params), info = "Params should contain 'light_censoring'")
-  
-  # expect_true(is.numeric(tmp_params$tau), info = "'tau' should be numeric")
-})
-
-
-
-test_that("read_single_simulation_data works correctly for old data", {
-  single_data <- read_single_simulation_data(
-    n = 500, 
-    R = 200, 
-    is_time_varying = TRUE,
-    i = 1, 
-    eta_type = "linear-interaction", 
-    baseline_type = "cosine", 
-    folder_name = "data/old/simulated"
-  )
-  
-  # Extract the data and parameters
-  tmp <- single_data$data
-  tmp_params <- single_data$params
-  
-  # Ensure the dataset is not NULL
-  expect_true(!is.null(tmp), info = "Data should not be NULL")
-  
-  # Ensure the parameters are not NULL
-  expect_true(!is.null(tmp_params), info = "Params should not be NULL")
-  
-  
-  
-  # Ensure parameters contain specific expected elements
-  expect_true("tau" %in% names(tmp_params), info = "Params should contain 'tau'")
-  expect_true("light_censoring" %in% names(tmp_params), info = "Params should contain 'light_censoring'")
-  
-  # Ensure tau is a numeric value
-  expect_true(is.numeric(tmp_params$tau), info = "'tau' should be numeric")
-})
-
+  loaded_data <- readRDS(file_path)
+  return(loaded_data)
+}
