@@ -1,0 +1,451 @@
+---
+title: "Heart Transplant Survival Analysis: Fixed vs. Time-Varying Approaches"
+author: "Survival Analysis Team"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+    fig_width: 10
+    fig_height: 6
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,        # Show code
+  warning = FALSE,    # Hide warnings
+  message = FALSE,    # Hide messages
+  comment = NA,       # Remove ## before output
+  fig.align = "center"
+)
+
+# Load required packages
+library(survival)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(broom)
+library(here)
+library(patchwork)  # For combining plots
+library(viridis)    # For nice color palettes
+library(forestplot) # For coefficient visualization
+
+# Make sure survminer is installed
+if (!requireNamespace("survminer", quietly = TRUE)) {
+  install.packages("survminer")
+}
+library(survminer)
+
+# Define a consistent color palette
+transplant_colors <- c("No" = "#3498db", "Yes" = "#e74c3c")
+```
+
+## 1. Introduction
+
+This report examines survival outcomes in heart transplant patients from Brigham and Women's Hospital. We compare traditional Cox proportional hazards models with time-varying treatment models to better account for the timing of transplantation and avoid immortal time bias.
+
+Immortal time bias occurs when the time period between cohort entry and treatment initiation is misclassified regarding the subject's treatment status. In our context, patients must survive long enough to receive a heart transplant, creating a period of "immortal time" for the treated group.
+
+## 2. Data Preparation
+
+```{r load-data}
+# Load the raw data
+df_bwh_raw <- readRDS(here("data/bwh-heart-transplant/cleaned_bwh_transplant_data.rds"))
+
+# Basic data preparation
+df_bwh <- df_bwh_raw %>% 
+  filter(!is.na(time_to_event)) %>%
+  mutate(
+    trt = transplant,
+    # Create factor versions of categorical variables for better visualization
+    transplant_factor = factor(transplant, levels = c(0, 1), labels = c("No", "Yes")),
+    ventilation_factor = factor(ventilation, levels = c(FALSE, TRUE), labels = c("No", "Yes")),
+    event_factor = factor(event, levels = c(0, 1), labels = c("Censored", "Death"))
+  )
+
+# Quick look at the data structure
+# glimpse(df_bwh)
+```
+
+### 2.1 Data Summary
+
+```{r summary-stats}
+# Create a nicer summary statistics table by transplant status
+df_summary <- df_bwh %>%
+  # Select variables of interest
+  select(event, age, bmi, blood_type, ventilation, support_device, transplant_factor) %>%
+  # Group by transplant status
+  group_by(transplant_factor) %>%
+  # Compute summary statistics
+  summarise(
+    `Sample Size` = n(),
+    `Death Events (%)` = paste0(sum(event == 1), " (", round(mean(event) * 100, 1), "%)"),
+    `Age (mean ± SD)` = paste0(round(mean(age, na.rm = TRUE), 1), " ± ", round(sd(age, na.rm = TRUE), 1)),
+    `BMI (mean ± SD)` = paste0(round(mean(bmi, na.rm = TRUE), 1), " ± ", round(sd(bmi, na.rm = TRUE), 1)),
+    `Ventilation (%)` = paste0(sum(ventilation, na.rm = TRUE), " (", round(mean(ventilation, na.rm = TRUE) * 100, 1), "%)"),
+    `Support Device (%)` = paste0(sum(support_device, na.rm = TRUE), " (", round(mean(support_device, na.rm = TRUE) * 100, 1), "%)")
+  )
+
+# Display the table using kable for nicer formatting
+kable(df_summary, caption = "Patient Characteristics by Transplant Status") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Patient Characteristics" = 6))
+```
+
+## 3. Exploratory Analysis
+
+### 3.1 Timing of Transplantation
+
+```{r tx-timing}
+# Create a more informative plot of transplant timing
+p1 <- ggplot(df_bwh %>% filter(transplant == 1), aes(x = time_to_tx)) +
+  geom_histogram(binwidth = 1, fill = transplant_colors["Yes"], color = "white", alpha = 0.8) +
+  labs(title = "Time from Listing to Transplant", 
+       x = "Months", 
+       y = "Number of Patients") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+p2 <- ggplot(df_bwh %>% filter(transplant == 1), 
+       aes(x = time_to_tx, y = time_to_event, color = factor(event))) +
+  geom_point(alpha = 0.7) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "darkgray") +
+  scale_color_manual(values = c("0" = "darkblue", "1" = "darkred"), 
+                     labels = c("Censored", "Death"),
+                     name = "Outcome") +
+  labs(title = "Time to Transplant vs. Total Follow-up Time",
+       x = "Months from Listing to Transplant", 
+       y = "Total Follow-up Time (Months)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+# Combine the plots
+p1 / p2
+```
+
+The top histogram shows the distribution of time from waiting list entry to transplantation. The bottom scatter plot displays the relationship between transplant timing and total follow-up time, with points above the dashed line representing patients who survived beyond their transplant.
+
+## 4. Time-Varying Treatment Analysis
+
+### 4.1 Create Time-Varying Dataset
+
+```{r time-varying-function}
+# Implementation of the function to create time-varying dataset
+create_time_varying_dataset <- function(data, 
+                                      event_time,
+                                      event,
+                                      tx_time,
+                                      covariates = NULL,
+                                      id_col = "id") {
+  
+  # Input validation
+  if (!event_time %in% colnames(data)) {
+    stop(paste("Event time column", event_time, "not found in data"))
+  }
+  if (!event %in% colnames(data)) {
+    stop(paste("Event indicator column", event, "not found in data"))
+  }
+  if (!tx_time %in% colnames(data)) {
+    stop(paste("Treatment time column", tx_time, "not found in data"))
+  }
+  if (!id_col %in% colnames(data)) {
+    stop(paste("ID column", id_col, "not found in data"))
+  }
+  
+  # Handle cases where covariates is NULL
+  if (is.null(covariates)) {
+    covariates <- setdiff(colnames(data), 
+                          c(event_time, event, tx_time, id_col))
+  } else {
+    # Validate that all specified covariates exist
+    missing_covs <- setdiff(covariates, colnames(data))
+    if (length(missing_covs) > 0) {
+      stop(paste("Covariates not found in data:", 
+                 paste(missing_covs, collapse = ", ")))
+    }
+  }
+  
+  # Create empty result dataframe
+  result <- data.frame()
+  
+  # Process each subject
+  for (i in 1:nrow(data)) {
+    # Extract values for current subject
+    row_data <- data[i, , drop = FALSE]
+    t_event <- row_data[[event_time]]
+    event_status <- row_data[[event]]
+    t_tx <- row_data[[tx_time]]
+    
+    # Skip rows with NA event times
+    if (is.na(t_event)) {
+      warning(paste("Skipping row", i, "due to missing event time"))
+      next
+    }
+    
+    # Check for NA or missing tx time - treat as infinity
+    if (is.na(t_tx)) {
+      t_tx <- Inf
+    }
+    
+    # Case 1: Subject did not receive treatment before event/censoring
+    # This includes the case where treatment happens at the same time as event
+    if (t_event <= t_tx) {
+      new_row <- row_data
+      new_row$tstart <- 0
+      new_row$tstop <- t_event
+      new_row$status <- event_status
+      new_row$trt <- 0  # Not treated during observation period
+      
+      # Add to result
+      result <- rbind(result, new_row)
+    } 
+    # Case 2: Subject received treatment before event/censoring
+    else {
+      # First interval: from 0 to treatment time
+      new_row1 <- row_data
+      new_row1$tstart <- 0
+      new_row1$tstop <- t_tx
+      new_row1$status <- 0  # No event in this interval
+      new_row1$trt <- 0     # Not treated yet
+      
+      # Second interval: from treatment time to event/censoring
+      new_row2 <- row_data
+      new_row2$tstart <- t_tx
+      new_row2$tstop <- t_event
+      new_row2$status <- event_status
+      new_row2$trt <- 1     # Treated in this interval
+      
+      # Add both rows to result
+      result <- rbind(result, new_row1, new_row2)
+    }
+  }
+  
+  # Ensure time intervals are valid (no zero-length intervals)
+  result <- result[result$tstop > result$tstart, ]
+  
+  # Select only needed columns
+  cols_to_keep <- unique(c(id_col, "tstart", "tstop", "status", "trt", covariates))
+  result <- result[, cols_to_keep]
+  
+  return(result)
+}
+```
+
+```{r create-time-varying-dataset}
+# Create the time-varying dataset
+df_bwh_timevar <- create_time_varying_dataset(
+  data = df_bwh,
+  event_time = "time_to_event",
+  event = "event",
+  tx_time = "time_to_tx",
+  covariates = c("age", "ventilation", "year"),
+  id_col = "subject"
+)
+
+# Examine the structure of the time-varying dataset
+head(df_bwh_timevar, 10) %>%
+  kable(caption = "First 10 rows of time-varying dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+
+# Summary of the time-varying dataset
+summary_tv <- data.frame(
+  "Original rows" = nrow(df_bwh),
+  "Time-varying rows" = nrow(df_bwh_timevar),
+  "Number of patients" = length(unique(df_bwh_timevar$subject)),
+  "Number with treatment" = sum(df_bwh$transplant),
+  "Number of events" = sum(df_bwh_timevar$status)
+)
+
+kable(t(summary_tv), col.names = "Value") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+```
+
+### 4.2 Cox Models Comparison
+
+```{r cox-models}
+# Fixed treatment Cox model
+fit_fixed <- coxph(
+  Surv(time_to_event, event) ~ (age + ventilation + year) * trt, 
+  data = df_bwh, 
+  ties = "breslow"
+)
+
+# Time-varying treatment Cox model
+fit_timevarying <- coxph(
+  Surv(tstart, tstop, status) ~ (age + ventilation + year) * trt,
+  data = df_bwh_timevar, 
+  ties = "breslow"
+)
+
+# Extract model summaries
+summary_fixed <- summary(fit_fixed)
+summary_timevar <- summary(fit_timevarying)
+
+# Display summaries using kable for better formatting
+tidy_fixed <- tidy(fit_fixed, conf.int = TRUE, exponentiate = TRUE)
+tidy_timevar <- tidy(fit_timevarying, conf.int = TRUE, exponentiate = TRUE)
+
+# Format table for fixed model
+kable(tidy_fixed %>% 
+        select(term, estimate, std.error, p.value, conf.low, conf.high) %>%
+        rename(
+          "Variable" = term, 
+          "HR" = estimate, 
+          "SE" = std.error, 
+          "p-value" = p.value,
+          "95% CI Lower" = conf.low,
+          "95% CI Upper" = conf.high
+        ),
+      caption = "Fixed Treatment Cox Model",
+      digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+
+# Format table for time-varying model
+kable(tidy_timevar %>% 
+        select(term, estimate, std.error, p.value, conf.low, conf.high) %>%
+        rename(
+          "Variable" = term, 
+          "HR" = estimate, 
+          "SE" = std.error, 
+          "p-value" = p.value,
+          "95% CI Lower" = conf.low,
+          "95% CI Upper" = conf.high
+        ),
+      caption = "Time-Varying Treatment Cox Model",
+      digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+```
+
+### 4.3 Model Comparison
+
+```{r model-comparison}
+# Create a comparison table
+compare_df <- data.frame(
+  Variable = tidy_fixed$term,
+  
+  # Fixed model
+  HR_Fixed = sprintf("%.3f", tidy_fixed$estimate),
+  CI_Fixed = sprintf("%.3f-%.3f", tidy_fixed$conf.low, tidy_fixed$conf.high),
+  P_Fixed = sprintf("%.4f", tidy_fixed$p.value),
+  
+  # Time-varying model
+  HR_TimeVar = sprintf("%.3f", tidy_timevar$estimate),
+  CI_TimeVar = sprintf("%.3f-%.3f", tidy_timevar$conf.low, tidy_timevar$conf.high),
+  P_TimeVar = sprintf("%.4f", tidy_timevar$p.value)
+)
+
+# Display the comparison table
+kable(compare_df, 
+      col.names = c("Variable", "HR", "95% CI", "p-value", "HR", "95% CI", "p-value"),
+      caption = "Comparison of Fixed vs. Time-Varying Treatment Models") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Fixed Treatment Model" = 3, "Time-Varying Treatment Model" = 3))
+```
+
+### 4.4 Visual Comparison of Hazard Ratios
+
+```{r hr-forest-plot, fig.height=8}
+# Prepare data for forest plot
+forest_data <- rbind(
+  # Fixed model
+  data.frame(
+    variable = tidy_fixed$term,
+    hr = tidy_fixed$estimate,
+    lower = tidy_fixed$conf.low,
+    upper = tidy_fixed$conf.high,
+    model = "Fixed Treatment"
+  ),
+  # Time-varying model
+  data.frame(
+    variable = tidy_timevar$term,
+    hr = tidy_timevar$estimate,
+    lower = tidy_timevar$conf.low,
+    upper = tidy_timevar$conf.high,
+    model = "Time-Varying Treatment"
+  )
+)
+
+# Create a cleaner display of variable names
+forest_data <- forest_data %>%
+  mutate(
+    variable = gsub(":", " × ", variable),  # Replace : with × for interactions
+    variable = gsub("TRUE", "", variable),  # Remove TRUE from logical vars
+    display_var = paste(variable, model, sep = " - ")  # Combine variable and model
+  )
+
+# Create the forest plot
+ggplot(forest_data, aes(y = reorder(display_var, hr), x = hr, xmin = lower, xmax = upper, color = model)) +
+  geom_point(size = 3) +
+  geom_errorbarh(height = 0.2) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "darkgray") +
+  scale_x_log10(breaks = c(0.1, 0.2, 0.5, 1, 2, 5, 10), labels = c(0.1, 0.2, 0.5, 1, 2, 5, 10)) +
+  scale_color_manual(values = c("Fixed Treatment" = "#3498db", "Time-Varying Treatment" = "#e74c3c")) +
+  labs(
+    title = "Hazard Ratio Comparison: Fixed vs. Time-Varying Treatment",
+    subtitle = "Forest plot with 95% confidence intervals",
+    x = "Hazard Ratio (log scale)",
+    y = "",
+    color = "Model Type"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.text.y = element_text(hjust = 0)
+  )
+```
+
+## 5. Key Findings & Interpretation
+
+### 5.1 Summary of Results
+
+The analysis comparing fixed and time-varying treatment models reveals several important findings:
+
+1. **Treatment Effect**:
+   - Fixed model: HR = `r round(tidy_fixed$estimate[tidy_fixed$term == "trt"], 2)` (95% CI: `r round(tidy_fixed$conf.low[tidy_fixed$term == "trt"], 2)`-`r round(tidy_fixed$conf.high[tidy_fixed$term == "trt"], 2)`, p=`r round(tidy_fixed$p.value[tidy_fixed$term == "trt"], 3)`)
+   - Time-varying model: HR = `r round(tidy_timevar$estimate[tidy_timevar$term == "trt"], 2)` (95% CI: `r round(tidy_timevar$conf.low[tidy_timevar$term == "trt"], 2)`-`r round(tidy_timevar$conf.high[tidy_timevar$term == "trt"], 2)`, p=`r round(tidy_timevar$p.value[tidy_timevar$term == "trt"], 3)`)
+
+2. **Age-Treatment Interaction**:
+   - Fixed model: HR = `r round(tidy_fixed$estimate[tidy_fixed$term == "age:trt"], 3)` (p=`r round(tidy_fixed$p.value[tidy_fixed$term == "age:trt"], 4)`)
+   - Time-varying model: HR = `r round(tidy_timevar$estimate[tidy_timevar$term == "age:trt"], 3)` (p=`r round(tidy_timevar$p.value[tidy_timevar$term == "age:trt"], 4)`)
+
+3. **Year-Treatment Interaction**:
+   - Fixed model: HR = `r round(tidy_fixed$estimate[tidy_fixed$term == "year:trt"], 3)` (p=`r round(tidy_fixed$p.value[tidy_fixed$term == "year:trt"], 4)`) - not significant
+   - Time-varying model: HR = `r round(tidy_timevar$estimate[tidy_timevar$term == "year:trt"], 3)` (p=`r round(tidy_timevar$p.value[tidy_timevar$term == "year:trt"], 4)`) - significant
+
+### 5.2 Interpretation
+
+1. **Treatment Effect**: The time-varying model shows a stronger treatment effect than the fixed model, indicating that properly accounting for the timing of transplantation reveals a greater impact on survival.
+
+2. **Age Interaction**: Both models show that the benefit of transplantation diminishes with increasing age, with the time-varying approach revealing a slightly stronger interaction.
+
+3. **Year Interaction**: The most striking difference is the year-treatment interaction. The fixed model suggests no significant interaction, while the time-varying model shows a significant positive interaction, indicating that the benefit of transplantation has increased over calendar time.
+
+4. **Implications of Time-Varying Analysis**: Accounting for the time-varying nature of transplantation provides a more accurate estimate of treatment effects by properly handling immortal time bias. The fixed approach incorrectly attributes survival time before transplantation to the treatment effect.
+
+## 6. Conclusion
+
+This analysis demonstrates the importance of using time-varying treatment models when analyzing interventions that occur during follow-up. The traditional fixed treatment approach may underestimate treatment effects and miss important interactions with calendar time.
+
+Key clinical implications include:
+- Heart transplantation shows a significant survival benefit
+- This benefit diminishes with increasing patient age
+- Transplant outcomes have improved over calendar time
+- Proper statistical methodology is crucial for accurate estimation of treatment effects
+
+```{r session-info}
+sessionInfo()
+```

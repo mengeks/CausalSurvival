@@ -2,7 +2,7 @@ library(tidyverse)
 library(lubridate)
 library(readxl)
 library(stringr)
-library(text)
+# library(text)
 
 df_raw <- read_xlsx("data/bwh-heart-transplant/bwh-listing.xlsx")
 nrow(df_raw) # 1221 rows
@@ -14,12 +14,16 @@ nrow(df_raw) # 1221 rows
 ## 73 out of 1221 deaths only, which is too low. So i wonder
 ##  whether there are other indicators of death to give me
 ##  death count -- seems no other is better so maybe this is real data
+# Updated logic: "death_date" now uses latest available death info (last column).
+# Patients with missing "death_date" are considered either lost to follow-up or currently alive.
+
+
 
 df <- df_raw %>%
   mutate(listing_date = as.Date(`Listing Date`)) %>%
   mutate(age = as.numeric(`Age in Years at Time of Listing`)) %>%
   mutate(transplant_date = as.Date(`Transplant Date`)) %>%
-  mutate(death_date = as.Date(`Date Died, for Patient Removed from the Waiting List for Reason of Death`)) %>%
+  mutate(death_date = as.Date(`Date of Death`)) %>%
   mutate(censor_date = as.Date(`Removal Date of Registration`)) %>%
   mutate(transplant = !is.na(transplant_date)) %>%
   mutate(
@@ -58,8 +62,15 @@ df <- df_raw %>%
     inotropes = str_detect(`Life Support Type IV Inotropes at Listing`, regex("yes", ignore_case = TRUE)),
     support_device = ecmo | iabp | inotropes
   ) %>%
+  # Add the new variables
+  mutate(
+    subject = row_number(),
+    year = as.numeric(difftime(listing_date, min(listing_date, na.rm = TRUE), units = "days")) / 365.25
+  ) %>%
   select(
+    subject,  # Added subject to select
     listing_date,
+    year,     # Added year to select
     transplant_date,
     death_date,
     censor_date,
@@ -85,9 +96,11 @@ df <- df_raw %>%
   filter(!is.na(listing_date))
 
 
+
 # save the data as rds
 saveRDS(df, "data/bwh-heart-transplant/cleaned_bwh_transplant_data.rds")
 # The df has 1221 rows 
+
 
 
 # EDA
