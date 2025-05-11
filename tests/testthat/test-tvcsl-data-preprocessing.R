@@ -1,6 +1,6 @@
 library(testthat)
 library(dplyr)
-source(here::here("R/process-data.R"))
+source(here::here("R/tvcsl-data-preprocessing.R"))
 
 
 test_that("Function handles basic case with no treatment", {
@@ -212,7 +212,8 @@ test_that("Function handles custom id column", {
 })
 
 test_that("Function handles invalid inputs", {
-  # Test 8: Event time is NA
+  # source(here::here("R/tvcsl-data-preprocessing.R"))
+  # Test 8: Event time variable exists but is NA
   test_data <- data.frame(
     id = 1,
     time_to_event = NA,
@@ -221,14 +222,17 @@ test_that("Function handles invalid inputs", {
     age = 65
   )
 
-  # This should either error or handle NAs gracefully
-  expect_error(create_time_varying_dataset(
-    data = test_data,
-    event_time = "time_to_event",
-    event = "event",
-    tx_time = "time_to_tx",
-    covariates = "age"
-  ), NA)
+  # This should issue a warning rather than error
+  expect_warning(
+    result <- create_time_varying_dataset(
+      data = test_data,
+      event_time = "time_to_event",
+      event = "event",
+      tx_time = "time_to_tx",
+      covariates = "age"
+    ),
+    "Row 1 skipped: missing event time"
+  )
 
   # Test 9: Non-existent column
   test_data <- data.frame(
