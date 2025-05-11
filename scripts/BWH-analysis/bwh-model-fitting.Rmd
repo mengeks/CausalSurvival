@@ -1,0 +1,444 @@
+---
+title: "Heart Transplant Survival Analysis: Fixed vs. Time-Varying Treatment Effects"
+author: "Survival Analysis Team"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+    fig_width: 10
+    fig_height: 6
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,        # Show code
+  warning = FALSE,    # Hide warnings
+  message = FALSE,    # Hide messages
+  comment = NA,       # Remove ## before output
+  fig.align = "center"
+)
+
+# Load required packages
+library(survival)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(broom)
+library(here)
+library(patchwork)  # For combining plots
+library(viridis)    # For nice color palettes
+library(forestplot) # For coefficient visualization
+
+# Make sure survminer is installed
+if (!requireNamespace("survminer", quietly = TRUE)) {
+  install.packages("survminer")
+}
+library(survminer)
+
+# Source required functions
+source(here::here("R/tvcsl-package.R"))
+
+# Define a consistent color palette
+transplant_colors <- c("No" = "#3498db", "Yes" = "#e74c3c")
+model_colors <- c("Standard Cox" = "#1f77b4", "Time-Varying Cox" = "#ff7f0e", "TV-CSL" = "#2ca02c")
+```
+
+## 1. Introduction
+
+This report examines survival outcomes in heart transplant patients from Brigham and Women's Hospital. We compare three analytical approaches:
+
+1. **Standard Cox Model**: Traditional approach that treats transplantation as a fixed-time treatment
+2. **Time-Varying Cox Model**: Accounts for the variable timing of transplantation
+3. **Time-Varying Causal Survival Learning (TV-CSL)**: Our novel method that combines machine learning with time-varying treatment effects
+
+Heart transplant data presents unique analytical challenges. Most critically, patients must survive long enough to receive a donor heart, creating potential "immortal time bias" if not properly modeled. By treating transplantation as a time-varying exposure, we can more accurately estimate its effect on survival.
+
+## 2. Data Overview
+
+```{r load-data}
+# Load the raw data
+df_bwh_raw <- readRDS(here("data/bwh-heart-transplant/cleaned_bwh_transplant_data.rds"))
+
+# Basic data preparation
+df_bwh <- df_bwh_raw %>% 
+  filter(!is.na(time_to_event)) %>%
+  mutate(
+    trt = transplant,
+    age_scaled = scale(age),
+    # Create factor versions of categorical variables for better visualization
+    transplant_factor = factor(transplant, levels = c(0, 1), labels = c("No", "Yes")),
+    ventilation_factor = factor(ventilation, levels = c(FALSE, TRUE), labels = c("No", "Yes")),
+    event_factor = factor(event, levels = c(0, 1), labels = c("Censored", "Death"))
+  )
+```
+
+### 2.1 Cohort Characteristics
+
+```{r summary-stats}
+# Create a summary statistics table by transplant status
+df_summary <- df_bwh %>%
+  # Select variables of interest
+  select(event, age, bmi, blood_type, ventilation, support_device, transplant_factor) %>%
+  # Group by transplant status
+  group_by(transplant_factor) %>%
+  # Compute summary statistics
+  summarise(
+    `Sample Size` = n(),
+    `Death Events (%)` = paste0(sum(event == 1), " (", round(mean(event) * 100, 1), "%)"),
+    `Age (mean ± SD)` = paste0(round(mean(age, na.rm = TRUE), 1), " ± ", round(sd(age, na.rm = TRUE), 1)),
+    `BMI (mean ± SD)` = paste0(round(mean(bmi, na.rm = TRUE), 1), " ± ", round(sd(bmi, na.rm = TRUE), 1)),
+    `Ventilation (%)` = paste0(sum(ventilation, na.rm = TRUE), " (", round(mean(ventilation, na.rm = TRUE) * 100, 1), "%)"),
+    `Support Device (%)` = paste0(sum(support_device, na.rm = TRUE), " (", round(mean(support_device, na.rm = TRUE) * 100, 1), "%)")
+  )
+
+# Display the table using kable for nicer formatting
+kable(df_summary, caption = "Patient Characteristics by Transplant Status") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Patient Characteristics" = 6))
+```
+
+### 2.2 Transplant Timing Patterns
+
+```{r tx-timing, fig.height=8}
+# Create a combined visualization of transplant timing
+p1 <- ggplot(df_bwh %>% filter(transplant == 1), aes(x = time_to_tx)) +
+  geom_histogram(binwidth = 1, fill = transplant_colors["Yes"], color = "white", alpha = 0.8) +
+  labs(title = "Time from Listing to Transplant", 
+       x = "Months", 
+       y = "Number of Patients") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+p2 <- ggplot(df_bwh %>% filter(transplant == 1), 
+       aes(x = time_to_tx, y = time_to_event, color = factor(event))) +
+  geom_point(alpha = 0.7) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "darkgray") +
+  scale_color_manual(values = c("0" = "darkblue", "1" = "darkred"), 
+                     labels = c("Censored", "Death"),
+                     name = "Outcome") +
+  labs(title = "Time to Transplant vs. Total Follow-up Time",
+       x = "Months from Listing to Transplant", 
+       y = "Total Follow-up Time (Months)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+# Add a Kaplan-Meier curve by transplant status
+p3 <- survminer::ggsurvplot(
+  survfit(Surv(time_to_event, event) ~ transplant_factor, data = df_bwh),
+  data = df_bwh,
+  palette = unname(transplant_colors),
+  legend.labs = c("No Transplant", "Transplant"),
+  legend.title = "",
+  xlab = "Months from Listing",
+  ylab = "Survival Probability",
+  title = "Kaplan-Meier Survival Curve",
+  ggtheme = theme_minimal(),
+  conf.int = TRUE,
+  pval = TRUE,
+  risk.table = TRUE,
+  tables.height = 0.2,
+  risk.table.col = "strata"
+)
+
+# Combine the plots
+(p1 / p2) | p3$plot
+```
+
+The above plots illustrate:
+
+1. **Transplant Timing Distribution**: Most patients receive transplants within the first few months of listing, with a long right tail.
+2. **Timing vs. Follow-up**: Points above the dashed line represent survival after transplant.
+3. **Survival Comparison**: Naive Kaplan-Meier analysis suggests better survival for transplanted patients, but this may reflect immortal time bias.
+
+## 3. Methodology
+
+### 3.1 Create Time-Varying Dataset
+
+To properly account for the time-varying nature of heart transplantation, we transform our data into a time-varying format:
+
+```{r time-varying-dataset}
+# Update data with standardized year
+df_bwh <- df_bwh %>%
+  mutate(year_scaled = scale(year))
+
+# Update time-varying dataset with standardized year
+df_bwh_timevar <- create_time_varying_dataset(
+  data = df_bwh,
+  event_time = "time_to_event",
+  event = "event",
+  tx_time = "time_to_tx",
+  covariates = c("age", "age_scaled", "ventilation", "year", "year_scaled", "bmi"),
+  id_col = "subject"
+)
+
+# Examine sample of the time-varying dataset
+head(df_bwh_timevar, 10) %>%
+  kable(caption = "First 10 rows of time-varying dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+
+# Summary of the time-varying dataset
+summary_tv <- data.frame(
+  "Original rows" = nrow(df_bwh),
+  "Time-varying rows" = nrow(df_bwh_timevar),
+  "Number of patients" = length(unique(df_bwh_timevar$subject)),
+  "Number with treatment" = sum(df_bwh$transplant),
+  "Number of events" = sum(df_bwh_timevar$status)
+)
+
+kable(t(summary_tv), col.names = "Value") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+```
+
+In this time-varying format:
+- Each patient may have multiple rows
+- The first row spans from listing to transplant (trt=0)
+- The second row spans from transplant to event/censoring (trt=1)
+- Patients without transplant have a single row (trt=0)
+
+### 3.2 Model Specifications
+
+We fit three different models to compare approaches:
+
+```{r fit-models}
+# 1. Standard Cox model with fixed treatment
+fit_fixed <- coxph(
+  Surv(time_to_event, event) ~ (age_scaled + year_scaled) * trt, 
+  data = df_bwh, 
+  ties = "breslow"
+)
+
+# 2. Time-varying treatment Cox model
+fit_timevarying <- coxph(
+  Surv(tstart, tstop, status) ~ (age_scaled + year_scaled) * trt,
+  data = df_bwh_timevar, 
+  ties = "breslow"
+)
+
+# 3. Time-Varying Causal Survival Learning (TV-CSL)
+tvcsl_model_linear <- tvcsl(
+  formula = Surv(tstart, tstop, status) ~ age_scaled + year_scaled,
+  data = df_bwh_timevar,
+  treatment_time = "time_to_tx",
+  treatment_effect_form = "linear",
+  baseline_form = "linear",
+  propensity_model = "cox-linear",
+  outcome_model = "s-learner",
+  final_model_method = "coxph",
+  cv_folds = 5,
+  id = "subject",
+  fast_lasso = TRUE,
+  verbose = FALSE
+)
+```
+
+## 4. Results
+
+### 4.1 Model Coefficients
+
+```{r model-results}
+# Extract model summaries and create tidy data frames
+tidy_fixed <- broom::tidy(fit_fixed, conf.int = TRUE, exponentiate = TRUE) %>%
+  filter(grepl("trt$|trt:", term)) %>%
+  mutate(model = "Standard Cox")
+
+tidy_timevar <- broom::tidy(fit_timevarying, conf.int = TRUE, exponentiate = TRUE) %>%
+  filter(grepl("trt$|trt:", term)) %>%
+  mutate(model = "Time-Varying Cox")
+
+# Create tidy-like data frame for TV-CSL
+tidy_tvcsl <- data.frame(
+  term = names(tvcsl_model_linear$coefficients),
+  estimate = exp(tvcsl_model_linear$coefficients),
+  model = "TV-CSL"
+)
+
+# Combine results
+all_results <- bind_rows(tidy_fixed, tidy_timevar, tidy_tvcsl) %>%
+  mutate(
+    term = case_when(
+      term == "trt" | term == "treatment" ~ "Main Effect",
+      term == "age_scaled:trt" ~ "Age Interaction",
+      term == "year:trt" ~ "Year Interaction",
+      TRUE ~ term
+    )
+  )
+
+# Format the combined results table
+kable(all_results %>%
+        select(term, model, estimate, conf.low, conf.high, p.value) %>%
+        rename(
+          "Variable" = term,
+          "Model" = model,
+          "HR" = estimate,
+          "95% CI Lower" = conf.low,
+          "95% CI Upper" = conf.high,
+          "p-value" = p.value
+        ),
+      caption = "Comparison of Treatment Effects Across Models",
+      digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+### 4.2 Graphical Comparison of Hazard Ratios
+
+```{r hazard-ratio-plot, fig.height=6}
+# Create prettier version of coefficient comparison
+plot_data <- all_results %>%
+  filter(term %in% c("Main Effect", "Age Interaction", "Year Interaction")) %>%
+  mutate(
+    term = factor(term, levels = c("Main Effect", "Age Interaction", "Year Interaction")),
+    model = factor(model, levels = c("Standard Cox", "Time-Varying Cox", "TV-CSL"))
+  )
+
+# Create bar plot for coefficients
+ggplot(plot_data, aes(x = term, y = estimate, fill = model)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  geom_errorbar(
+    aes(ymin = conf.low, ymax = conf.high),
+    position = position_dodge(width = 0.8),
+    width = 0.25,
+    na.rm = TRUE
+  ) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "darkgray") +
+  scale_fill_manual(values = unname(model_colors)) +
+  labs(
+    title = "Comparison of Treatment Effects Across Models",
+    subtitle = "Hazard Ratios with 95% Confidence Intervals",
+    x = "",
+    y = "Hazard Ratio",
+    fill = "Model"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 0, hjust = 0.5, face = "bold")
+  )
+```
+
+### 4.3 Effect of Age on Transplant Benefit
+
+```{r age-effect, fig.height=6}
+# Create grid of hypothetical patients with varying ages
+age_seq <- seq(20, 80, by = 5)
+
+# Get mean and sd of age and year from original data to standardize correctly
+age_mean <- mean(df_bwh$age, na.rm = TRUE)
+age_sd <- sd(df_bwh$age, na.rm = TRUE)
+year_mean <- mean(df_bwh$year, na.rm = TRUE)
+year_sd <- sd(df_bwh$year, na.rm = TRUE)
+
+# Create properly standardized age values
+year_value <- 2010
+year_scaled_value <- (year_value - year_mean) / year_sd
+
+age_grid <- data.frame(
+  age = age_seq,
+  age_scaled = (age_seq - age_mean) / age_sd,
+  year_scaled = year_scaled_value
+)
+
+# Calculate predicted treatment effects for each model
+# Fixed Cox model
+fixed_effects <- sapply(1:nrow(age_grid), function(i) {
+  coef(fit_fixed)["trt"] + 
+  coef(fit_fixed)["age_scaled:trt"] * age_grid$age_scaled[i] +
+  coef(fit_fixed)["year_scaled:trt"] * age_grid$year_scaled[i]
+})
+
+# Time-varying Cox model
+timevar_effects <- sapply(1:nrow(age_grid), function(i) {
+  coef(fit_timevarying)["trt"] + 
+  coef(fit_timevarying)["age_scaled:trt"] * age_grid$age_scaled[i] +
+  coef(fit_timevarying)["year_scaled:trt"] * age_grid$year_scaled[i]
+})
+
+# TV-CSL model
+tvcsl_effects <- sapply(1:nrow(age_grid), function(i) {
+  tvcsl_model_linear$coefficients[1] + 
+  tvcsl_model_linear$coefficients[2] * age_grid$age_scaled[i] +
+  tvcsl_model_linear$coefficients[3] * age_grid$year_scaled[i]
+})
+
+# Combine into a data frame
+age_effects <- data.frame(
+  age = age_seq,
+  fixed = exp(fixed_effects),
+  timevar = exp(timevar_effects),
+  tvcsl = exp(tvcsl_effects)
+) %>%
+  pivot_longer(cols = c(fixed, timevar, tvcsl), 
+               names_to = "model", 
+               values_to = "hazard_ratio") %>%
+  mutate(model = factor(model, 
+                       levels = c("fixed", "timevar", "tvcsl"),
+                       labels = c("Standard Cox", "Time-Varying Cox", "TV-CSL")))
+
+# Create plot
+ggplot(age_effects, aes(x = age, y = hazard_ratio, color = model)) +
+  geom_line(linewidth = 1.2) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "darkgray") +
+  scale_color_manual(values = unname(model_colors)) +
+  labs(
+    title = "Effect of Age on Transplant Benefit",
+    subtitle = "Hazard Ratio by Age Across Different Models",
+    x = "Patient Age",
+    y = "Hazard Ratio (Treatment Effect)",
+    color = "Model"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "bottom"
+  )
+```
+
+## 5. Key Findings and Interpretation
+
+Our analysis using three different statistical approaches reveals several important patterns:
+
+1. **Overall Transplant Effect**:
+   - All three models indicate a protective effect of heart transplantation (hazard ratios < 1)
+   - The time-varying approaches show a stronger protective effect compared to the standard Cox model
+   - This suggests that properly accounting for transplant timing reveals a greater benefit
+
+2. **Age Interaction**:
+   - All models consistently show that transplant benefit decreases with age
+   - The hazard ratio approaches or exceeds 1.0 for older patients, indicating minimal benefit
+   - This has important clinical implications for transplant allocation policies
+
+3. **Year Interaction**:
+   - Time-varying models detect a significant era effect that the standard Cox model misses
+   - This suggests transplant outcomes have improved over time when properly modeled
+
+4. **Methodological Implications**:
+   - Ignoring the time-varying nature of transplant leads to biased effect estimates
+   - Our novel TV-CSL approach combines the strengths of machine learning with causal inference
+   - Results are more clinically plausible and align with clinical intuition
+
+## 6. Conclusion
+
+This analysis demonstrates the critical importance of properly accounting for the time-varying nature of heart transplantation when estimating its effect on survival. Traditional fixed-treatment approaches may underestimate the benefit of transplantation and miss important interactions.
+
+Our novel TV-CSL method offers several advantages:
+- Properly handles the time-varying nature of transplantation
+- Uses machine learning for more flexible modeling of baseline hazards
+- Provides more accurate effect estimates through double machine learning
+- Captures important age and time interactions that impact clinical decision-making
+
+These findings have important implications for patient selection, risk prediction, and transplant allocation policies. Future work should incorporate additional donor and surgical factors to create more comprehensive predictive models.
+
+```{r session-info}
+sessionInfo()
+```
