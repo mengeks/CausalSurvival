@@ -1,102 +1,110 @@
 ########
-# Load and prepare the data
+# Heart Transplant Survival Analysis: Fixed vs. Time-Varying Models
 ########
 library(survival)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(xtable)
-df_bwh_raw <- 
-  readRDS("data/bwh-heart-transplant/cleaned_bwh_transplant_data.rds")
+
+source(here::here("R/tvcsl-package.R"))
+
+# Load and prepare data
+df_bwh_raw <- readRDS("data/bwh-heart-transplant/cleaned_bwh_transplant_data.rds")
 df_bwh <- df_bwh_raw %>% 
   filter(!is.na(time_to_event)) %>%
-  mutate(trt = transplant)
-source(here::here("R/process-data.R"))
-df_bwh_timevar <- 
-  create_time_varying_dataset(
-    data = df_bwh,
-    event_time = "time_to_event",
-    event = "event",
-    tx_time = "time_to_tx",
-    covariates = c("age", "ventilation", "year"),
-    id_col = "subject"
-  )
+  mutate(trt = transplant,
+         age_scaled = scale(age))
 
+# Add standardized year 
+# Only create if you decide to standardize year in your models
+df_bwh <- df_bwh %>%
+  mutate(year_scaled = scale(year))
 
-########
-# Summary statistics
-########
+# Update time-varying dataset with standardized year
+df_bwh_timevar <- create_time_varying_dataset(
+  data = df_bwh,
+  event_time = "time_to_event",
+  event = "event",
+  tx_time = "time_to_tx",
+  covariates = c("age", "age_scaled", "ventilation", "year", "year_scaled", "time_to_tx", "bmi"),
+  id_col = "subject"
+)
+
+# Generate summary statistics by transplant status
 df_summary <- df_bwh %>%
-  select(event, age,  bmi, blood_type, ventilation, support_device, transplant) %>%
+  select(event, age, bmi, blood_type, ventilation, support_device, transplant) %>%
   group_by(transplant) %>%
   summarise(across(where(function(x) is.numeric(x) | is.logical(x)), 
                    list(mean = mean, sd = sd), 
                    na.rm = TRUE)) %>%
-  # Change the separator pattern to avoid splitting support_device incorrectly
   pivot_longer(cols = -transplant, 
                names_to = c("Variable", ".value"), 
                names_pattern = "(.*)_(mean|sd)$")
 
-# Print the table
-print(xtable(df_summary, caption = "Summary statistics by transplant status"), 
-      include.rownames = FALSE)
-
-# We can see that the covariates are quite comparable among these two groups
-#  for age and bmi. 
-
-########
-# 📊 Visualization: Timing of Treatment
-########
-## TODO: here we just use transplant as the treatment variable
-##      Below i use trt for the treatment variable in the time-varying case. 
-##      How to unify them?
-ggplot(df_bwh %>% 
-         filter(transplant == 1), 
-       aes(x = time_to_tx)) +
+# Visualize timing of transplant treatment
+transplant_timing_plot <- ggplot(df_bwh %>% filter(transplant == 1), aes(x = time_to_tx)) +
   geom_histogram(bins = 15, fill = "skyblue", color = "black") +
-  labs(title = "Distribution of Heart Transplant Timing", x = "Months from Listing to Transplant", y = "Count") +
+  labs(title = "Distribution of Heart Transplant Timing", 
+       x = "Months from Listing to Transplant", 
+       y = "Count") +
   theme_minimal()
+print(transplant_timing_plot)
 
 ########
-# Comparing Fixed Treatment Cox
+# Model 1: Standard Cox model with fixed treatment
 ########
-fit_fixed <- 
-  coxph(Surv(time_to_event, event) ~ (age + ventilation + year) * trt, 
-        data = df_bwh, 
-        ties = "breslow")
+fit_fixed <- coxph(Surv(time_to_event, event) ~ (age_scaled + year) * trt, 
+                   data = df_bwh, 
+                   ties = "breslow")
 summary(fit_fixed)
 
-
 ########
-# Time-Varying Treatment 
+# Model 2: Time-varying treatment Cox model
 ########
-### Model: Time-Varying Treatment Cox
-fit_timevarying <- 
-  coxph(Surv(tstart, tstop, status) ~ (age + ventilation + year) * trt,
-        data = df_bwh_timevar, 
-        ties = "breslow")
+fit_timevarying <- coxph(Surv(tstart, tstop, status) ~ (age_scaled + year) * trt,
+                         data = df_bwh_timevar, 
+                         ties = "breslow")
 summary(fit_timevarying)
 
-##### 
-### Fit TV-CSL
-#####
-# The main implementation of TV-CSL
-source(here::here("R/TV-CSL.R"))
-TV_CSL_ret_linear_eta <- 
-  TV_CSL(train_data = df_bwh_timevar, 
-         test_data = df_bwh, 
-         train_data_original = df_bwh, 
-         K = 2, 
-         prop_score_spec = "cox-linear-all-data",
-         lasso_type = "S-lasso",
-         eta_type = "non-linear",
-         HTE_type = "linear",
-         regressor_spec = "complex",
-         HTE_spec = "linear",
-         final_model_method = "lasso_coxph",
-         id_var = "subject",
-         lasso_warmstart = F,
-         verbose = 0) 
+########
+# Model 3: TV-CSL with linear treatment effect
+########
+df_bwh_timevar$treatment_indicator <- df_bwh_timevar$trt
+tvcsl_model_linear <- tvcsl(
+  formula = Surv(tstart, tstop, status) ~ age_scaled + year,
+  data = df_bwh_timevar,
+  treatment_time = "time_to_tx",
+  treatment_effect_form = "linear",
+  baseline_form = "linear",
+  propensity_model = "cox-linear",
+  outcome_model = "s-learner",
+  final_model_method = "coxph",
+  cv_folds = 5,
+  id = "subject",
+  fast_lasso = TRUE,
+  verbose = TRUE
+)
+summary(tvcsl_model_linear)
 
-TV_CSL_ret_linear_eta$beta_HTE
-cox_ret$beta_HTE
+########
+# Results comparison
+########
+# Extract treatment effect coefficients
+fixed_coefs <- coef(fit_fixed)[grep("trt", names(coef(fit_fixed)))]
+timevar_coefs <- coef(fit_timevarying)[grep("trt", names(coef(fit_timevarying)))]
+tvcsl_linear_coefs <- tvcsl_model_linear$coefficients
+
+# Create comparison table
+results_comparison <- data.frame(
+  Model = c("Fixed Cox", "Time-Varying Cox", "TV-CSL Linear"),
+  Main_Effect = c(fixed_coefs[1], timevar_coefs[1], tvcsl_linear_coefs[1]),
+  stringsAsFactors = FALSE
+)
+
+if (length(tvcsl_linear_coefs) > 1) {
+  results_comparison$Age_Effect <- c(fixed_coefs[2], timevar_coefs[2], tvcsl_linear_coefs[2])
+  results_comparison$Year_Effect <- c(fixed_coefs[3], timevar_coefs[3], tvcsl_linear_coefs[3])
+}
+
+print(results_comparison)
