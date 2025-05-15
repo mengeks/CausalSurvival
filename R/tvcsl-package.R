@@ -31,6 +31,7 @@ source("R/tvcsl-outcome-models.R")
 source("R/tvcsl-final-model.R")
 source("R/tvcsl-cv-evaluation.R")
 source("R/tvcsl-main.R")
+source("R/tvcsl-simulation.R")
 
 # Custom implementations of S3method and export for use when sourcing directly
 S3method <- function(generic, class) {
