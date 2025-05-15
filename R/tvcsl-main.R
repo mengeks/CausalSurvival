@@ -171,6 +171,10 @@ tvcsl <- function(formula,
       # Try to infer treatment indicator
       if (paste0(treatment_time, "_indicator") %in% colnames(data)) {
         treatment_indicator <- paste0(treatment_time, "_indicator")
+      } else if ("trt" %in% colnames(data)) {
+        # If "trt" column exists, use it and create a treatment_indicator column
+        data$treatment_indicator <- data$trt
+        treatment_indicator <- "treatment_indicator"
       } else {
         stop("Cannot find treatment indicator column. Please add a treatment_indicator column.")
       }
